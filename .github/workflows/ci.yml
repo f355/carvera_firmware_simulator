@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.experimental }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            experimental: false
+          - os: macos-latest
+            experimental: false
+          - os: windows-latest
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build protobuf-compiler libprotobuf-dev
+
+      - name: Install macOS packages
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja protobuf
+
+      - name: Install Windows packages
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja -y --no-progress
+          VCPKG_ROOT="${VCPKG_INSTALLATION_ROOT:-C:/vcpkg}"
+          if command -v cygpath >/dev/null; then
+            VCPKG_ROOT="$(cygpath -u "$VCPKG_ROOT")"
+          fi
+          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+          "$VCPKG_ROOT/vcpkg" install protobuf:x64-windows
+
+      - name: Fetch compatible firmware
+        run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
+
+      - name: Sync Python environment
+        run: uv sync
+
+      - name: Generate Python protobuf bindings
+        run: uv run python -m gui.protocol.proto_codegen
+
+      - name: Check Python
+        run: |
+          uv run ruff format --check gui
+          uv run ruff check gui
+          uv run mypy gui
+
+      - name: Configure CMake
+        run: |
+          CMAKE_ARGS=(-S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            CMAKE_ARGS+=(
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+              -DVCPKG_TARGET_TRIPLET=x64-windows
+            )
+          fi
+          cmake "${CMAKE_ARGS[@]}"
+
+      - name: Build and run C++ tests
+        if: runner.os != 'Windows'
+        run: cmake --build build --target check
+
+      - name: Build Windows simulator binaries
+        if: runner.os == 'Windows'
+        run: cmake --build build --target carvera_sim_stdio carvera_sim_stream_stdio carvera_sim_interactive
+
+      - name: Run GUI tests
+        if: runner.os != 'Windows'
+        run: uv run pytest gui/tests
+
+      - name: Run Windows GUI unit tests
+        if: runner.os == 'Windows'
+        run: uv run pytest gui/tests -m "not integration" --ignore=gui/tests/app_runtime_page_test.py

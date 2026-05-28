@@ -1,0 +1,10 @@
+build/
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+gui/generated/__pycache__/
+firmware/Carvera_Community_Firmware/

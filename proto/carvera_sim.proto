@@ -1,0 +1,925 @@
+// This file is part of the Carvera Firmware Simulator.
+//
+// Copyright (c) 2026 Konstantin Tcepliaev <f355@f355.org>.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+syntax = "proto3";
+
+package carvera.sim.v1;
+
+// Top-level request envelope for the simulator API.
+message Request {
+  // Client-chosen correlation id. Responses copy it unchanged.
+  uint64 id = 1;
+
+  oneof command {
+    // Lifecycle and simulator scheduling.
+    Reset reset = 10;
+    Poll poll = 11;
+    GetStatus get_status = 12;
+    SetTimeMode set_time_mode = 13;
+    AdvanceTime advance_time = 14;
+    SetMachineModel set_machine_model = 24;
+
+    // Host environment and controller-facing links.
+    MountFilesystem mount_filesystem = 15;
+    StartInteractiveTransport start_interactive_transport = 35;
+    StopInteractiveTransport stop_interactive_transport = 50;
+
+    // Firmware serial/motion helpers used by black-box tests.
+    WriteSerial write_serial = 20;
+    ReadSerial read_serial = 21;
+    RunUntilIdle run_until_idle = 22;
+    Jog jog = 23;
+
+    // Physical machine setup/readback. GUI clients should prefer this tier.
+    SetCoverOpen set_cover_open = 36;
+    GetCoverOpen get_cover_open = 37;
+    SetMotorAlarm set_motor_alarm = 38;
+    GetMotorAlarm get_motor_alarm = 39;
+    SetSpindleAlarm set_spindle_alarm = 51;
+    GetSpindleAlarm get_spindle_alarm = 52;
+    SetAtcPocketTools set_atc_pocket_tools = 40;
+    SetMainButtonPressed set_main_button_pressed = 41;
+    SetEStopPressed set_e_stop_pressed = 42;
+    GetFrontPanelState get_front_panel_state = 43;
+    SetTemperature set_temperature = 44;
+    SetLimitSwitch set_limit_switch = 47;
+    GetLimitSwitch get_limit_switch = 48;
+    SetSpindleTool set_spindle_tool = 49;
+    SetProbeToolInstalled set_probe_tool_installed = 29;
+    SetStockBox set_stock_box = 31;
+    GetMachineSnapshot get_machine_snapshot = 34;
+    GetPwmOutput get_pwm_output = 25;
+    GetSwitchState get_switch_state = 46;
+    GetLaserState get_laser_state = 53;
+    SetRotaryAccessoryInstalled set_rotary_accessory_installed = 54;
+    GetEepromBytes get_eeprom_bytes = 55;
+    SetEepromBytes set_eeprom_bytes = 56;
+    GetEepromFields get_eeprom_fields = 57;
+    SetEepromFields set_eeprom_fields = 58;
+    GetProbeInputs get_probe_inputs = 28;
+    GetAdcInput get_adc_input = 33;
+
+    // Deterministic harness hooks below the physical-machine surface.
+    SetGpioInput set_gpio_input = 16;
+    GetGpioLevel get_gpio_level = 17;
+    AttachStepDirAxis attach_step_dir_axis = 18;
+    GetAxisPosition get_axis_position = 19;
+    TriggerInterruptRise trigger_interrupt_rise = 26;
+    SetProbeInputs set_probe_inputs = 27;
+    SetToolSetterBox set_tool_setter_box = 30;
+    SetAdcInput set_adc_input = 32;
+    SetSwitchState set_switch_state = 45;
+  }
+}
+
+// Top-level response envelope for the simulator API.
+message Response {
+  // Mirrors Request.id.
+  uint64 id = 1;
+
+  // False means the command was rejected or did not complete; see error.
+  bool ok = 2;
+
+  string error = 3;
+
+  oneof payload {
+    // Lifecycle and scheduling.
+    Status status = 10;
+
+    // Deterministic harness readbacks.
+    GpioLevel gpio_level = 11;
+    AttachedAxis attached_axis = 12;
+    AxisPosition axis_position = 13;
+    SerialData serial_data = 14;
+    RunResult run_result = 15;
+    JogResult jog_result = 16;
+    PwmOutput pwm_output = 17;
+    AdcInput adc_input = 19;
+
+    // Physical machine readbacks.
+    ProbeInputs probe_inputs = 18;
+    MachineSnapshot machine_snapshot = 20;
+    InteractiveTransport interactive_transport = 21;
+    CoverState cover_state = 22;
+    MotorAlarmState motor_alarm_state = 23;
+    FrontPanelState front_panel_state = 24;
+    SwitchState switch_state = 25;
+    LimitSwitchState limit_switch_state = 26;
+    SpindleAlarmState spindle_alarm_state = 27;
+    LaserState laser_state = 28;
+    EepromBytes eeprom_bytes = 29;
+    EepromFields eeprom_fields = 30;
+  }
+}
+
+// Output envelope used by streaming transports.
+//
+// `carvera_sim_stdio` keeps the original response-only stdout contract.
+// `carvera_sim_stream_stdio` wraps responses and asynchronous events in this
+// envelope so clients can receive physical telemetry while a command is still
+// executing inside firmware.
+message StreamFrame {
+  oneof payload {
+    Response response = 1;
+    Event event = 2;
+  }
+}
+
+// Top-level asynchronous simulator event.
+message Event {
+  uint64 sequence = 1;
+
+  oneof event {
+    Status status = 10;
+    MachineTelemetry machine_telemetry = 11;
+    MachineSnapshot machine_snapshot = 12;
+    PhysicalIoSnapshot physical_io = 13;
+  }
+}
+
+// Command: reset simulator state and any lazily booted firmware runtime.
+message Reset {}
+
+// Command: dispatch pending simulator work.
+//
+// In realtime mode, clients should call this periodically until a background
+// runner exists.
+message Poll {}
+
+// Command: read basic simulator state.
+message GetStatus {}
+
+// Command: select deterministic manual time or free-running realtime.
+message SetTimeMode {
+  TimeMode mode = 1;
+}
+
+// Command: advance manual-mode simulator time.
+message AdvanceTime {
+  // Manual-mode time delta in microseconds.
+  uint64 delta_us = 1;
+}
+
+// Command: map a firmware filesystem mount to a host directory.
+message MountFilesystem {
+  // Firmware mount name without a leading slash, e.g. "sd".
+  string name = 1;
+
+  // Host directory backing firmware paths under /<name>/.
+  string host_path = 2;
+}
+
+// Low-level deterministic harness command: drive an external GPIO input level.
+// Physical clients should prefer machine-domain commands or physical scene
+// setup, not arbitrary pin forcing.
+message SetGpioInput {
+  PinAddress pin = 1;
+  bool high = 2;
+}
+
+// Command: read the current level of a simulated GPIO pin.
+message GetGpioLevel {
+  PinAddress pin = 1;
+}
+
+// Command: attach a physical axis model below firmware at the GPIO edge.
+message AttachStepDirAxis {
+  // GPIO pin observed for rising step edges.
+  PinAddress step_pin = 1;
+
+  // GPIO pin sampled as the direction level.
+  PinAddress direction_pin = 2;
+
+  // Optional simulator-side driver polarity inversion. Do not use this to
+  // repeat firmware pin-string inversion; firmware already applies that before
+  // GPIO levels reach the simulator.
+  bool invert_direction = 3;
+}
+
+// Command: read a physical axis position by attached-axis index.
+message GetAxisPosition {
+  // Index returned by AttachStepDirAxis.
+  uint32 axis = 1;
+}
+
+// Low-level deterministic harness command: inject bytes into the primary
+// firmware serial console RX path. Interactive clients should prefer
+// StartInteractiveTransport so controller traffic uses the same UART/WiFi
+// surfaces as the real machine.
+message WriteSerial {
+  // Bytes to inject.
+  //
+  // This enters through the simulated mbed::Serial RX IRQ and is later consumed
+  // by real SerialConsole main-loop handling.
+  string data = 1;
+}
+
+// Command: drain bytes written by the primary firmware serial console.
+message ReadSerial {}
+
+// Command: run pending firmware serial handling and motion until idle.
+message RunUntilIdle {
+  // Maximum deterministic Timer0 step ticks to execute before giving up.
+  // Zero means the simulator default budget.
+  uint64 max_step_ticks = 1;
+}
+
+// Low-level deterministic harness command: relative machine jog helper.
+// Interactive clients should jog through the controller-facing transport.
+//
+// This currently lowers to relative G0 text and feeds it through WriteSerial,
+// preserving the controller-facing boundary.
+message Jog {
+  // Relative axis deltas.
+  repeated AxisDelta delta = 1;
+
+  // Feed rate in firmware G-code units per minute.
+  double feed_rate = 2;
+
+  // Motion run budget; zero means the simulator default.
+  uint64 max_step_ticks = 3;
+}
+
+// Command: configure the simulated factory EEPROM machine identity.
+//
+// This must be sent before firmware is booted by serial/motion commands.
+// Reset keeps the configured model and rewrites the simulated EEPROM image.
+message SetMachineModel {
+  MachineModel machine_model = 1;
+
+  // Firmware factory FuncSetting byte: bit 0 enables A-axis homing, bit 1
+  // enables C-axis homing, bit 2 enables ATC, and bit 3 enables CE1 expand.
+  uint32 function_setting = 2;
+}
+
+// Command: read a simulated PWM output by LPC1768 pin.
+message GetPwmOutput {
+  PinAddress pin = 1;
+}
+
+// Low-level deterministic harness command: inject a rising edge into a
+// simulated mbed::InterruptIn pin.
+message TriggerInterruptRise {
+  PinAddress pin = 1;
+}
+
+// Low-level deterministic harness command: force the spindle-probe and
+// tool-setter input levels.
+//
+// Firmware calls the tool-setter input "calibrate_pin"; the simulator API uses
+// the machine-domain name because this is the fixed electronic tool setter at
+// the back-right of the bed.
+message SetProbeInputs {
+  // Actual probe installed in the spindle: stock Z probe/laser pointer or
+  // community 3-axis ball-stylus probe.
+  bool probe = 1;
+
+  // Electronic tool setter mounted at the back-right of the bed.
+  bool tool_setter = 2;
+}
+
+// Command: read the real firmware ZProbe module's observed probe/tool-setter states.
+message GetProbeInputs {}
+
+// Command: drive the stock cover/lid safety input.
+//
+// The simulator translates this machine-domain state through the configured
+// `cover_endstop` pin polarity before real firmware Endstops reads it.
+message SetCoverOpen {
+  bool open = 1;
+}
+
+// Command: read the real firmware Endstops module's observed cover state.
+message GetCoverOpen {}
+
+// Response payload: cover/lid safety state.
+message CoverState {
+  bool open = 1;
+}
+
+// Low-level deterministic harness command: force a configured physical limit
+// switch by stock axis and side. Normal simulator motion drives these switches
+// from physical axis position.
+//
+// The simulator translates this through firmware pin config and polarity; real
+// Endstops still owns debounce, homing, hard-limit halts, and recovery.
+message SetLimitSwitch {
+  Axis axis = 1;
+  LimitSwitchSide side = 2;
+  bool triggered = 3;
+}
+
+// Command: read a configured physical limit switch by stock axis and side.
+message GetLimitSwitch {
+  Axis axis = 1;
+  LimitSwitchSide side = 2;
+}
+
+// Response payload: physical limit-switch input state.
+message LimitSwitchState {
+  Axis axis = 1;
+  LimitSwitchSide side = 2;
+  bool triggered = 3;
+}
+
+// Command: drive a configured motor-alarm input by stock axis.
+message SetMotorAlarm {
+  Axis axis = 1;
+  bool triggered = 2;
+}
+
+// Command: read a configured motor-alarm input by stock axis.
+message GetMotorAlarm {
+  Axis axis = 1;
+}
+
+// Response payload: motor-alarm input state.
+message MotorAlarmState {
+  Axis axis = 1;
+  bool triggered = 2;
+}
+
+// Command: drive the spindle controller alarm input.
+message SetSpindleAlarm {
+  bool triggered = 1;
+}
+
+// Command: read the spindle controller alarm input.
+message GetSpindleAlarm {}
+
+// Response payload: spindle controller alarm input state.
+message SpindleAlarmState {
+  bool available = 1;
+  bool triggered = 2;
+}
+
+// Command: tell the physical simulator whether the optional A-axis rotary
+// accessory is plugged into the machine.
+//
+// This is deliberately separate from firmware factory FuncSetting. The real
+// machine does not rewrite EEPROM when the accessory is plugged or unplugged;
+// absent hardware leaves the A home input pulled to the already-homed state.
+message SetRotaryAccessoryInstalled {
+  bool installed = 1;
+}
+
+// Command: drive the physical front-panel main button.
+message SetMainButtonPressed {
+  bool pressed = 1;
+}
+
+// Command: drive the physical emergency-stop input.
+message SetEStopPressed {
+  bool pressed = 1;
+}
+
+// Command: read front-panel inputs and outputs through real firmware pin config.
+message GetFrontPanelState {}
+
+// Response payload: front-panel state observed at the firmware GPIO boundary.
+message FrontPanelState {
+  bool main_button_pressed = 1;
+  bool e_stop_pressed = 2;
+  PowerRailState power_rails = 3;
+
+  // C1 exposes the main-button LED as direct R/G/B GPIOs. CA1 uses a
+  // bit-banged five-segment LED bar, so direct_rgb_available is normally false
+  // there until the simulator grows a logical LED-bar sink.
+  bool direct_rgb_available = 4;
+  RgbColor direct_rgb = 5;
+
+  // CA1 five-segment LED strip decoded from the logical MainButton LED calls.
+  // This intentionally does not emulate the P1.15 bit-banged waveform.
+  bool led_strip_available = 6;
+  repeated RgbColor led_strip = 7;
+}
+
+// Simulated 12V/24V rail state driven by real MainButton PublicData/GPIO.
+message PowerRailState {
+  bool v12 = 1;
+  bool v24 = 2;
+}
+
+// Logical RGB color. Low-level C1 pins are reported as 0 or 255.
+message RgbColor {
+  uint32 r = 1;
+  uint32 g = 2;
+  uint32 b = 3;
+}
+
+// Command: configure virtual C1 ATC rack contents.
+//
+// Pocket coordinates are still derived from firmware config. The API only says
+// which tools are physically present and their overall measured lengths.
+message SetAtcPocketTools {
+  repeated AtcPocketTool tools = 1;
+
+  // When true, clear existing simulated rack contents before applying tools.
+  bool replace = 2;
+}
+
+// Command: configure the simulated physical tool currently held in the spindle.
+//
+// This is the CA1/manual-tool equivalent of physically inserting a tool before
+// pressing the controller's tool-change confirmation button.
+message SetSpindleTool {
+  // False removes the simulated spindle tool and ignores tool/length_mm.
+  bool installed = 1;
+
+  // Tool number physically inserted in the spindle.
+  int32 tool = 2;
+
+  // Overall tool length in millimeters. The simulator assumes 20 mm is inside
+  // the collet and uses the remaining stickout for ETS contact.
+  double length_mm = 3;
+
+  // Physical kind. Unspecified asks the simulator to infer from firmware tool
+  // numbering: T0 is stock Z probe, T999990+ are 3-axis probes, others cut.
+  ToolKind kind = 4;
+
+  // Ball/stylus diameter for probe tools. Zero uses machine defaults.
+  double probe_tip_diameter_mm = 5;
+}
+
+// Command: tell the simulator whether a spindle probe tool is currently installed.
+message SetProbeToolInstalled {
+  // When false, stock/part geometry will not drive the spindle-probe signal.
+  bool installed = 1;
+}
+
+// Low-level deterministic harness command: override the electronic tool-setter
+// contact volume. Stock machine models should normally use simulator-owned
+// hardware geometry instead.
+message SetToolSetterBox {
+  // Contact volume in firmware machine coordinates.
+  Box bounds = 1;
+
+  // False disables the virtual tool setter and ignores bounds.
+  bool enabled = 2;
+}
+
+// Command: configure a simple axis-aligned stock/part contact volume.
+message SetStockBox {
+  // Contact volume in firmware machine coordinates.
+  Box bounds = 1;
+
+  // False disables virtual stock contact and ignores bounds.
+  bool enabled = 2;
+}
+
+// Low-level deterministic harness command: set a simulated LPC1768 ADC channel
+// input. Physical clients should prefer SetTemperature for stock thermistors.
+message SetAdcInput {
+  // ADC channel 0..7. Stock temperature sensors use 3 for P0.26 and 5 for P1.31.
+  uint32 channel = 1;
+
+  // Raw 12-bit ADC value. Values outside 0..4095 are rejected.
+  uint32 raw = 2;
+}
+
+// Command: read the current simulated LPC1768 ADC channel input.
+message GetAdcInput {
+  // ADC channel 0..7.
+  uint32 channel = 1;
+}
+
+// Command: set a stock thermistor-backed temperature by machine-domain name.
+//
+// This is a convenience over SetAdcInput. It preserves the raw ADC boundary
+// while letting tests and GUIs speak in Celsius for stock C1/CA1 sensors.
+message SetTemperature {
+  TemperatureSensor sensor = 1;
+
+  // Desired thermistor temperature in Celsius.
+  double celsius = 2;
+}
+
+// Low-level deterministic harness command: set a named firmware switch through
+// the real Switch module. Interactive clients should drive these through
+// firmware/controller commands and observe them with GetSwitchState.
+message SetSwitchState {
+  SwitchName name = 1;
+
+  // Logical on/off state exposed by SwitchPublicAccess.
+  bool on = 2;
+
+  // Optional switch value. PWM-style switches interpret this as duty percent;
+  // digital switches ignore it and use logical on/off.
+  double value = 3;
+  bool has_value = 4;
+}
+
+// Command: read a named firmware switch through the real Switch module.
+message GetSwitchState {
+  SwitchName name = 1;
+}
+
+// Response payload: named firmware switch state.
+message SwitchState {
+  SwitchName name = 1;
+  bool available = 2;
+  bool on = 3;
+  double value = 4;
+}
+
+// Command: read real firmware Laser module status through PublicData.
+message GetLaserState {}
+
+// Command: read bytes from the simulated I2C EEPROM.
+message GetEepromBytes {
+  uint32 offset = 1;
+  uint32 length = 2;
+}
+
+// Command: write bytes to the simulated I2C EEPROM.
+message SetEepromBytes {
+  uint32 offset = 1;
+  bytes data = 2;
+}
+
+// Response payload: simulated EEPROM byte range.
+message EepromBytes {
+  uint32 offset = 1;
+  bytes data = 2;
+  uint32 total_size = 3;
+}
+
+// Command: read named firmware EEPROM fields.
+message GetEepromFields {}
+
+// Command: update named firmware EEPROM fields.
+message SetEepromFields {
+  repeated EepromField fields = 1;
+}
+
+// Response payload: named firmware EEPROM fields.
+message EepromFields {
+  repeated EepromField fields = 1;
+}
+
+// One editable firmware EEPROM field.
+message EepromField {
+  string name = 1;
+  EepromFieldType type = 2;
+  double number = 3;
+  int64 integer = 4;
+  bool boolean = 5;
+}
+
+// Response payload: real firmware Laser module state.
+message LaserState {
+  bool available = 1;
+  bool mode = 2;
+  bool firing = 3;
+  bool testing = 4;
+  double power_percent = 5;
+  double scale_percent = 6;
+}
+
+// Command: boot firmware if needed and read machine-domain geometry/state.
+message GetMachineSnapshot {}
+
+// Pushed physical IO/readback state for GUI clients.
+message PhysicalIoSnapshot {
+  ProbeInputs probe_inputs = 1;
+  CoverState cover = 2;
+  FrontPanelState front_panel = 3;
+  repeated MotorAlarmState motor_alarms = 4;
+  SpindleAlarmState spindle_alarm = 5;
+  repeated SwitchState switches = 6;
+  LaserState laser = 7;
+  repeated PwmOutput pwm_outputs = 8;
+}
+
+// Command: expose controller-facing endpoints on the same firmware runtime.
+message StartInteractiveTransport {
+  // Start a POSIX pty-backed virtual COM port when supported.
+  bool enable_uart = 1;
+
+  // Localhost TCP ports to bind for the fake WiFi/controller link.
+  //
+  // Port 0 asks the OS for an ephemeral port. The response reports the actual
+  // bound endpoint. Existing endpoints are reused when this command is repeated.
+  repeated uint32 tcp_ports = 2;
+
+  // Mirror UART/WiFi RX and TX bytes to simulator stderr for interactive runs.
+  bool log_traffic = 3;
+}
+
+// Command: close controller-facing endpoints without resetting firmware.
+message StopInteractiveTransport {}
+
+// Response payload for GetStatus.
+message Status {
+  // Simulator time in microseconds.
+  uint64 time_us = 1;
+
+  TimeMode time_mode = 2;
+
+  MachineModel machine_model = 3;
+
+  // Current simulator-configured factory FuncSetting byte.
+  uint32 function_setting = 4;
+}
+
+// Response payload for GetGpioLevel.
+message GpioLevel {
+  PinAddress pin = 1;
+  bool high = 2;
+}
+
+// Response payload for AttachStepDirAxis.
+message AttachedAxis {
+  // Simulator physical axis index for GetAxisPosition.
+  uint32 axis = 1;
+}
+
+// Response payload for GetAxisPosition.
+message AxisPosition {
+  // Simulator physical axis index.
+  uint32 axis = 1;
+
+  // Signed step count accumulated from observed step/dir GPIO edges.
+  int64 steps = 2;
+}
+
+// Response payload for ReadSerial.
+message SerialData {
+  // Drained primary serial TX bytes.
+  string data = 1;
+}
+
+// Response payload for RunUntilIdle.
+message RunResult {
+  // True when firmware Conveyor reports idle before the tick budget is spent.
+  bool idle = 1;
+}
+
+// Response payload for Jog.
+message JogResult {
+  // True when the jog reached motion idle before the tick budget is spent.
+  bool idle = 1;
+
+  // Serial output produced while handling the jog.
+  string serial_data = 2;
+}
+
+// Response payload for GetPwmOutput.
+message PwmOutput {
+  PinAddress pin = 1;
+
+  // True once firmware or a test has constructed an mbed::PwmOut for this pin.
+  bool configured = 2;
+
+  // Last duty cycle written by firmware, clamped to 0.0..1.0.
+  double duty = 3;
+
+  // Last PWM period configured by firmware.
+  double period_us = 4;
+}
+
+// Response payload for GetProbeInputs.
+message ProbeInputs {
+  bool probe = 1;
+  bool tool_setter = 2;
+}
+
+// Response payload for GetAdcInput.
+message AdcInput {
+  uint32 channel = 1;
+  uint32 raw = 2;
+}
+
+// Response payload for GetMachineSnapshot.
+message MachineSnapshot {
+  bool firmware_booted = 1;
+  bool homed = 2;
+  bool soft_endstop_enabled = 3;
+
+  // Firmware soft-endstop work area for the stock Cartesian XYZ axes.
+  Box work_area = 4;
+
+  // Physical and firmware-logical state for known stock axes.
+  repeated AxisState axes = 5;
+
+  // Physical ATC rack/spindle state known to the simulator.
+  AtcState atc = 6;
+
+  // Simulator-owned physical travel envelope for the stock Cartesian XYZ axes.
+  // Unlike work_area, this is hardware geometry, not firmware configuration.
+  Box physical_travel = 7;
+
+  // Simulator-owned spindle physical speed, including ramping and max-speed clamp.
+  SpindleState spindle = 8;
+
+  // Physical electronic tool setter button geometry when configured.
+  Box tool_setter = 9;
+  bool tool_setter_available = 10;
+}
+
+// Response payload for StartInteractiveTransport.
+message InteractiveTransport {
+  bool uart_supported = 1;
+  string uart_path = 2;
+  repeated TcpEndpoint tcp_endpoints = 3;
+}
+
+// A localhost controller-facing TCP endpoint.
+message TcpEndpoint {
+  string host = 1;
+  uint32 port = 2;
+}
+
+// Streaming physical machine telemetry for GUI and controller-facing tools.
+message MachineTelemetry {
+  bool firmware_booted = 1;
+  bool homed = 2;
+
+  // Physical state for known stock axes, sampled below Robot from step/dir pulses.
+  repeated AxisState axes = 3;
+
+  // Simulator-owned physical travel envelope in the same coordinate frame as axes.
+  // Sent with movement telemetry so visual clients can initialize their transform
+  // before the first moving frame is displayed.
+  Box physical_travel = 4;
+
+  // Current physical spindle speed when it changed enough to emit telemetry.
+  SpindleState spindle = 5;
+
+  // Physical ATC/rack ownership, streamed with stepper movement so tool visuals
+  // follow the clamp handoff instead of waiting for a slower full snapshot.
+  AtcState atc = 6;
+}
+
+// Machine-axis state for GUI/black-box clients.
+message AxisState {
+  Axis axis = 1;
+  int64 physical_steps = 2;
+  double physical_mm = 3;
+  double machine_position = 4;
+  bool endstop_triggered = 5;
+}
+
+// Physical spindle state below firmware PWM/spindle commands.
+message SpindleState {
+  bool spinning = 1;
+  double actual_rpm = 2;
+  double target_rpm = 3;
+  double max_rpm = 4;
+}
+
+// Simulated ATC rack and spindle state.
+message AtcState {
+  bool available = 1;
+  ToolState spindle = 2;
+  repeated AtcPocketTool pockets = 3;
+}
+
+// Real firmware ATC tool status mirrored through PublicData when available.
+message ToolState {
+  int32 active_tool = 1;
+  int32 target_tool = 2;
+  double tool_offset_mm = 3;
+  double cur_tool_mz = 4;
+  double ref_tool_mz = 5;
+  uint32 target_collet_type = 6;
+
+  // Simulated physical length of the tool currently held by the spindle.
+  double length_mm = 7;
+
+  ToolKind kind = 8;
+  double probe_tip_diameter_mm = 9;
+}
+
+// Simulated tool stored in or associated with a rack pocket.
+message AtcPocketTool {
+  uint32 pocket = 1;
+  int32 tool = 2;
+  bool occupied = 3;
+  double length_mm = 4;
+  double x = 5;
+  double y = 6;
+  double z = 7;
+  ToolKind kind = 8;
+  double probe_tip_diameter_mm = 9;
+}
+
+// Axis-aligned box in millimeters.
+//
+// The owning message defines the coordinate space: firmware soft limits use
+// firmware machine coordinates; physical travel and physical-scene geometry use
+// simulator-owned hardware coordinates.
+message Box {
+  // Minimum X/Y/Z corner. Values may be greater than max_*; the simulator
+  // normalizes corners when applying the box.
+  double min_x = 1;
+  double min_y = 2;
+  double min_z = 3;
+
+  // Maximum X/Y/Z corner.
+  double max_x = 4;
+  double max_y = 5;
+  double max_z = 6;
+}
+
+// Shared machine-axis delta used by Jog.
+message AxisDelta {
+  // Machine axis to move.
+  Axis axis = 1;
+
+  // Relative distance in firmware units: millimeters for X/Y/Z and the
+  // configured rotary/auxiliary unit for A/B.
+  double distance = 2;
+}
+
+// LPC1768 GPIO address: port 0..4, pin 0..31.
+message PinAddress {
+  uint32 port = 1;
+  uint32 pin = 2;
+}
+
+// Clock mode for the simulator-owned timebase.
+//
+// Manual mode is deterministic: clients must explicitly advance time.
+// Realtime mode derives simulated time from wall-clock time and is meant for
+// interactive/controller-facing runs.
+enum TimeMode {
+  TIME_MODE_UNSPECIFIED = 0;
+  TIME_MODE_MANUAL = 1;
+  TIME_MODE_REALTIME = 2;
+}
+
+// Machine axes used by higher-level domain helpers.
+//
+// These are semantic machine axes, not indices into the attached physical
+// step/dir-axis list.
+enum Axis {
+  AXIS_UNSPECIFIED = 0;
+  AXIS_X = 1;
+  AXIS_Y = 2;
+  AXIS_Z = 3;
+  AXIS_A = 4;
+  AXIS_B = 5;
+}
+
+// Physical limit switch side for a stock axis.
+enum LimitSwitchSide {
+  LIMIT_SWITCH_SIDE_UNSPECIFIED = 0;
+  LIMIT_SWITCH_SIDE_MIN = 1;
+  LIMIT_SWITCH_SIDE_MAX = 2;
+}
+
+// Stock thermistor-backed temperature sensors.
+enum TemperatureSensor {
+  TEMPERATURE_SENSOR_UNSPECIFIED = 0;
+  TEMPERATURE_SENSOR_SPINDLE = 1;
+  TEMPERATURE_SENSOR_POWER = 2;
+}
+
+// Firmware switch names used by stock C1/CA1 configs.
+enum SwitchName {
+  SWITCH_NAME_UNSPECIFIED = 0;
+  SWITCH_NAME_LIGHT = 1;
+  SWITCH_NAME_VACUUM = 2;
+  SWITCH_NAME_SPINDLE_FAN = 3;
+  SWITCH_NAME_POWER_FAN = 4;
+  SWITCH_NAME_TOOL_SENSOR = 5;
+  SWITCH_NAME_PROBE_CHARGER = 6;
+  SWITCH_NAME_AIR = 7;
+  SWITCH_NAME_BEEP = 8;
+}
+
+// Stock machine model selected through factory EEPROM.
+enum MachineModel {
+  MACHINE_MODEL_UNSPECIFIED = 0;
+  MACHINE_MODEL_CARVERA_C1 = 1;
+  MACHINE_MODEL_CARVERA_AIR_CA1 = 2;
+}
+
+// Physical tool class known to the simulator.
+enum ToolKind {
+  TOOL_KIND_UNSPECIFIED = 0;
+  TOOL_KIND_CUTTING_TOOL = 1;
+  TOOL_KIND_STOCK_Z_PROBE = 2;
+  TOOL_KIND_THREE_AXIS_PROBE = 3;
+}
+
+// Editable EEPROM field value type.
+enum EepromFieldType {
+  EEPROM_FIELD_TYPE_UNSPECIFIED = 0;
+  EEPROM_FIELD_TYPE_FLOAT = 1;
+  EEPROM_FIELD_TYPE_INT = 2;
+  EEPROM_FIELD_TYPE_BOOL = 3;
+}

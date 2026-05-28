@@ -1,0 +1,23 @@
+#include "sim/firm_config_data.hpp"
+
+#include <atomic>
+
+namespace sim::firm_config_data {
+
+namespace {
+
+std::atomic_bool defaults_enabled{false};
+
+}  // namespace
+
+const unsigned char config_default[] = {@SIM_CONFIG_DEFAULT_BYTES@};
+const std::size_t config_default_size = sizeof(config_default);
+
+const unsigned char config2_default[] = {@SIM_CONFIG2_DEFAULT_BYTES@};
+const std::size_t config2_default_size = sizeof(config2_default);
+
+void set_enabled(bool enabled) { defaults_enabled.store(enabled); }
+
+bool enabled() { return defaults_enabled.load(); }
+
+}  // namespace sim::firm_config_data
