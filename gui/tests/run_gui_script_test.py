@@ -72,6 +72,8 @@ def test_ci_runs_python_and_cpp_checks() -> None:
         "uv run pytest gui/tests",
         "cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}",
         "CMAKE_BUILD_PARALLEL_LEVEL",
+        'WSL_WORKSPACE="/tmp/carvera_firmware_simulator_ci_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"',
+        'cd "$WSL_WORKSPACE"',
     ):
         if text not in ci:
             raise SystemExit(f"CI should run {text}")

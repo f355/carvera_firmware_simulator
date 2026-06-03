@@ -100,7 +100,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: wsl-bash {0}
         run: |
-          git config --global --add safe.directory "$(pwd)"
+          WSL_WORKSPACE="/tmp/carvera_firmware_simulator_ci_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          rm -rf "$WSL_WORKSPACE"
+          mkdir -p "$WSL_WORKSPACE"
+          tar \
+            --exclude='./.git' \
+            --exclude='./.mypy_cache' \
+            --exclude='./.pytest_cache' \
+            --exclude='./.ruff_cache' \
+            --exclude='./.venv' \
+            --exclude='./build' \
+            --exclude='./firmware/Carvera_Community_Firmware' \
+            -cf - . | tar -C "$WSL_WORKSPACE" -xf -
+          cd "$WSL_WORKSPACE"
+          pwd
+          df -T . || true
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v uv >/dev/null; then
             curl -LsSf https://astral.sh/uv/install.sh | sh
