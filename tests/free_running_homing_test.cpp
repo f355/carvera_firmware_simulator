@@ -116,5 +116,28 @@ int main() {
   require(ca1_kernel.get_halt_reason() != HARD_LIMIT, "CA1 soft-limited jog should not leave firmware halted");
   require(!simulator.axis_endstop_triggered(1, sim::EndstopSide::Max),
           "CA1 positive Y jog should remain clear of the physical max switch");
+
+  runtime.write_wifi_tcp("G91\nG0 X-100 F1500\n");
+  bool saw_motion = false;
+  for (int i = 0; i < 200 && !saw_motion; ++i) {
+    saw_motion = !runtime.pump({4, 4'000}).motion_idle;
+  }
+  require(saw_motion, "CA1 e-stop regression should interrupt active air-cut motion");
+
+  runtime.set_e_stop_pressed(true);
+  for (int i = 0; i < 40 && !ca1_kernel.is_halted(); ++i) {
+    runtime.pump_free_running(4, 4'000);
+  }
+  require(ca1_kernel.is_halted(), "CA1 e-stop should halt active motion");
+  require(ca1_kernel.get_halt_reason() == E_STOP, "CA1 active-motion e-stop should report E_STOP");
+
+  runtime.set_e_stop_pressed(false);
+  runtime.write_wifi_tcp("$X\nG53 G0 Z-2\n");
+  runtime.run_until_idle(200'000);
+  const auto unlock_response = runtime.read_wifi_tcp();
+  require(unlock_response.find("motor alarm triggered") == std::string::npos,
+          "CA1 e-stop unlock should not turn shared enable/alarm pins into motor alarms");
+  require(ca1_kernel.get_halt_reason() != MOTOR_ERROR_X,
+          "CA1 e-stop unlock should not re-halt on the X motor alarm input");
   return 0;
 }

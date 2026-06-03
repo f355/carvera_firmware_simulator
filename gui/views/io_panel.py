@@ -104,13 +104,9 @@ class IoPanelView:
 
             self._apply_front_panel(snapshot.front_panel)
             for axis, triggered in snapshot.motor_alarms.items():
-                if axis in self.motor_alarm_switches:
-                    self.motor_alarm_switches[axis].value = triggered
                 if axis in self.motor_alarm_badges:
                     set_badge(self.motor_alarm_badges[axis], triggered, "alarm", "clear", warn=True)
 
-            if hasattr(self.spindle_alarm_switch, "value"):
-                self.spindle_alarm_switch.value = snapshot.spindle_alarm_triggered
             if snapshot.spindle_alarm_available:
                 for badge in self._spindle_alarm_badges():
                     set_badge(badge, snapshot.spindle_alarm_triggered, "alarm", "clear", warn=True)

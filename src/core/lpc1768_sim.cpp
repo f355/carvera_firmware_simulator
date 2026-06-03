@@ -142,10 +142,11 @@ LPC_GPIO_WriteRegister& LPC_GPIO_WriteRegister::operator=(uint32_t bits) {
 
   if (owner != nullptr) {
     const auto previous = owner->FIOPIN;
+    const auto driven_bits = bits & owner->FIODIR;
     if (sets_bits) {
-      owner->FIOPIN |= bits;
+      owner->FIOPIN |= driven_bits;
     } else {
-      owner->FIOPIN &= ~bits;
+      owner->FIOPIN &= ~driven_bits;
     }
     notify_gpio_changes(port_number, previous, owner->FIOPIN);
   }
@@ -158,10 +159,11 @@ LPC_GPIO_WriteRegister& LPC_GPIO_WriteRegister::operator|=(uint32_t bits) {
 
   if (owner != nullptr) {
     const auto previous = owner->FIOPIN;
+    const auto driven_bits = bits & owner->FIODIR;
     if (sets_bits) {
-      owner->FIOPIN |= bits;
+      owner->FIOPIN |= driven_bits;
     } else {
-      owner->FIOPIN &= ~bits;
+      owner->FIOPIN &= ~driven_bits;
     }
     notify_gpio_changes(port_number, previous, owner->FIOPIN);
   }

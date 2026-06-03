@@ -39,6 +39,8 @@ void pulse_step() {
   LPC_GPIO1->FIOCLR = 1u << 18;
 }
 
+void configure_step_dir_outputs() { LPC_GPIO1->FIODIR |= (1u << 18) | (1u << 20); }
+
 }  // namespace
 
 int main() {
@@ -71,6 +73,7 @@ int main() {
   motor.unstep();
 
   simulator.reset();
+  configure_step_dir_outputs();
 
   sim::StepperAxisConfig dual_endstop_axis;
   dual_endstop_axis.step_pin = {1, 18};
@@ -109,6 +112,7 @@ int main() {
   require(!simulator.gpio_level({0, 2}), "max endstop GPIO should be low after leaving positive travel");
 
   simulator.reset();
+  configure_step_dir_outputs();
 
   sim::StepperAxisConfig shared_switch_axis;
   shared_switch_axis.step_pin = {1, 18};

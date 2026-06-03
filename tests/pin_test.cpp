@@ -41,6 +41,13 @@ int main() {
   require((sim::lpc1768::gpio_port(1).FIOPIN & (1u << 18)) == 0, "Pin::set(false) should lower FIOPIN through FIOCLR");
   require(!pin.get(), "Pin::get() should see the direct FIOCLR write");
 
+  Pin input;
+  input.from_string("0.1")->as_input();
+  input.set(true);
+  require((sim::lpc1768::gpio_port(0).FIOPIN & (1u << 1)) == 0,
+          "FIOSET on an input pin should not create an external high input level");
+  require(!input.get(), "Pin::get() on an input should read the external input level, not the output latch");
+
   Pin probe;
   probe.from_string("2.6v")->as_input();
   require(probe.connected(), "probe-style pin syntax should parse as a connected pin");

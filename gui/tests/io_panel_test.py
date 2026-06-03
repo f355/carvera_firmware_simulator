@@ -155,3 +155,45 @@ def test_front_panel_snapshot_does_not_overwrite_physical_e_stop_control() -> No
     view.apply_snapshot(snapshot)
 
     assert view.front_panel_controls["e_stop"].value is True
+
+
+def test_io_snapshot_does_not_overwrite_fault_injection_switches() -> None:
+    front_panel = SimpleNamespace(
+        main_button_pressed=False,
+        e_stop_pressed=False,
+        power_rails=SimpleNamespace(v12=True, v24=True),
+        direct_rgb_available=False,
+        led_strip_available=False,
+        led_strip=[],
+    )
+    snapshot = PhysicalIoState(
+        probe_contact=False,
+        tool_setter_contact=False,
+        cover_open=False,
+        front_panel=front_panel,
+        motor_alarms={"X": True, "Y": True, "Z": True},
+        spindle_alarm_available=True,
+        spindle_alarm_triggered=True,
+        switches={},
+        laser=SimpleNamespace(available=False),
+        pwm_outputs={},
+    )
+    view = make_io_panel_view()
+    view.motor_alarm_switches = {
+        "X": SimpleNamespace(value=False),
+        "Y": SimpleNamespace(value=False),
+        "Z": SimpleNamespace(value=False),
+    }
+    view.motor_alarm_badges = {"X": FakeLabel(), "Y": FakeLabel(), "Z": FakeLabel()}
+    view.spindle_alarm_switch.value = False
+
+    view.apply_snapshot(snapshot)
+
+    assert {axis: control.value for axis, control in view.motor_alarm_switches.items()} == {
+        "X": False,
+        "Y": False,
+        "Z": False,
+    }
+    assert view.spindle_alarm_switch.value is False
+    assert view.motor_alarm_badges["X"].text == "alarm"
+    assert view.spindle_alarm_badge.text == "alarm"
