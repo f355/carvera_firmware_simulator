@@ -30,6 +30,7 @@
 #include "PublicData.h"
 #include "libs/Kernel.h"
 #include "sim/host_filesystem.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -39,8 +40,8 @@ using sim::test::require;
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_player_test_sd";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_player_test_sd");
+  const auto& root = temp_root.path();
   std::filesystem::create_directories(root / "gcodes");
   {
     std::ofstream file(root / "gcodes" / "demo.cnc");

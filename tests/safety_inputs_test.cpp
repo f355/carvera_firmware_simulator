@@ -24,6 +24,7 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "support/cartesian_config.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -35,8 +36,8 @@ void require(bool condition, const char* message) {
 }
 
 void verify_cover_input(const char* test_name, sim::MachineModel model, const char* cover_pin) {
-  const auto root = std::filesystem::temp_directory_path() / test_name;
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root(test_name);
+  const auto& root = temp_root.path();
   sim::test::CartesianConfigOptions config;
   config.extra = std::string("cover_endstop ") + cover_pin + "\nendstop_debounce_count 1\n";
   sim::test::write_cartesian_config(root, config);
@@ -52,8 +53,6 @@ void verify_cover_input(const char* test_name, sim::MachineModel model, const ch
   require(!runtime.cover_open(), "configured cover input should report closed");
   runtime.set_cover_open(true);
   require(runtime.cover_open(), "configured cover input should report open");
-
-  std::filesystem::remove_all(root);
 }
 
 }  // namespace
@@ -62,8 +61,8 @@ int main() {
   verify_cover_input("carvera_sim_c1_cover_input_test", sim::MachineModel::CarveraC1, "1.9^");
   verify_cover_input("carvera_sim_ca1_cover_input_test", sim::MachineModel::CarveraAirCA1, "1.8!^");
 
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_safety_inputs_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_safety_inputs_test");
+  const auto& root = temp_root.path();
   sim::test::CartesianConfigOptions config;
   config.extra =
       "alpha_limit_enable true\n"
@@ -97,7 +96,5 @@ int main() {
   runtime.run_main_loop(1);
   require(kernel.is_halted(), "real Endstops should halt firmware on a triggered motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_X, "motor alarm should set the X motor error halt reason");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

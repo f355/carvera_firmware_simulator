@@ -24,6 +24,7 @@
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/runtime_wait.hpp"
 
@@ -52,8 +53,8 @@ bool pump_until_reset(sim::FirmwareRuntime& runtime) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_hard_limit_recovery_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_hard_limit_recovery_test");
+  const auto& root = temp_root.path();
 
   sim::test::CartesianConfigOptions config;
   config.extra =
@@ -120,7 +121,5 @@ int main() {
           "firmware should accept motion after M999 recovery");
   require(runtime.run_until_idle(200'000), "post-M999 recovery motion should reach idle");
   require(!rebooted_kernel.is_halted(), "post-M999 recovery motion should not reassert the hard-limit alarm");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

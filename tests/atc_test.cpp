@@ -38,6 +38,7 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_pump.hpp"
 #include "sim/robot_axis_binding.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -122,8 +123,8 @@ class CapturingStream : public StreamOutput {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_atc_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_atc_test");
+  const auto& root = temp_root.path();
   write_atc_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -188,7 +189,5 @@ int main() {
   air_kernel.call_event(ON_GCODE_RECEIVED, &air_tool_change);
   require(air_stream.output.find("Please change the tool to: T1") != std::string::npos,
           "CA1 without the ATC function flag should use the manual tool-change path");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

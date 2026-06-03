@@ -31,6 +31,7 @@
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_runner.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
 
 namespace {
@@ -55,8 +56,8 @@ class CapturingStream : public StreamOutput {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_gcode_dispatch_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_gcode_dispatch_test");
+  const auto& root = temp_root.path();
   sim::test::write_direct_robot_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -110,7 +111,5 @@ int main() {
   kernel.gcode_dispatch->on_console_line_received(&post_recovery_move);
   require(runner.run_until_idle(50'000), "simulator should execute motion after M999 recovery");
   require(simulator.axis_position_steps(axis) == 80, "M999 recovery should allow subsequent G-code motion");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

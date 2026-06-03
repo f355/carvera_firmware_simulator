@@ -41,6 +41,7 @@
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -79,8 +80,8 @@ void boot_runtime_with_sd(sim::FirmwareRuntime& runtime, const std::filesystem::
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_runtime_boot_composition";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_runtime_boot_composition");
+  const auto& root = temp_root.path();
   write_sd_config(root,
                   "sd_ok true\n"
                   "spindle.delay_s 0\n"
@@ -175,7 +176,5 @@ int main() {
   auto& ca1_kernel = runtime.boot();
   require(!ca1_kernel.robot->is_soft_endstop_enabled(),
           "runtime should not force CA1 soft endstops when the SD config does not enable them");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

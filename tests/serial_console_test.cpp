@@ -29,6 +29,7 @@
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_runner.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
 
 namespace {
@@ -49,8 +50,8 @@ void run_main_loop_until_serial_drained(Kernel& kernel, int max_iterations) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_serial_console_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_serial_console_test");
+  const auto& root = temp_root.path();
   sim::test::write_direct_robot_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -74,7 +75,5 @@ int main() {
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update position from serial-fed G-code jog");
   require(kernel.serial->serial->take_tx().find("ok") != std::string::npos,
           "SerialConsole should write G-code acknowledgements to the UART");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

@@ -165,6 +165,19 @@ def test_python_tests_are_pytest_native() -> None:
         raise SystemExit(f"Python tests should be pytest-collected, not standalone script runners:\n{formatted}")
 
 
+def test_cpp_tests_use_unique_temp_directories() -> None:
+    offenders: list[str] = []
+    for path in _source_files("tests"):
+        if path.name == "temp_sdcard.hpp":
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "std::filesystem::temp_directory_path() /" in text:
+            offenders.append(str(path.relative_to(ROOT)))
+    if offenders:
+        formatted = "\n".join(f"  - {path}" for path in offenders)
+        raise SystemExit(f"C++ tests should use TempDirectory/TempSdCard instead of fixed temp paths:\n{formatted}")
+
+
 def test_cmake_auto_registers_simple_cpp_tests() -> None:
     cmake = _read("cmake/TestsAndApps.cmake")
     required = (

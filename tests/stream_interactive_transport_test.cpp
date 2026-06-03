@@ -18,7 +18,6 @@
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -35,8 +34,8 @@
 
 #include "carvera_sim.pb.h"
 #include "support/cartesian_config.hpp"
-#include "support/framed_proto_client.hpp"
 #include "support/posix_io.hpp"
+#include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/xmodem.hpp"
 
@@ -74,22 +73,6 @@ bool has_iso8601_timestamped_tag(const std::string& output, std::string_view tag
     line_start = line_end + 1;
   }
   return false;
-}
-
-std::string read_all(int fd) {
-  std::string output;
-  char buffer[1024];
-  for (;;) {
-    const auto received = read(fd, buffer, sizeof(buffer));
-    if (received > 0) {
-      output.append(buffer, static_cast<std::size_t>(received));
-      continue;
-    }
-    if (received < 0 && errno == EINTR) {
-      continue;
-    }
-    return output;
-  }
 }
 
 bool connect_controller_and_read_metadata(std::uint16_t port, int& client, std::string& metadata_output,
@@ -180,20 +163,6 @@ class DiscoveryListener {
   int fd_{-1};
 };
 
-bool wait_for_discovery_while_draining_stream(const DiscoveryListener& discovery_listener, int stream_fd,
-                                              std::string_view expected_name, std::uint16_t expected_port,
-                                              std::chrono::milliseconds timeout) {
-  const auto deadline = std::chrono::steady_clock::now() + timeout;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (discovery_listener.wait_for(expected_name, expected_port, std::chrono::milliseconds(50))) {
-      return true;
-    }
-    carvera::sim::v1::StreamFrame frame;
-    (void)sim::test::read_stream_frame_timeout(stream_fd, frame, std::chrono::milliseconds(50));
-  }
-  return discovery_listener.wait_for(expected_name, expected_port, std::chrono::milliseconds(0));
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -202,37 +171,10 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  int to_child[2]{};
-  int from_child[2]{};
-  int err_child[2]{};
-  if (pipe(to_child) != 0 || pipe(from_child) != 0 || pipe(err_child) != 0) {
-    std::cerr << "pipe failed: " << std::strerror(errno) << '\n';
+  sim::test::StreamStdioHarness simulator(argv[1]);
+  if (!expect(simulator.start(), "failed to start stream simulator")) {
     return 1;
   }
-
-  const auto child = fork();
-  if (child < 0) {
-    std::cerr << "fork failed: " << std::strerror(errno) << '\n';
-    return 1;
-  }
-
-  if (child == 0) {
-    dup2(to_child[0], STDIN_FILENO);
-    dup2(from_child[1], STDOUT_FILENO);
-    dup2(err_child[1], STDERR_FILENO);
-    close(to_child[0]);
-    close(to_child[1]);
-    close(from_child[0]);
-    close(from_child[1]);
-    close(err_child[0]);
-    close(err_child[1]);
-    execl(argv[1], argv[1], nullptr);
-    _exit(127);
-  }
-
-  close(to_child[0]);
-  close(from_child[1]);
-  close(err_child[1]);
 
   sim::test::TempSdCard sd("carvera_sim_stream_interactive_test");
   sim::test::CartesianConfigOptions config_options;
@@ -247,9 +189,7 @@ int main(int argc, char** argv) {
   request.set_id(100);
   request.mutable_set_machine_model()->set_machine_model(carvera::sim::v1::MACHINE_MODEL_CARVERA_C1);
   request.mutable_set_machine_model()->set_function_setting(4);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write model request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 100, response), "failed to read model response") ||
-      !expect(response.ok(), "set_machine_model failed")) {
+  if (!expect(simulator.request_ok(request, 100, response), "set_machine_model failed")) {
     return 1;
   }
 
@@ -258,9 +198,7 @@ int main(int argc, char** argv) {
   request.set_id(1);
   request.mutable_mount_filesystem()->set_name("sd");
   request.mutable_mount_filesystem()->set_host_path(sd.path().string());
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write mount request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 1, response), "failed to read mount response") ||
-      !expect(response.ok(), "mount_filesystem failed")) {
+  if (!expect(simulator.request_ok(request, 1, response), "mount_filesystem failed")) {
     return 1;
   }
 
@@ -268,9 +206,7 @@ int main(int argc, char** argv) {
   response.Clear();
   request.set_id(2);
   request.mutable_set_time_mode()->set_mode(carvera::sim::v1::TIME_MODE_REALTIME);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write realtime request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 2, response), "failed to read realtime response") ||
-      !expect(response.ok(), "set_time_mode failed")) {
+  if (!expect(simulator.request_ok(request, 2, response), "set_time_mode failed")) {
     return 1;
   }
 
@@ -278,9 +214,7 @@ int main(int argc, char** argv) {
   response.Clear();
   request.set_id(3);
   request.mutable_get_machine_snapshot();
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write snapshot request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 3, response), "failed to read snapshot response") ||
-      !expect(response.ok(), "snapshot failed") ||
+  if (!expect(simulator.request_ok(request, 3, response), "snapshot failed") ||
       !expect(response.machine_snapshot().homed(), "firmware should boot and home")) {
     return 1;
   }
@@ -291,10 +225,7 @@ int main(int argc, char** argv) {
   request.mutable_start_interactive_transport()->set_enable_uart(true);
   request.mutable_start_interactive_transport()->set_log_traffic(true);
   request.mutable_start_interactive_transport()->add_tcp_ports(0);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write interactive transport request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 4, response),
-              "failed to read interactive transport response") ||
-      !expect(response.ok(), "start_interactive_transport failed") ||
+  if (!expect(simulator.request_ok(request, 4, response), "start_interactive_transport failed") ||
       !expect(response.interactive_transport().tcp_endpoints_size() == 1, "expected one TCP endpoint")) {
     return 1;
   }
@@ -308,8 +239,7 @@ int main(int argc, char** argv) {
   if (!expect(discovery_listener.ok(), "failed to listen for controller discovery UDP")) {
     return 1;
   }
-  const bool discovered = wait_for_discovery_while_draining_stream(discovery_listener, from_child[0], "CARVERA_01001",
-                                                                   port, std::chrono::seconds(10));
+  const bool discovered = discovery_listener.wait_for("CARVERA_01001", port, std::chrono::seconds(10));
 
   int stale_client = -1;
   const char stale_query[] = "version\n";
@@ -348,22 +278,29 @@ int main(int argc, char** argv) {
   }
   std::vector<double> spindle_ramp_samples;
   bool saw_atc_state_in_stream = false;
-  const auto spindle_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < spindle_deadline && spindle_ramp_samples.size() < 40) {
-    carvera::sim::v1::StreamFrame frame;
-    if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {
-      continue;
-    }
-    if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_telemetry()) {
-      continue;
-    }
-    const auto& telemetry = frame.event().machine_telemetry();
-    saw_atc_state_in_stream = saw_atc_state_in_stream || telemetry.has_atc();
-    const auto& spindle = telemetry.spindle();
-    if (spindle.target_rpm() > 0.5 && (spindle.spinning() || spindle.actual_rpm() > 0.5)) {
-      spindle_ramp_samples.push_back(spindle.actual_rpm());
-    }
-  }
+  const bool spindle_ramp_seen = simulator.wait_until(
+      [&](const std::vector<carvera::sim::v1::StreamFrame>& frames) {
+        spindle_ramp_samples.clear();
+        saw_atc_state_in_stream = false;
+        for (const auto& frame : frames) {
+          if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_telemetry()) {
+            continue;
+          }
+          const auto& telemetry = frame.event().machine_telemetry();
+          saw_atc_state_in_stream = saw_atc_state_in_stream || telemetry.has_atc();
+          const auto& spindle = telemetry.spindle();
+          if (spindle.target_rpm() > 0.5 && (spindle.spinning() || spindle.actual_rpm() > 0.5)) {
+            spindle_ramp_samples.push_back(spindle.actual_rpm());
+          }
+        }
+        if (spindle_ramp_samples.size() < 5) {
+          return false;
+        }
+        const auto [min_spindle_sample, max_spindle_sample] =
+            std::minmax_element(spindle_ramp_samples.begin(), spindle_ramp_samples.end());
+        return *max_spindle_sample - *min_spindle_sample > 1'000.0;
+      },
+      std::chrono::seconds(5));
   (void)sim::test::read_until(client, "ok");
 
   const char download_command[] = "download /sd/config.txt\n";
@@ -373,17 +310,13 @@ int main(int argc, char** argv) {
   }
   const auto downloaded_config = sim::test::receive_xmodem_download(client);
   close(client);
-  close(to_child[1]);
-  close(from_child[0]);
-  int status = 0;
-  waitpid(child, &status, 0);
-  const auto stderr_output = read_all(err_child[0]);
-  close(err_child[0]);
+  simulator.stop();
+  const auto stderr_output = simulator.stderr_output();
 
   if (!expect(output.find("<") != std::string::npos, "TCP endpoint should return firmware status while GUI is idle")) {
     return 1;
   }
-  if (!expect(spindle_ramp_samples.size() >= 5,
+  if (!expect(spindle_ramp_seen && spindle_ramp_samples.size() >= 5,
               "stream telemetry should include multiple spindle ramp samples during firmware dwell")) {
     return 1;
   }
@@ -399,7 +332,7 @@ int main(int argc, char** argv) {
     }
     std::cerr << '\n';
   }
-  if (!expect(*max_spindle_sample - *min_spindle_sample > 1'000.0,
+  if (!expect(spindle_ramp_seen && *max_spindle_sample - *min_spindle_sample > 1'000.0,
               "spindle ramp telemetry should expose gradual RPM changes instead of one final snapshot")) {
     return 1;
   }

@@ -29,6 +29,7 @@
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 
 namespace {
@@ -58,8 +59,8 @@ void require_state(bool condition, const char* message, sim::FirmwareRuntime& ru
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_safety_lifecycle_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_safety_lifecycle_test");
+  const auto& root = temp_root.path();
 
   sim::test::CartesianConfigOptions config;
   config.extra =
@@ -146,7 +147,5 @@ int main() {
   runtime.write_serial("M999\n");
   runtime.run_until_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear motor alarm after the physical alarm input is released");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

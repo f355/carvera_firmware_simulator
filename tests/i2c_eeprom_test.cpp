@@ -22,6 +22,7 @@
 #include "mbed.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/i2c_eeprom.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -35,8 +36,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_i2c_eeprom_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_i2c_eeprom_test");
+  const auto& root = temp_root.path();
   std::filesystem::create_directories(root);
 
   sim::I2cEepromConfig config;
@@ -100,8 +101,6 @@ int main() {
   const auto persistent_file = sim::i2c_eeprom::persistent_file();
   require(persistent_file.has_value(), "mounting /sd should bind the EEPROM backing file");
   require(persistent_file->filename() == ".eeprom.bin", "EEPROM backing file should live beside the mounted SD data");
-
-  std::filesystem::remove_all(root);
 
   return 0;
 }

@@ -27,6 +27,7 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/machine_state_snapshot.hpp"
 #include "sim/physical_scene.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -112,8 +113,8 @@ void write_config(const std::filesystem::path& root) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_machine_state_snapshot_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_machine_state_snapshot_test");
+  const auto& root = temp_root.path();
   write_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -149,7 +150,5 @@ int main() {
   require(state.atc.spindle.has_tool, "shared machine state should expose simulated spindle tool");
   require(state.atc.spindle.kind == sim::ToolKind::ThreeAxisProbe, "shared machine state should preserve tool kind");
   require(state.atc.spindle.probe_tip_diameter_mm == 2.5, "shared machine state should preserve probe tip diameter");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

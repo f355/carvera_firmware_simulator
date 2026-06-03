@@ -15,17 +15,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <sys/wait.h>
-#include <unistd.h>
-
 #include <chrono>
-#include <cerrno>
-#include <cstring>
 #include <iostream>
 
 #include "carvera_sim.pb.h"
 #include "support/cartesian_config.hpp"
-#include "support/framed_proto_client.hpp"
+#include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -46,32 +41,10 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  int to_child[2]{};
-  int from_child[2]{};
-  if (pipe(to_child) != 0 || pipe(from_child) != 0) {
-    std::cerr << "pipe failed: " << std::strerror(errno) << '\n';
+  sim::test::StreamStdioHarness simulator(argv[1]);
+  if (!expect(simulator.start(), "failed to start stream simulator")) {
     return 1;
   }
-
-  const auto child = fork();
-  if (child < 0) {
-    std::cerr << "fork failed: " << std::strerror(errno) << '\n';
-    return 1;
-  }
-
-  if (child == 0) {
-    dup2(to_child[0], STDIN_FILENO);
-    dup2(from_child[1], STDOUT_FILENO);
-    close(to_child[0]);
-    close(to_child[1]);
-    close(from_child[0]);
-    close(from_child[1]);
-    execl(argv[1], argv[1], nullptr);
-    _exit(127);
-  }
-
-  close(to_child[0]);
-  close(from_child[1]);
 
   sim::test::TempSdCard sd("carvera_sim_stream_startup_telemetry_test");
   sim::test::write_cartesian_config(sd.path());
@@ -80,70 +53,54 @@ int main(int argc, char** argv) {
   carvera::sim::v1::Request request;
   carvera::sim::v1::Response response;
 
-  request.set_id(1);
   request.mutable_set_machine_model()->set_machine_model(carvera::sim::v1::MACHINE_MODEL_CARVERA_C1);
   request.mutable_set_machine_model()->set_function_setting(4);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write model request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 1, response), "failed to read model response") ||
-      !expect(response.ok(), "set_machine_model failed")) {
+  if (!expect(simulator.request_ok(request, 1, response), "set_machine_model failed")) {
     return 1;
   }
 
   request.Clear();
   response.Clear();
-  request.set_id(2);
   request.mutable_mount_filesystem()->set_name("sd");
   request.mutable_mount_filesystem()->set_host_path(sd.path().string());
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write mount request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 2, response), "failed to read mount response") ||
-      !expect(response.ok(), "mount_filesystem failed")) {
+  if (!expect(simulator.request_ok(request, 2, response), "mount_filesystem failed")) {
     return 1;
   }
 
   request.Clear();
   response.Clear();
-  request.set_id(3);
   request.mutable_set_time_mode()->set_mode(carvera::sim::v1::TIME_MODE_REALTIME);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write realtime request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 3, response), "failed to read realtime response") ||
-      !expect(response.ok(), "set_time_mode failed")) {
+  if (!expect(simulator.request_ok(request, 3, response), "set_time_mode failed")) {
     return 1;
   }
 
   request.Clear();
   response.Clear();
-  request.set_id(4);
   request.mutable_start_interactive_transport()->set_enable_uart(false);
   request.mutable_start_interactive_transport()->add_tcp_ports(0);
-  if (!expect(sim::test::write_framed_message(to_child[1], request), "failed to write transport request") ||
-      !expect(sim::test::read_stream_response(from_child[0], 4, response), "failed to read transport response") ||
-      !expect(response.ok(), "start_interactive_transport failed") ||
+  if (!expect(simulator.request_ok(request, 4, response), "start_interactive_transport failed") ||
       !expect(response.interactive_transport().tcp_endpoints_size() == 1, "expected one TCP endpoint")) {
     return 1;
   }
 
-  bool saw_machine_telemetry = false;
-  bool saw_snapshot_with_work_area = false;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (std::chrono::steady_clock::now() < deadline && !(saw_machine_telemetry && saw_snapshot_with_work_area)) {
-    carvera::sim::v1::StreamFrame frame;
-    if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {
-      continue;
-    }
-    if (frame.payload_case() == carvera::sim::v1::StreamFrame::kEvent && frame.event().has_machine_telemetry()) {
-      const auto& telemetry = frame.event().machine_telemetry();
-      saw_machine_telemetry = telemetry.firmware_booted() && telemetry.axes_size() > 0;
-    }
-    if (frame.payload_case() == carvera::sim::v1::StreamFrame::kEvent && frame.event().has_machine_snapshot()) {
-      const auto& snapshot = frame.event().machine_snapshot();
-      saw_snapshot_with_work_area = snapshot.firmware_booted() && snapshot.has_work_area();
-    }
-  }
-
-  close(to_child[1]);
-  close(from_child[0]);
-  int status = 0;
-  waitpid(child, &status, 0);
+  const bool saw_machine_telemetry = simulator.wait_frame(
+      [](const carvera::sim::v1::StreamFrame& frame) {
+        if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_telemetry()) {
+          return false;
+        }
+        const auto& telemetry = frame.event().machine_telemetry();
+        return telemetry.firmware_booted() && telemetry.axes_size() > 0;
+      },
+      std::chrono::seconds(10));
+  const bool saw_snapshot_with_work_area = simulator.wait_frame(
+      [](const carvera::sim::v1::StreamFrame& frame) {
+        if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_snapshot()) {
+          return false;
+        }
+        const auto& snapshot = frame.event().machine_snapshot();
+        return snapshot.firmware_booted() && snapshot.has_work_area();
+      },
+      std::chrono::seconds(10));
 
   return expect(saw_machine_telemetry, "interactive startup should emit firmware telemetry frames") &&
                  expect(saw_snapshot_with_work_area,

@@ -27,6 +27,7 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/interactive_io.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
 
@@ -44,8 +45,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_interactive_io_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_interactive_io_test");
+  const auto& root = temp_root.path();
   sim::test::write_cartesian_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -143,7 +144,5 @@ int main() {
   require(backlog_output.size() == large_payload.size(),
           "localhost WiFi bridge should queue large outbound bursts until the controller drains them");
   ::close(backlog_client);
-
-  std::filesystem::remove_all(root);
   return 0;
 }

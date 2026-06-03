@@ -27,6 +27,7 @@
 #include "libs/Kernel.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -55,8 +56,8 @@ void write_temperature_config(const std::filesystem::path& root) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_thermistor_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_thermistor_test");
+  const auto& root = temp_root.path();
   write_temperature_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -85,7 +86,5 @@ int main() {
     temperature = thermistor.get_temperature();
   }
   require(std::isinf(temperature), "zero ADC should report undefined thermistor temperature");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

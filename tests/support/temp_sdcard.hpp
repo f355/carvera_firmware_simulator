@@ -27,13 +27,16 @@
 
 #include "sim/host_filesystem.hpp"
 
+#include <unistd.h>
+
 namespace sim::test {
 
 inline std::filesystem::path make_unique_temp_sdcard_root(const std::string& name) {
   static std::atomic_uint64_t sequence{0};
   const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
   for (int attempt = 0; attempt < 100; ++attempt) {
-    const auto suffix = std::to_string(now) + "-" + std::to_string(sequence.fetch_add(1));
+    const auto suffix =
+        std::to_string(getpid()) + "-" + std::to_string(now) + "-" + std::to_string(sequence.fetch_add(1));
     const auto root = std::filesystem::temp_directory_path() / (name + "-" + suffix);
     std::error_code error;
     if (std::filesystem::create_directories(root, error)) {
@@ -42,6 +45,24 @@ inline std::filesystem::path make_unique_temp_sdcard_root(const std::string& nam
   }
   throw std::runtime_error("failed to create unique temporary SD card directory");
 }
+
+class TempDirectory {
+ public:
+  explicit TempDirectory(const std::string& name) : root_(make_unique_temp_sdcard_root(name)) {}
+
+  ~TempDirectory() {
+    std::error_code error;
+    std::filesystem::remove_all(root_, error);
+  }
+
+  TempDirectory(const TempDirectory&) = delete;
+  TempDirectory& operator=(const TempDirectory&) = delete;
+
+  const std::filesystem::path& path() const { return root_; }
+
+ private:
+  std::filesystem::path root_;
+};
 
 class TempSdCard {
  public:

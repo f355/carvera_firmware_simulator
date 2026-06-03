@@ -24,6 +24,7 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -41,9 +42,7 @@ carvera::sim::v1::Response send(sim::ApiService& api, carvera::sim::v1::Request&
   return response;
 }
 
-std::filesystem::path seed_sd_with_rotary_enabled_eeprom() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_factory_settings_mount_order_test";
-  std::filesystem::remove_all(root);
+void seed_sd_with_rotary_enabled_eeprom(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);
 
   sim::i2c_eeprom::clear_persistent_file();
@@ -52,13 +51,14 @@ std::filesystem::path seed_sd_with_rotary_enabled_eeprom() {
           "fresh EEPROM backing file should start empty");
   sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x01});
   sim::i2c_eeprom::clear_persistent_file();
-  return root;
 }
 
 }  // namespace
 
 int main() {
-  const auto sd_root = seed_sd_with_rotary_enabled_eeprom();
+  sim::test::TempDirectory temp_root("carvera_sim_factory_settings_mount_order_test");
+  const auto& sd_root = temp_root.path();
+  seed_sd_with_rotary_enabled_eeprom(sd_root);
   sim::host_filesystem::clear_mounts();
 
   sim::MachineSimulator simulator;

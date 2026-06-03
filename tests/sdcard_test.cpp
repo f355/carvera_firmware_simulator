@@ -24,6 +24,7 @@
 
 #include "libs/FirmwareFileSystem.h"
 #include "sim/host_filesystem.hpp"
+#include "support/temp_sdcard.hpp"
 #include "utils.h"
 
 namespace {
@@ -38,8 +39,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_sdcard_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_sdcard_test");
+  const auto& root = temp_root.path();
   std::filesystem::create_directories(root);
 
   sim::host_filesystem::clear_mounts();
@@ -70,7 +71,5 @@ int main() {
 
   require(fwfs::remove("/sd/config-renamed.txt") == 0, "remove() should delete host-backed SD files");
   require(!file_exists("/sd/config-renamed.txt"), "removed SD file should be gone");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

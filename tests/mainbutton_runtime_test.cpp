@@ -29,6 +29,7 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "support/cartesian_config.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -95,8 +96,8 @@ void write_config(const std::filesystem::path& root, const char* long_press_mode
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_mainbutton_runtime_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory root_dir("carvera_sim_mainbutton_runtime_test");
+  const auto& root = root_dir.path();
   write_config(root, "None", 3000);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -142,10 +143,8 @@ int main() {
   runtime.run_until_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear the e-stop alarm after the physical switch is released");
 
-  std::filesystem::remove_all(root);
-
-  const auto ca1_led_root = std::filesystem::temp_directory_path() / "carvera_sim_ca1_led_strip_test";
-  std::filesystem::remove_all(ca1_led_root);
+  sim::test::TempDirectory ca1_led_dir("carvera_sim_ca1_led_strip_test");
+  const auto& ca1_led_root = ca1_led_dir.path();
   sim::test::CartesianConfigOptions ca1_led_config;
   ca1_led_config.extra =
       "main_button_pin 2.13!^\n"
@@ -177,10 +176,9 @@ int main() {
     require(segment.red == 12 && segment.green == 34 && segment.blue == 56,
             "CA1 LED strip segment should preserve the firmware-programmed RGB value");
   }
-  std::filesystem::remove_all(ca1_led_root);
 
-  const auto alarm_root = std::filesystem::temp_directory_path() / "carvera_sim_mainbutton_alarm_test";
-  std::filesystem::remove_all(alarm_root);
+  sim::test::TempDirectory alarm_dir("carvera_sim_mainbutton_alarm_test");
+  const auto& alarm_root = alarm_dir.path();
   write_config(alarm_root, "None", 1);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", alarm_root);
@@ -205,10 +203,8 @@ int main() {
   auto& rebooted_alarm_kernel = alarm_runtime.boot();
   require(!rebooted_alarm_kernel.is_halted(), "runtime should reboot cleanly after front-button alarm reset");
 
-  std::filesystem::remove_all(alarm_root);
-
-  const auto repeat_root = std::filesystem::temp_directory_path() / "carvera_sim_mainbutton_repeat_test";
-  std::filesystem::remove_all(repeat_root);
+  sim::test::TempDirectory repeat_dir("carvera_sim_mainbutton_repeat_test");
+  const auto& repeat_root = repeat_dir.path();
   write_config(repeat_root, "Repeat", 1);
   std::filesystem::create_directories(repeat_root / "gcodes");
   {
@@ -233,10 +229,8 @@ int main() {
   require(!repeat_kernel.is_halted(), "front-button repeat should not halt an idle machine");
   require(player_is_playing(), "long front-button repeat should restart the last Player job");
 
-  std::filesystem::remove_all(repeat_root);
-
-  const auto sleep_root = std::filesystem::temp_directory_path() / "carvera_sim_mainbutton_sleep_test";
-  std::filesystem::remove_all(sleep_root);
+  sim::test::TempDirectory sleep_dir("carvera_sim_mainbutton_sleep_test");
+  const auto& sleep_root = sleep_dir.path();
   write_config(sleep_root, "Sleep", 1);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", sleep_root);
@@ -251,7 +245,5 @@ int main() {
   require(sleep_kernel.is_halted(), "long front-button sleep should halt the firmware");
   require(!sleep_panel.power_rails.v12, "long front-button sleep should turn off the 12V rail");
   require(!sleep_panel.power_rails.v24, "long front-button sleep should turn off the 24V rail");
-
-  std::filesystem::remove_all(sleep_root);
   return 0;
 }

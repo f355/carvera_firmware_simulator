@@ -23,6 +23,7 @@
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 
 namespace {
@@ -44,8 +45,8 @@ void require_contains(const std::string& text, const char* needle, const char* m
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_simpleshell_configurator_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_simpleshell_configurator_test");
+  const auto& root = temp_root.path();
   sim::test::CartesianConfigOptions config;
   config.sd_ok = false;
   sim::test::write_cartesian_config(root, config);
@@ -110,7 +111,5 @@ int main() {
   runtime.boot();
   require((runtime.factory_settings().function_setting & 0x01) != 0,
           "firmware should read the updated factory settings from simulated EEPROM after reboot");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

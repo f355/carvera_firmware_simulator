@@ -24,6 +24,7 @@
 #include "sim/api_service.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 
 namespace {
 
@@ -51,8 +52,8 @@ void write_switch_config(const std::filesystem::path& root) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_switch_api_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_switch_api_test");
+  const auto& root = temp_root.path();
   write_switch_config(root);
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
@@ -122,7 +123,5 @@ int main() {
   response = api.handle(request);
   require(response.ok(), "get_switch_state after off should succeed");
   require(!response.switch_state().on(), "light switch should report off after being cleared");
-
-  std::filesystem::remove_all(root);
   return 0;
 }

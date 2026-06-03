@@ -23,6 +23,7 @@
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 
 namespace {
@@ -37,8 +38,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  const auto root = std::filesystem::temp_directory_path() / "carvera_sim_api_jog_test";
-  std::filesystem::remove_all(root);
+  sim::test::TempDirectory temp_root("carvera_sim_api_jog_test");
+  const auto& root = temp_root.path();
   sim::test::CartesianConfigOptions config;
   config.include_rotary_axes = true;
   sim::test::write_cartesian_config(root, config);
@@ -75,7 +76,5 @@ int main() {
   response = api.handle(request);
   require(response.ok(), "get_axis_position should succeed");
   require(std::abs(response.axis_position().steps()) >= 100, "typed jog should move the physical X axis");
-
-  std::filesystem::remove_all(root);
   return 0;
 }
