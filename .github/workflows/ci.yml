@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: ubuntu-26.04
+            name: ubuntu-24.04
           - os: macos-latest
             name: macos-latest
           - os: windows-latest
@@ -39,7 +39,7 @@ jobs:
       - uses: Vampire/setup-wsl@v7
         if: runner.os == 'Windows'
         with:
-          distribution: Ubuntu-26.04
+          distribution: Ubuntu-24.04
           update: "true"
           additional-packages: >
             build-essential
@@ -53,13 +53,13 @@ jobs:
             python3
             python3-venv
 
-      - name: Build and test on Ubuntu 26.04
+      - name: Build and test on Ubuntu 24.04
         if: runner.os == 'Linux'
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             -w /work \
-            ubuntu:26.04 \
+            ubuntu:24.04 \
             bash -euxo pipefail -c '
               export DEBIAN_FRONTEND=noninteractive
               apt-get update

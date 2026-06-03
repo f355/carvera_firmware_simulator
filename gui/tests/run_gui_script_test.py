@@ -72,8 +72,8 @@ def test_ci_runs_python_and_cpp_checks() -> None:
         "uv run pytest gui/tests",
         "cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}",
         "CMAKE_BUILD_PARALLEL_LEVEL",
-        "ubuntu:26.04",
-        "distribution: Ubuntu-26.04",
+        "ubuntu:24.04",
+        "distribution: Ubuntu-24.04",
         'WSL_WORKSPACE="$(mktemp -d /tmp/carvera_firmware_simulator_ci_XXXXXX)"',
         'cd "$WSL_WORKSPACE"',
     ):
