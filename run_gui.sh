@@ -20,6 +20,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${CARVERA_SIM_BUILD_DIR:-"$ROOT_DIR/build"}"
 FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT:-}"
 FIRMWARE_DIR="${CARVERA_SIM_FIRMWARE_DIR:-"$ROOT_DIR/firmware/Carvera_Community_Firmware"}"
+BUILD_JOBS="${CARVERA_SIM_BUILD_JOBS:-}"
 HOST="${CARVERA_SIM_GUI_HOST:-127.0.0.1}"
 PORT="${CARVERA_SIM_GUI_PORT:-8080}"
 WIFI_PORT="${CARVERA_SIM_WIFI_PORT:-2222}"
@@ -55,7 +56,7 @@ Options:
 
 Environment alternatives:
   CARVERA_FIRMWARE_ROOT, CARVERA_SIM_FIRMWARE_DIR, CARVERA_SIM_BUILD_DIR, CARVERA_SIM_GUI_HOST,
-  CARVERA_SIM_GUI_PORT, CARVERA_SIM_WIFI_PORT, CARVERA_SIM_MODEL
+  CARVERA_SIM_GUI_PORT, CARVERA_SIM_WIFI_PORT, CARVERA_SIM_MODEL, CARVERA_SIM_BUILD_JOBS
 EOF
 }
 
@@ -176,11 +177,31 @@ open_when_ready() {
   echo "GUI did not answer at $URL; leaving server running for inspection." >&2
 }
 
+detect_build_jobs() {
+  if [[ -n "$BUILD_JOBS" ]]; then
+    echo "$BUILD_JOBS"
+    return
+  fi
+  if command -v nproc >/dev/null 2>&1; then
+    nproc
+    return
+  fi
+  if command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu
+    return
+  fi
+  getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4
+}
+
 echo "Configuring simulator build..."
-cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
+CMAKE_ARGS=(-S "$ROOT_DIR" -B "$BUILD_DIR" -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
+if [[ ! -f "$BUILD_DIR/CMakeCache.txt" && -z "${CMAKE_GENERATOR:-}" ]] && command -v ninja >/dev/null 2>&1; then
+  CMAKE_ARGS+=(-G Ninja)
+fi
+cmake "${CMAKE_ARGS[@]}"
 
 echo "Building simulator runtime..."
-cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio
+cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$(detect_build_jobs)"
 
 echo "Syncing Python environment..."
 cd "$ROOT_DIR"

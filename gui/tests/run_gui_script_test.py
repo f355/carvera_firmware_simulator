@@ -25,8 +25,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_run_gui_builds_only_runtime_binary() -> None:
     script = (ROOT / "run_gui.sh").read_text(encoding="utf-8")
-    if 'cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio' not in script:
+    if 'cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$(detect_build_jobs)"' not in script:
         raise SystemExit("run_gui.sh should build only the simulator binary needed by the GUI")
+    if "CARVERA_SIM_BUILD_JOBS" not in script:
+        raise SystemExit("run_gui.sh should let callers override build parallelism")
+    if "-G Ninja" not in script:
+        raise SystemExit("run_gui.sh should prefer Ninja for new build directories")
 
 
 def test_run_gui_uses_managed_firmware_checkout() -> None:
