@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     continue-on-error: ${{ matrix.experimental }}
@@ -18,10 +18,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            name: ubuntu-latest
             experimental: false
           - os: macos-latest
+            name: macos-latest
             experimental: false
           - os: windows-latest
+            name: windows-latest / WSL
             experimental: true
 
     steps:
@@ -114,7 +117,7 @@ jobs:
           uv run ruff check gui
           uv run mypy gui
           cmake -S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
-          cmake --build build --target carvera_sim_stdio carvera_sim_stream_stdio carvera_sim_interactive --parallel "$JOBS"
+          cmake --build build --target check --parallel "$JOBS"
           uv run pytest gui/tests -m "not integration" --ignore=gui/tests/app_runtime_page_test.py
 
       - name: Run GUI tests

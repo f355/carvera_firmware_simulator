@@ -125,11 +125,11 @@ protobuf API:
 * `log_traffic`: mirror sanitized UART/Wi-Fi RX/TX bytes to stderr
 
 The response payload is `InteractiveTransport`, containing the pty path and
-bound TCP endpoints. On macOS/Linux, the UART path is a PTY path such as
+bound TCP endpoints. On macOS, Linux, and WSL, the UART path is a PTY path such as
 `/dev/ttys123` or `/dev/pts/7`. The TCP endpoints are localhost sockets and are
-the preferred controller path on every platform. Windows builds use Winsock for
-the fake Wi-Fi TCP/discovery path, but the simulator does not create a native
-`COMx` device.
+the preferred controller path on every platform. Native Windows builds and
+native `COMx` devices are intentionally unsupported; run the simulator inside
+WSL2 on Windows.
 
 `StopInteractiveTransport` closes those endpoints without resetting firmware.
 

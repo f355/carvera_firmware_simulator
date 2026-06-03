@@ -15,7 +15,15 @@
 
 cmake_minimum_required(VERSION 3.22)
 
+if(CMAKE_HOST_WIN32)
+  message(FATAL_ERROR "Native Windows builds are not supported. Build and run the simulator inside WSL2 instead.")
+endif()
+
 project(CarveraFirmwareSimulator LANGUAGES C CXX)
+
+if(WIN32)
+  message(FATAL_ERROR "Windows-targeted builds are not supported. Build and run the simulator inside WSL2 instead.")
+endif()
 
 set(CARVERA_FIRMWARE_ROOT "" CACHE PATH "Path to the Carvera firmware checkout")
 set(CARVERA_ALLOW_UNPINNED_FIRMWARE OFF CACHE BOOL "Allow building against a firmware checkout at a non-pinned commit")
@@ -147,9 +155,6 @@ target_link_libraries(carvera_sim_api PUBLIC
   carvera_firmware_sim
   ${SIM_PROTOBUF_LIBRARY}
 )
-if(WIN32)
-  target_link_libraries(carvera_sim_api PUBLIC ws2_32)
-endif()
 
 target_include_directories(carvera_firmware_sim PUBLIC
   include

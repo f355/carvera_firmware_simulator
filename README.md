@@ -73,19 +73,15 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### Windows
 
-Native Windows support is best-effort and not regularly tested. The GUI and
-localhost fake-Wi-Fi path are intended to work when the usual build tools,
-Protobuf, and `uv` are available. The simulator does not create a real Windows
-`COMx` device; that requires a virtual serial-port driver or a controller-side
-transport change.
-
-WSL2 is still the least surprising route:
+Windows support means WSL2. Native Windows builds are intentionally unsupported;
+we do not maintain a separate MSVC or MinGW build path.
 
 ```powershell
 wsl --install
 ```
 
-Then install the Linux dependencies inside WSL.
+Then install the Linux dependencies inside WSL and build/run the simulator from
+the WSL shell.
 
 ## Building
 
@@ -160,17 +156,17 @@ firmware startup path.
 
 ## Controller connections
 
-While powered on, the GUI shows the fake Wi-Fi address and, on POSIX platforms,
-the virtual COM port path. The fake Wi-Fi endpoint is also advertised on the
+While powered on, the GUI shows the fake Wi-Fi address and POSIX virtual COM
+port path. The fake Wi-Fi endpoint is also advertised on the
 controller discovery port, so the Makera controller should be able to find it by
 scan or connect to `127.0.0.1:<port>` manually.
 
 The fake Wi-Fi/TCP endpoint is the recommended controller connection on all
-platforms. The serial endpoint is a POSIX pseudo-terminal on macOS/Linux; on
-Linux it may not appear in the controller's serial dropdown because the
-controller lists `serial.tools.list_ports.comports()` devices rather than every
-PTY under `/dev/pts`. Native Windows virtual COM devices are not provided by the
-simulator.
+platforms. The serial endpoint is a POSIX pseudo-terminal on macOS, Linux, and
+WSL; on Linux/WSL it may not appear in the controller's serial dropdown because
+the controller lists `serial.tools.list_ports.comports()` devices rather than
+every PTY under `/dev/pts`. Native Windows `COMx` devices are not provided by
+the simulator.
 
 UART/Wi-Fi traffic is mirrored to the terminal by default. Use
 `--no-log-transport` if that gets too chatty.
@@ -265,8 +261,7 @@ Known gaps worth remembering:
 
 * USB host and USB-drive G-code playback are stubbed. Stock C1/CA1 machines do
   not appear to use this path.
-* Native Windows support is best-effort and untested. Localhost fake Wi-Fi uses
-  Winsock; native virtual COM devices are not implemented.
+* Native Windows builds are not supported. Use WSL2 on Windows.
 * Front-panel LED colors are captured at the firmware helper/function-call
   level. The CA1 LED-strip bit-banged waveform timing is intentionally not
   decoded.
