@@ -73,6 +73,8 @@ int main() {
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");
   sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 58.0);
+  (void)runtime.boot();
+  require(runtime.is_homed(), "CA1 manual tool-change test should start from a homed machine");
 
   runtime.write_serial("M6 T2\n");
   std::string serial;
@@ -87,6 +89,9 @@ int main() {
   }
   require(serial.find("Please change the tool to: T2") != std::string::npos,
           "CA1 M6 T2 should enter the manual tool-change path");
+  if (!runtime.boot().is_tool_waiting()) {
+    std::cerr << "tool waiting was false; serial was:\n" << serial << '\n';
+  }
   require(runtime.boot().is_tool_waiting(), "CA1 manual tool change should wait for controller or button confirm");
 
   sim::physical_scene::active().set_spindle_tool(2, 58.0, true);

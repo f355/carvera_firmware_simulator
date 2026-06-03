@@ -26,6 +26,7 @@ PROTO_PATH = SIMULATOR_ROOT / "proto" / "carvera_sim.proto"
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 GENERATED_MODULE = GENERATED_DIR / "carvera_sim_pb2.py"
 GENERATED_STUB = GENERATED_DIR / "carvera_sim_pb2.pyi"
+GENERATED_STUB_MYPY_HEADER = '# mypy: disable-error-code="var-annotated"\n'
 
 
 def generated_proto_is_current() -> bool:
@@ -40,6 +41,7 @@ def generated_proto_is_current() -> bool:
 def ensure_proto_current() -> Path:
     """Check that Python protobuf bindings were generated explicitly."""
     if generated_proto_is_current():
+        _patch_generated_stub()
         return GENERATED_DIR
     raise RuntimeError(
         "generated protobuf bindings are stale or missing; "
@@ -53,6 +55,7 @@ def generate_proto() -> Path:
     (GENERATED_DIR / "__init__.py").touch()
 
     if generated_proto_is_current():
+        _patch_generated_stub()
         return GENERATED_DIR
 
     if which("protoc") is None:
@@ -68,8 +71,16 @@ def generate_proto() -> Path:
         ],
         check=True,
     )
+    _patch_generated_stub()
 
     return GENERATED_DIR
+
+
+def _patch_generated_stub() -> None:
+    text = GENERATED_STUB.read_text()
+    if text.startswith(GENERATED_STUB_MYPY_HEADER):
+        return
+    GENERATED_STUB.write_text(GENERATED_STUB_MYPY_HEADER + text)
 
 
 def add_generated_to_path() -> Path:

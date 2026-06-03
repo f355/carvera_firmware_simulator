@@ -34,6 +34,13 @@ void require(bool condition, const char* message) {
   }
 }
 
+void require_contains(const std::string& text, const std::string& needle, const char* message) {
+  if (text.find(needle) == std::string::npos) {
+    std::cerr << message << "\nstatus was: " << text << '\n';
+    std::exit(1);
+  }
+}
+
 carvera::sim::v1::Response send(sim::ApiService& api, carvera::sim::v1::Request& request) {
   const auto response = api.handle(request);
   require(response.ok(), response.error().empty() ? "API request failed" : response.error().c_str());
@@ -82,21 +89,25 @@ int main() {
   request.mutable_mount_filesystem()->set_host_path(sd.path().string());
   (void)send(api, request);
 
+  request.mutable_get_machine_snapshot();
+  auto boot_response = send(api, request);
+  require(boot_response.machine_snapshot().homed(), "test runtime should boot and home before fault injection");
+
   request.mutable_set_motor_alarm()->set_axis(carvera::sim::v1::AXIS_X);
   request.mutable_set_motor_alarm()->set_triggered(true);
   (void)send(api, request);
   run_until_idle(api, request);
 
   auto status = serial_status(api, request);
-  require(status.find("<Alarm") != std::string::npos, "motor alarm should move firmware into Alarm state");
-  require(status.find("|H:22") != std::string::npos, "X motor alarm should report halt reason 22");
+  require_contains(status, "<Alarm", "motor alarm should move firmware into Alarm state");
+  require_contains(status, "|H:22", "X motor alarm should report halt reason 22");
 
   request.mutable_write_serial()->set_data("M999\n");
   (void)send(api, request);
   run_until_idle(api, request);
   status = serial_status(api, request);
-  require(status.find("<Alarm") != std::string::npos, "M999 should not clear a still-active motor alarm");
-  require(status.find("|H:22") != std::string::npos, "still-active X motor alarm should reassert halt reason 22");
+  require_contains(status, "<Alarm", "M999 should not clear a still-active motor alarm");
+  require_contains(status, "|H:22", "still-active X motor alarm should reassert halt reason 22");
 
   request.mutable_set_motor_alarm()->set_axis(carvera::sim::v1::AXIS_X);
   request.mutable_set_motor_alarm()->set_triggered(false);

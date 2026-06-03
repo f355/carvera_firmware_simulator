@@ -55,6 +55,12 @@ jobs:
           fi
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
           "$VCPKG_ROOT/vcpkg" install protobuf:x64-windows
+          PROTOC_BIN="$(find "$VCPKG_ROOT/installed/x64-windows/tools/protobuf" -iname 'protoc.exe' -print -quit)"
+          if [[ -z "$PROTOC_BIN" ]]; then
+            echo "protoc.exe was not installed by vcpkg" >&2
+            exit 1
+          fi
+          echo "$(dirname "$PROTOC_BIN")" >> "$GITHUB_PATH"
 
       - name: Fetch compatible firmware
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
