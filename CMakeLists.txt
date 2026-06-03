@@ -84,8 +84,8 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(HOST_PRELUDE ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/host_prelude.hpp)
 set(HOST_FILEPOS_COMPAT ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/filepos_compat.h)
-set(HOST_FILE_SHIM ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/host_file_shim.h)
 if(SIM_PROTOBUF_CONFIG_MODE)
   protobuf_generate(
     LANGUAGE cpp
@@ -179,9 +179,19 @@ target_include_directories(carvera_firmware_sim PUBLIC
   ${FIRMWARE_SRC}/modules/tools/drillingcycles
 )
 
-target_compile_options(carvera_firmware_sim PRIVATE
-  $<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/host_prelude.hpp>
-)
+function(sim_force_include target_name)
+  set(_include_flags)
+  foreach(_include_path IN LISTS ARGN)
+    string(APPEND _include_flags " -include${_include_path}")
+  endforeach()
+  string(STRIP "${_include_flags}" _include_flags)
+  target_compile_options(${target_name} PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:SHELL:${_include_flags}>
+  )
+endfunction()
+
+sim_force_include(carvera_firmware_sim ${HOST_PRELUDE})
+sim_force_include(carvera_sim_api ${HOST_PRELUDE})
 target_compile_definitions(carvera_firmware_sim PRIVATE
   # Mirror build/build.sh -> make AXIS=5 PAXIS=3 CNC=1, plus the
   # release-profile defines emitted by src/makefile/build/common.mk.
@@ -210,19 +220,10 @@ target_compile_definitions(carvera_firmware_sim PRIVATE
   CARTESIAN_ONLY=1
   NO_PID_AUTOTUNE=1
 )
-set_source_files_properties(src/firmware/host_filesystem.cpp PROPERTIES COMPILE_DEFINITIONS SIM_HOST_FILE_SHIM_IMPLEMENTATION)
-set_source_files_properties(
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Kernel.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Player.cpp
-  ${FIRMWARE_SRC}/libs/ConfigSources/FileConfigSource.cpp
-  ${FIRMWARE_SRC}/modules/communication/GcodeDispatch.cpp
-  ${FIRMWARE_SRC}/modules/utils/configurator/Configurator.cpp
+set_property(
+  SOURCE
   ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
-  PROPERTIES COMPILE_OPTIONS "-include;${HOST_FILE_SHIM}"
-)
-set_source_files_properties(
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
-  PROPERTIES COMPILE_OPTIONS "-include;${HOST_FILE_SHIM};-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
+  APPEND PROPERTY COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
 )
 set_property(
   SOURCE ${FIRMWARE_SRC}/libs/ConfigSources/FileConfigSource.cpp

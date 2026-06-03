@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <iostream>
 
+#include "libs/FirmwareFileSystem.h"
 #include "sim/host_filesystem.hpp"
 #include "utils.h"
 
@@ -44,30 +45,30 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  FILE* writer = fopen("/sd/config.txt", "w");
+  FILE* writer = fwfs::fopen("/sd/config.txt", "w");
   require(writer != nullptr, "fopen('/sd/...', 'w') should create a host-backed SD file");
-  std::fputs("alpha 42\n", writer);
-  std::fclose(writer);
+  fwfs::fputs("alpha 42\n", writer);
+  fwfs::fclose(writer);
 
   require(file_exists("/sd/config.txt"), "file_exists() should see host-backed SD files");
 
-  FILE* reader = fopen("/sd/config.txt", "r");
+  FILE* reader = fwfs::fopen("/sd/config.txt", "r");
   require(reader != nullptr, "fopen('/sd/...', 'r') should read host-backed SD files");
   char buffer[32]{};
-  require(std::fgets(buffer, sizeof(buffer), reader) != nullptr, "SD file should have readable contents");
-  std::fclose(reader);
+  require(fwfs::fgets(buffer, sizeof(buffer), reader) != nullptr, "SD file should have readable contents");
+  fwfs::fclose(reader);
   require(std::strcmp(buffer, "alpha 42\n") == 0, "SD file contents should round-trip");
 
-  require(rename("/sd/config.txt", "/sd/config-renamed.txt") == 0, "rename() should work within SD mount");
+  require(fwfs::rename("/sd/config.txt", "/sd/config-renamed.txt") == 0, "rename() should work within SD mount");
   require(!file_exists("/sd/config.txt"), "old SD filename should be gone after rename");
   require(file_exists("/sd/config-renamed.txt"), "new SD filename should exist after rename");
 
-  require(mkdir("/sd/gcodes", 0) == 0, "mkdir(..., 0) should create host-backed SD directories");
-  DIR* dir = opendir("/sd/gcodes");
+  require(fwfs::mkdir("/sd/gcodes", 0) == 0, "mkdir(..., 0) should create host-backed SD directories");
+  DIR* dir = fwfs::opendir("/sd/gcodes");
   require(dir != nullptr, "opendir() should open host-backed SD directories");
   closedir(dir);
 
-  require(remove("/sd/config-renamed.txt") == 0, "remove() should delete host-backed SD files");
+  require(fwfs::remove("/sd/config-renamed.txt") == 0, "remove() should delete host-backed SD files");
   require(!file_exists("/sd/config-renamed.txt"), "removed SD file should be gone");
 
   std::filesystem::remove_all(root);

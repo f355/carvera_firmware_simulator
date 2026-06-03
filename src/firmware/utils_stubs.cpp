@@ -29,6 +29,7 @@
 
 #include "checksumm.h"
 #include "libs/Kernel.h"
+#include "libs/FirmwareFileSystem.h"
 #include "sim/delay_hooks.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/system_reset.hpp"
@@ -230,8 +231,8 @@ std::string change_to_md5_path(std::string origin) {
   const auto found = origin.find("gcodes/");
   const auto filename = found == std::string::npos ? origin : origin.substr(found + 7);
   sim::host_filesystem::ensure_mount("sd");
-  mkdir("/sd/gcodes", 0);
-  mkdir("/sd/gcodes/.md5", 0);
+  fwfs::mkdir("/sd/gcodes", 0);
+  fwfs::mkdir("/sd/gcodes/.md5", 0);
   return "/sd/gcodes/.md5/" + filename;
 }
 
@@ -239,8 +240,8 @@ std::string change_to_lz_path(std::string origin) {
   const auto found = origin.find("gcodes/");
   const auto filename = found == std::string::npos ? origin : origin.substr(found + 7);
   sim::host_filesystem::ensure_mount("sd");
-  mkdir("/sd/gcodes", 0);
-  mkdir("/sd/gcodes/.lz", 0);
+  fwfs::mkdir("/sd/gcodes", 0);
+  fwfs::mkdir("/sd/gcodes/.lz", 0);
   return "/sd/gcodes/.lz/" + filename;
 }
 
@@ -249,7 +250,7 @@ void check_and_make_path(std::string origin) {
   while ((pos = origin.find_first_of('/', pos)) != std::string::npos) {
     const auto directory = origin.substr(0, pos++);
     if (!directory.empty()) {
-      mkdir(directory.c_str(), 0);
+      fwfs::mkdir(directory.c_str(), 0);
     }
   }
 }

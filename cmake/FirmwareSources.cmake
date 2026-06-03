@@ -140,7 +140,7 @@ sim_glob_firmware_sources(FIRMWARE_LIB_SOURCES
   libs/*.cpp
   libs/ConfigSources/FileConfigSource.cpp
 )
-list(FILTER FIRMWARE_LIB_SOURCES EXCLUDE REGEX "/libs/(Kernel|MRI_Hooks|ahbmalloc|platform_memory|SDFAT|utils|Vector3|MemoryPool)\\.cpp$")
+list(FILTER FIRMWARE_LIB_SOURCES EXCLUDE REGEX "/libs/(Kernel|MRI_Hooks|FirmwareFileSystem|ahbmalloc|platform_memory|SDFAT|utils|Vector3|MemoryPool)\\.cpp$")
 
 # Auto-detect source additions in the firmware subsystems the stock C1/CA1
 # simulator actually links. Unsupported machine families and transports stay

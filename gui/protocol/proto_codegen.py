@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 from shutil import which
 from pathlib import Path
 
@@ -58,12 +59,13 @@ def generate_proto() -> Path:
         _patch_generated_stub()
         return GENERATED_DIR
 
-    if which("protoc") is None:
+    protoc = _find_protoc()
+    if protoc is None:
         raise RuntimeError("protoc is required to generate Python protobuf bindings")
 
     subprocess.run(
         [
-            "protoc",
+            str(protoc),
             f"-I{PROTO_PATH.parent}",
             f"--python_out={GENERATED_DIR}",
             f"--pyi_out={GENERATED_DIR}",
@@ -74,6 +76,31 @@ def generate_proto() -> Path:
     _patch_generated_stub()
 
     return GENERATED_DIR
+
+
+def _find_protoc() -> Path | None:
+    for name in ("protoc", "protoc.exe"):
+        path = which(name)
+        if path is not None:
+            return Path(path)
+
+    for root_env in ("VCPKG_ROOT", "VCPKG_INSTALLATION_ROOT"):
+        root = os.environ.get(root_env)
+        if root is None:
+            continue
+        for candidate_root in _windows_path_candidates(root):
+            candidate = candidate_root / "installed" / "x64-windows" / "tools" / "protobuf" / "protoc.exe"
+            if candidate.exists():
+                return candidate
+
+    return None
+
+
+def _windows_path_candidates(path: str) -> list[Path]:
+    candidates = [Path(path)]
+    if len(path) >= 3 and path[0] == "/" and path[2] == "/" and path[1].isalpha():
+        candidates.append(Path(f"{path[1]}:/{path[3:]}"))
+    return candidates
 
 
 def _patch_generated_stub() -> None:

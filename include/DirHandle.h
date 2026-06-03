@@ -18,6 +18,8 @@
 #ifndef SIMULATOR_DIRHANDLE_H
 #define SIMULATOR_DIRHANDLE_H
 
+#include <dirent.h>
+
 class DirHandle {};
 
 #endif

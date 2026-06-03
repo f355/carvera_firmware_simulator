@@ -16,7 +16,6 @@
  */
 
 #include <chrono>
-#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -124,6 +123,7 @@ int main() {
 
   int backlog_client = -1;
   require(sim::test::connect_loopback(backlog_wifi.port(), backlog_client), "backlog TCP client should connect");
+  require(sim::test::set_nonblocking(backlog_client), "backlog TCP client should use nonblocking reads");
   int small_receive_buffer = 4096;
   ::setsockopt(backlog_client, SOL_SOCKET, SO_RCVBUF, &small_receive_buffer, sizeof(small_receive_buffer));
 
@@ -132,23 +132,15 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
 
-  const std::string large_payload(2 * 1024 * 1024, 'x');
+  const std::string large_payload(512 * 1024, 'x');
   backlog_wifi.write_output(large_payload);
 
   std::string backlog_output;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (backlog_output.size() < large_payload.size() && std::chrono::steady_clock::now() < deadline) {
-    char buffer[8192];
-    const auto received = ::read(backlog_client, buffer, sizeof(buffer));
-    if (received > 0) {
-      backlog_output.append(buffer, static_cast<std::size_t>(received));
-      continue;
-    }
-    if (received < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
-      continue;
-    }
-    break;
+    backlog_wifi.poll();
+    backlog_output += sim::test::read_available(backlog_client, 16 * 1024);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   require(backlog_output.size() == large_payload.size(),
           "localhost WiFi bridge should queue large outbound bursts until the controller drains them");

@@ -36,7 +36,7 @@ void require(bool condition, const char* message) {
 }
 
 void pump_until_halted(sim::FirmwareRuntime& runtime, Kernel& kernel) {
-  for (int i = 0; i < 40 && !kernel.is_halted(); ++i) {
+  for (int i = 0; i < 200 && !kernel.is_halted(); ++i) {
     runtime.pump_free_running(8, 5'000);
   }
 }

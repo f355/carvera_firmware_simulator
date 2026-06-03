@@ -51,3 +51,10 @@ def test_generated_proto_path_rejects_stale_bindings_without_running_protoc(
         proto_codegen.add_generated_to_path()
 
     assert protoc_calls == []
+
+
+def test_proto_codegen_considers_git_bash_windows_vcpkg_path() -> None:
+    paths = proto_codegen._windows_path_candidates("/c/vcpkg")
+
+    assert Path("/c/vcpkg") in paths
+    assert Path("c:/vcpkg") in paths

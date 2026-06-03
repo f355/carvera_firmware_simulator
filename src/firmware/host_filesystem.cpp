@@ -18,12 +18,13 @@
 #include "sim/host_filesystem.hpp"
 
 #include <cerrno>
+#include <cstdarg>
 #include <cstdlib>
 #include <cstring>
 #include <map>
 #include <mutex>
 
-#include "sim/host_file_shim.h"
+#include "libs/FirmwareFileSystem.h"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/simulator_context.hpp"
 
@@ -38,6 +39,8 @@ bool write_mode(const char* mode) {
 }
 
 std::filesystem::path host_path(const char* path) { return sim::host_filesystem::translate(path); }
+
+std::string host_path_string(const char* path) { return host_path(path).string(); }
 
 }  // namespace
 
@@ -140,36 +143,90 @@ bool exists(const std::string& path) { return simulator_context::active().host_f
 
 }  // namespace sim::host_filesystem
 
-extern "C" FILE* sim_fopen(const char* path, const char* mode) {
+namespace fwfs {
+
+FILE* fopen(const char* path, const char* mode) {
   const auto translated = host_path(path);
   if (write_mode(mode)) {
     std::error_code error;
     std::filesystem::create_directories(translated.parent_path(), error);
   }
-  return std::fopen(translated.c_str(), mode);
+  return std::fopen(translated.string().c_str(), mode);
 }
 
-extern "C" FILE* sim_freopen(const char* path, const char* mode, FILE* stream) {
+FILE* freopen(const char* path, const char* mode, FILE* stream) {
   const auto translated = host_path(path);
   if (write_mode(mode)) {
     std::error_code error;
     std::filesystem::create_directories(translated.parent_path(), error);
   }
-  return std::freopen(translated.c_str(), mode, stream);
+  return std::freopen(translated.string().c_str(), mode, stream);
 }
 
-extern "C" int sim_remove(const char* path) { return std::remove(host_path(path).c_str()); }
+int fclose(FILE* stream) { return std::fclose(stream); }
 
-extern "C" int sim_rename(const char* old_path, const char* new_path) {
+size_t fread(void* ptr, size_t size, size_t count, FILE* stream) { return std::fread(ptr, size, count, stream); }
+
+size_t fwrite(const void* ptr, size_t size, size_t count, FILE* stream) {
+  return std::fwrite(ptr, size, count, stream);
+}
+
+int fprintf(FILE* stream, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  const int result = std::vfprintf(stream, format, args);
+  va_end(args);
+  return result;
+}
+
+char* fgets(char* str, int count, FILE* stream) { return std::fgets(str, count, stream); }
+
+int fputs(const char* str, FILE* stream) { return std::fputs(str, stream); }
+
+int fseek(FILE* stream, long offset, int origin) { return std::fseek(stream, offset, origin); }
+
+long ftell(FILE* stream) { return std::ftell(stream); }
+
+int fgetc(FILE* stream) { return std::fgetc(stream); }
+
+int fputc(int ch, FILE* stream) { return std::fputc(ch, stream); }
+
+int fgetpos(FILE* stream, fpos_t* pos) { return std::fgetpos(stream, pos); }
+
+int fsetpos(FILE* stream, const fpos_t* pos) { return std::fsetpos(stream, pos); }
+
+int sim_fgetpos_as_long(FILE* stream, long* pos) {
+  const long value = std::ftell(stream);
+  if (value < 0) {
+    return -1;
+  }
+  *pos = value;
+  return 0;
+}
+
+int sim_fsetpos_as_long(FILE* stream, const long* pos) { return std::fseek(stream, *pos, SEEK_SET); }
+
+int feof(FILE* stream) { return std::feof(stream); }
+
+int remove(const char* path) {
+  const auto translated = host_path_string(path);
+  return std::remove(translated.c_str());
+}
+
+int rename(const char* old_path, const char* new_path) {
   const auto translated_new = host_path(new_path);
   std::error_code error;
   std::filesystem::create_directories(translated_new.parent_path(), error);
-  return std::rename(host_path(old_path).c_str(), translated_new.c_str());
+  const auto translated_old = host_path_string(old_path);
+  return std::rename(translated_old.c_str(), translated_new.string().c_str());
 }
 
-extern "C" DIR* sim_opendir(const char* path) { return ::opendir(host_path(path).c_str()); }
+DIR* opendir(const char* path) {
+  const auto translated = host_path_string(path);
+  return ::opendir(translated.c_str());
+}
 
-extern "C" int sim_mkdir(const char* path, mode_t mode) {
+int mkdir(const char* path, int mode) {
   (void)mode;
   std::error_code error;
   std::filesystem::create_directories(host_path(path), error);
@@ -179,3 +236,5 @@ extern "C" int sim_mkdir(const char* path, mode_t mode) {
   }
   return 0;
 }
+
+}  // namespace fwfs
