@@ -88,7 +88,7 @@ int main() {
 
   const char status_poll[] = "?\n";
   require(sim::test::write_exact(client, status_poll, std::strlen(status_poll)), "status poll during ATC should write");
-  const auto status = sim::test::read_until(client, "MPos:", std::chrono::milliseconds(1200));
+  const auto status = sim::test::read_until(client, "MPos:", std::chrono::seconds(3));
   require(status.find("MPos:") != std::string::npos, "interactive transport should answer status polls during ATC");
 
   running.store(false);

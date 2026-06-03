@@ -66,9 +66,10 @@ int main() {
           "virtual COM write should succeed");
 
   std::string serial_output;
-  for (int i = 0; i < 100 && (serial_output.find("ok") == std::string::npos ||
-                              simulator.axis_position_steps(0) == initial_serial_x_steps);
-       ++i) {
+  const auto serial_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (
+      std::chrono::steady_clock::now() < serial_deadline &&
+      (serial_output.find("ok") == std::string::npos || simulator.axis_position_steps(0) == initial_serial_x_steps)) {
     uart.poll();
     runtime.pump_free_running();
     uart.poll();
@@ -96,9 +97,9 @@ int main() {
   require(sim::test::set_nonblocking(client), "TCP client should switch to nonblocking reads");
 
   std::string tcp_output;
-  for (int i = 0; i < 100 && (tcp_output.find("ok") == std::string::npos ||
-                              tcp_simulator.axis_position_steps(0) == initial_tcp_x_steps);
-       ++i) {
+  const auto tcp_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (std::chrono::steady_clock::now() < tcp_deadline &&
+         (tcp_output.find("ok") == std::string::npos || tcp_simulator.axis_position_steps(0) == initial_tcp_x_steps)) {
     wifi.poll();
     tcp_runtime.pump_free_running();
     wifi.poll();

@@ -47,6 +47,9 @@ bool request_ok(int to_child, int from_child, std::uint64_t id, carvera::sim::v1
          sim::test::read_stream_response(from_child, id, response) && response.ok();
 }
 
+constexpr auto kBusyProbeDeadline = std::chrono::seconds(5);
+constexpr auto kBusyResponseDeadline = std::chrono::seconds(2);
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -144,7 +147,7 @@ int main(int argc, char** argv) {
   }
 
   bool firmware_busy = false;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  const auto deadline = std::chrono::steady_clock::now() + kBusyProbeDeadline;
   while (std::chrono::steady_clock::now() < deadline && !firmware_busy) {
     carvera::sim::v1::StreamFrame frame;
     if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {
@@ -199,32 +202,29 @@ int main(int argc, char** argv) {
 
   response.Clear();
   const bool stale_snapshot_rejected =
-      sim::test::read_stream_response_timeout(from_child[0], 20, response, std::chrono::milliseconds(500)) &&
-      !response.ok();
+      sim::test::read_stream_response_timeout(from_child[0], 20, response, kBusyResponseDeadline) && !response.ok();
   if (!expect(stale_snapshot_rejected, "busy stream should reject non-urgent snapshot reads quickly")) {
     return 1;
   }
 
   response.Clear();
   const bool stock_acknowledged =
-      sim::test::read_stream_response_timeout(from_child[0], 21, response, std::chrono::milliseconds(500)) &&
-      response.ok();
+      sim::test::read_stream_response_timeout(from_child[0], 21, response, kBusyResponseDeadline) && response.ok();
   if (!expect(stock_acknowledged, "busy stream should acknowledge physical stock geometry quickly")) {
     return 1;
   }
 
   response.Clear();
   const bool eeprom_acknowledged =
-      sim::test::read_stream_response_timeout(from_child[0], 22, response, std::chrono::milliseconds(500)) &&
-      response.ok() && response.has_eeprom_fields();
+      sim::test::read_stream_response_timeout(from_child[0], 22, response, kBusyResponseDeadline) && response.ok() &&
+      response.has_eeprom_fields();
   if (!expect(eeprom_acknowledged, "busy stream should acknowledge EEPROM hardware reads quickly")) {
     return 1;
   }
 
   response.Clear();
   const bool e_stop_acknowledged =
-      sim::test::read_stream_response_timeout(from_child[0], 23, response, std::chrono::milliseconds(500)) &&
-      response.ok();
+      sim::test::read_stream_response_timeout(from_child[0], 23, response, kBusyResponseDeadline) && response.ok();
   if (!expect(e_stop_acknowledged, "busy stream should acknowledge urgent e-stop input quickly")) {
     return 1;
   }

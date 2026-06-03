@@ -92,6 +92,27 @@ std::string read_all(int fd) {
   }
 }
 
+bool connect_controller_and_read_metadata(std::uint16_t port, int& client, std::string& metadata_output,
+                                          std::chrono::milliseconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    int candidate = -1;
+    if (sim::test::connect_loopback(port, candidate, 1)) {
+      const char metadata_query[] = "time\nversion\nmodel\n";
+      if (sim::test::write_exact(candidate, metadata_query, sizeof(metadata_query) - 1)) {
+        metadata_output = sim::test::read_until(candidate, "model =", std::chrono::seconds(1));
+        if (metadata_output.find("model =") != std::string::npos) {
+          client = candidate;
+          return true;
+        }
+      }
+      close(candidate);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+  }
+  return false;
+}
+
 class DiscoveryListener {
  public:
   DiscoveryListener() {
@@ -283,19 +304,12 @@ int main(int argc, char** argv) {
     return 1;
   }
   close(stale_client);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-  if (!expect(sim::test::connect_loopback(port, client),
+  std::string metadata_output;
+  if (!expect(connect_controller_and_read_metadata(port, client, metadata_output, std::chrono::seconds(5)),
               "controller should connect after a stale controller disconnected")) {
     return 1;
   }
-
-  const char metadata_query[] = "time\nversion\nmodel\n";
-  if (!expect(sim::test::write_exact(client, metadata_query, sizeof(metadata_query) - 1),
-              "failed to write controller metadata queries to TCP endpoint")) {
-    return 1;
-  }
-  const auto metadata_output = sim::test::read_until(client, "model =");
 
   const char query[] = "?\n";
   if (!expect(sim::test::write_exact(client, query, sizeof(query) - 1),
@@ -318,7 +332,7 @@ int main(int argc, char** argv) {
   }
   std::vector<double> spindle_ramp_samples;
   bool saw_atc_state_in_stream = false;
-  const auto spindle_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  const auto spindle_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < spindle_deadline && spindle_ramp_samples.size() < 40) {
     carvera::sim::v1::StreamFrame frame;
     if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {

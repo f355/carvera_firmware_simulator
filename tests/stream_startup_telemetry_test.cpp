@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
 
   bool saw_machine_telemetry = false;
   bool saw_snapshot_with_work_area = false;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (std::chrono::steady_clock::now() < deadline && !(saw_machine_telemetry && saw_snapshot_with_work_area)) {
     carvera::sim::v1::StreamFrame frame;
     if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {

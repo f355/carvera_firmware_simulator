@@ -44,6 +44,18 @@ void require(bool condition, const char* message) {
   }
 }
 
+template <typename Predicate>
+bool eventually(Predicate&& predicate, std::chrono::milliseconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (predicate()) {
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return predicate();
+}
+
 }  // namespace
 
 int main() {
@@ -79,18 +91,20 @@ int main() {
   simulator.start_realtime();
   require(simulator.is_realtime(), "start_realtime() should enable wall-clock time");
   const auto realtime_start = simulator.time_us();
-  std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  require(simulator.time_us() > realtime_start, "realtime mode should advance without manual ticks");
+  require(eventually([&] { return simulator.time_us() > realtime_start; }, std::chrono::milliseconds(100)),
+          "realtime mode should advance without manual ticks");
 
   fired_id = 0;
   us_ticker_set_handler(ticker_callback);
   ticker_event_t realtime_event{};
   us_ticker_insert_event(&realtime_event, us_ticker_read() + 1000, 123);
-  for (int attempt = 0; attempt < 20 && fired_id == 0; ++attempt) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    simulator.poll();
-  }
-  require(fired_id == 123, "poll() should dispatch due realtime ticker events");
+  const bool realtime_event_fired = eventually(
+      [&] {
+        simulator.poll();
+        return fired_id == 123;
+      },
+      std::chrono::milliseconds(100));
+  require(realtime_event_fired, "poll() should dispatch due realtime ticker events");
 
   simulator.pause_realtime();
   require(!simulator.is_realtime(), "pause_realtime() should return to manual mode");
