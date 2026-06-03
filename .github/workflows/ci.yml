@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: ubuntu-latest
+            name: ubuntu-26.04
           - os: macos-latest
             name: macos-latest
           - os: windows-latest
@@ -27,19 +27,19 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v6
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         with:
           python-version: "3.13"
 
       - uses: astral-sh/setup-uv@v7
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         with:
           enable-cache: true
 
       - uses: Vampire/setup-wsl@v7
         if: runner.os == 'Windows'
         with:
-          distribution: Ubuntu-24.04
+          distribution: Ubuntu-26.04
           update: "true"
           additional-packages: >
             build-essential
@@ -53,56 +53,86 @@ jobs:
             python3
             python3-venv
 
-      - name: Install Linux packages
+      - name: Build and test on Ubuntu 26.04
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build protobuf-compiler libprotobuf-dev
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            ubuntu:26.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                build-essential \
+                ca-certificates \
+                cmake \
+                curl \
+                git \
+                libprotobuf-dev \
+                ninja-build \
+                protobuf-compiler \
+                python3 \
+                python3-venv
+              export PATH="$HOME/.local/bin:$PATH"
+              if ! command -v uv >/dev/null; then
+                curl -LsSf https://astral.sh/uv/install.sh | sh
+              fi
+              export PATH="$HOME/.local/bin:$PATH"
+              JOBS="$(python3 -c "import os; print(os.cpu_count() or 4)")"
+              FIRMWARE_ROOT="$(bash scripts/ensure_firmware_checkout.sh)"
+              uv sync --python "$(command -v python3)"
+              uv run python -m gui.protocol.proto_codegen
+              uv run ruff format --check gui
+              uv run ruff check gui
+              uv run mypy gui
+              cmake -S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
+              cmake --build build --target check --parallel "$JOBS"
+              uv run pytest gui/tests
+            '
 
       - name: Install macOS packages
         if: runner.os == 'macOS'
         run: brew install cmake ninja protobuf
 
       - name: Fetch compatible firmware
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
 
       - name: Detect build parallelism
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: python -c "import os; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write(f'CMAKE_BUILD_PARALLEL_LEVEL={os.cpu_count() or 4}\n')"
 
       - name: Sync Python environment
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: uv sync
 
       - name: Generate Python protobuf bindings
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: uv run python -m gui.protocol.proto_codegen
 
       - name: Check Python
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: |
           uv run ruff format --check gui
           uv run ruff check gui
           uv run mypy gui
 
       - name: Configure CMake
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: |
           CMAKE_ARGS=(-S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
           cmake "${CMAKE_ARGS[@]}"
 
       - name: Build and run C++ tests
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
 
       - name: Build and test under WSL
         if: runner.os == 'Windows'
         shell: wsl-bash {0}
         run: |
-          WSL_WORKSPACE="/tmp/carvera_firmware_simulator_ci_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
-          rm -rf "$WSL_WORKSPACE"
-          mkdir -p "$WSL_WORKSPACE"
+          WSL_WORKSPACE="$(mktemp -d /tmp/carvera_firmware_simulator_ci_XXXXXX)"
           tar \
             --exclude='./.git' \
             --exclude='./.mypy_cache' \
@@ -131,5 +161,5 @@ jobs:
           uv run pytest gui/tests -m "not integration" --ignore=gui/tests/app_runtime_page_test.py
 
       - name: Run GUI tests
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: uv run pytest gui/tests
