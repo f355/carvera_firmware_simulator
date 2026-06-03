@@ -47,6 +47,7 @@ class NonblockingFdPump {
 
   platform_io::IoHandle fd() const { return fd_; }
   bool open() const { return fd_ != platform_io::kInvalidHandle; }
+  std::size_t queued_output_size() const { return output_.size(); }
 
   void reset(platform_io::IoHandle fd = platform_io::kInvalidHandle);
   void close();

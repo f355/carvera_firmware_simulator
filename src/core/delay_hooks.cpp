@@ -32,10 +32,12 @@ ScopedCallback::ScopedCallback(Callback callback) : previous_(std::move(active_c
 
 ScopedCallback::~ScopedCallback() { active_callback = std::move(previous_); }
 
-void run() {
+bool run() {
   if (active_callback) {
     active_callback();
+    return true;
   }
+  return false;
 }
 
 }  // namespace sim::delay_hooks

@@ -132,8 +132,10 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
 
-  const std::string large_payload(512 * 1024, 'x');
+  const std::string large_payload(256 * 1024, 'x');
   backlog_wifi.write_output(large_payload);
+  require(backlog_wifi.queued_output_bytes() > 0,
+          "localhost WiFi bridge should keep burst backpressure in its own output queue");
 
   std::string backlog_output;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

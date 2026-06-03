@@ -36,7 +36,7 @@ class ScopedCallback {
   Callback previous_;
 };
 
-void run();
+bool run();
 
 }  // namespace sim::delay_hooks
 

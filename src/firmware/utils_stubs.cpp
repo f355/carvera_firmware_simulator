@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <thread>
 
 #include "checksumm.h"
 #include "libs/Kernel.h"
@@ -276,7 +277,9 @@ void advance_delay_time(std::uint64_t delay_us) {
     sim::clock::active().advance_us(delay_us);
     sim::us_ticker::dispatch_due_events();
   }
-  sim::delay_hooks::run();
+  if (sim::delay_hooks::run()) {
+    std::this_thread::yield();
+  }
   if (THEKERNEL != nullptr) {
     THEKERNEL->call_event(ON_IDLE, nullptr);
   }

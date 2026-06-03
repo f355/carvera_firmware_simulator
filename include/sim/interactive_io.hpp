@@ -19,6 +19,7 @@
 #define SIMULATOR_SIM_INTERACTIVE_IO_HPP
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -66,6 +67,7 @@ class LocalhostTcpBridge {
   void poll();
   std::string poll_input();
   void write_output(const std::string& bytes);
+  std::size_t queued_output_bytes() const;
 
   std::uint16_t port() const { return port_; }
 
@@ -86,7 +88,7 @@ class LocalhostTcpBridge {
   std::vector<Client> clients_;
   std::uint16_t port_{0};
   BackgroundPoller worker_;
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
 };
 
 class LocalhostDiscoveryBeacon {

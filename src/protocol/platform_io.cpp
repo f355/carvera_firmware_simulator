@@ -17,6 +17,7 @@
 
 #include "sim/platform_io.hpp"
 
+#include <algorithm>
 #include <cerrno>
 
 #ifdef _WIN32
@@ -35,6 +36,11 @@
 #endif
 
 namespace sim::platform_io {
+namespace {
+
+constexpr std::size_t kMaxDrainBytesPerService = 16 * 1024;
+
+}  // namespace
 
 bool ensure_socket_runtime() {
 #ifdef _WIN32
@@ -159,10 +165,13 @@ bool write_all(IoHandle fd, const std::string& bytes) {
 
 bool drain_write_buffer(IoHandle fd, std::string& bytes) {
 #ifdef _WIN32
-  while (!bytes.empty()) {
-    const auto n = ::send(static_cast<SOCKET>(fd), bytes.data(), static_cast<int>(bytes.size()), 0);
+  std::size_t drained = 0;
+  while (!bytes.empty() && drained < kMaxDrainBytesPerService) {
+    const auto chunk = std::min(bytes.size(), kMaxDrainBytesPerService - drained);
+    const auto n = ::send(static_cast<SOCKET>(fd), bytes.data(), static_cast<int>(chunk), 0);
     if (n > 0) {
       bytes.erase(0, static_cast<std::size_t>(n));
+      drained += static_cast<std::size_t>(n);
       continue;
     }
     const auto error = ::WSAGetLastError();
@@ -173,10 +182,13 @@ bool drain_write_buffer(IoHandle fd, std::string& bytes) {
   }
   return true;
 #else
-  while (!bytes.empty()) {
-    const auto n = ::write(static_cast<int>(fd), bytes.data(), bytes.size());
+  std::size_t drained = 0;
+  while (!bytes.empty() && drained < kMaxDrainBytesPerService) {
+    const auto chunk = std::min(bytes.size(), kMaxDrainBytesPerService - drained);
+    const auto n = ::write(static_cast<int>(fd), bytes.data(), chunk);
     if (n > 0) {
       bytes.erase(0, static_cast<std::size_t>(n));
+      drained += static_cast<std::size_t>(n);
       continue;
     }
     if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {

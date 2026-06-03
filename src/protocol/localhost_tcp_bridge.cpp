@@ -49,6 +49,20 @@ using NativeSocket = int;
 
 NativeSocket native_socket(platform_io::IoHandle handle) { return static_cast<NativeSocket>(handle); }
 
+bool is_realtime_command_byte(char byte) {
+  switch (byte) {
+    case '?':
+    case '!':
+    case '~':
+    case '\x18':  // Ctrl-X: abort
+    case '\x19':  // Ctrl-Y: stop
+    case '\x1a':  // Ctrl-Z: keepalive
+      return true;
+    default:
+      return false;
+  }
+}
+
 }  // namespace
 
 std::string LocalhostTcpBridge::take_pending_firmware_input(Client& client, bool firmware_uploading) const {
@@ -62,11 +76,17 @@ std::string LocalhostTcpBridge::take_pending_firmware_input(Client& client, bool
     return bytes;
   }
 
+  if (is_realtime_command_byte(client.pending_input.front())) {
+    const auto count =
+        client.pending_input.size() >= 2 && client.pending_input[0] == '?' && client.pending_input[1] == '1' ? 2U : 1U;
+    auto bytes = client.pending_input.substr(0, count);
+    client.pending_input.erase(0, count);
+    return bytes;
+  }
+
   const auto newline = client.pending_input.find('\n');
   if (newline == std::string::npos) {
-    auto bytes = std::move(client.pending_input);
-    client.pending_input.clear();
-    return bytes;
+    return {};
   }
 
   auto bytes = client.pending_input.substr(0, newline + 1);
@@ -194,6 +214,15 @@ void LocalhostTcpBridge::write_output(const std::string& bytes) {
       ++it;
     }
   }
+}
+
+std::size_t LocalhostTcpBridge::queued_output_bytes() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::size_t total = 0;
+  for (const auto& client : clients_) {
+    total += client.io.queued_output_size();
+  }
+  return total;
 }
 
 bool LocalhostTcpBridge::service_client_io_locked(Client& client) { return client.io.service(); }
