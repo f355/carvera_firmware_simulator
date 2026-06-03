@@ -70,7 +70,8 @@ def test_ci_runs_python_and_cpp_checks() -> None:
         "uv run ruff check gui",
         "uv run mypy gui",
         "uv run pytest gui/tests",
-        "cmake --build build --target check",
+        "cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}",
+        "CMAKE_BUILD_PARALLEL_LEVEL",
     ):
         if text not in ci:
             raise SystemExit(f"CI should run {text}")

@@ -65,6 +65,9 @@ jobs:
       - name: Fetch compatible firmware
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
 
+      - name: Detect build parallelism
+        run: python -c "import os; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write(f'CMAKE_BUILD_PARALLEL_LEVEL={os.cpu_count() or 4}\n')"
+
       - name: Sync Python environment
         run: uv sync
 
@@ -90,11 +93,11 @@ jobs:
 
       - name: Build and run C++ tests
         if: runner.os != 'Windows'
-        run: cmake --build build --target check
+        run: cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
 
       - name: Build Windows simulator binaries
         if: runner.os == 'Windows'
-        run: cmake --build build --target carvera_sim_stdio carvera_sim_stream_stdio carvera_sim_interactive
+        run: cmake --build build --target carvera_sim_stdio carvera_sim_stream_stdio carvera_sim_interactive --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
 
       - name: Run GUI tests
         if: runner.os != 'Windows'

@@ -25,6 +25,7 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "support/cartesian_config.hpp"
+#include "support/runtime_wait.hpp"
 
 namespace {
 
@@ -32,12 +33,6 @@ void require(bool condition, const char* message) {
   if (!condition) {
     std::cerr << message << '\n';
     std::exit(1);
-  }
-}
-
-void pump_until_halted(sim::FirmwareRuntime& runtime, Kernel& kernel) {
-  for (int i = 0; i < 200 && !kernel.is_halted(); ++i) {
-    runtime.pump_free_running(8, 5'000);
   }
 }
 
@@ -77,36 +72,18 @@ int main() {
 
   runtime.write_serial("G91\n");
   runtime.write_serial("G0 X100 F120\n");
-  runtime.pump_free_running(32, 500);
+  require(sim::test::pump_until_axis_moves_by(runtime, simulator, kernel, 0, 0.02),
+          "test move should start before the hard-limit switch is asserted");
   require(!kernel.is_halted(), "test move should start without an alarm");
 
   runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, true);
-  pump_until_halted(runtime, kernel);
+  require(sim::test::pump_until_halted(runtime, kernel),
+          "real Endstops should halt firmware when a moving axis hits a hard limit");
   const auto hard_limit_output = runtime.read_serial();
-  require(kernel.is_halted(), "real Endstops should halt firmware when a moving axis hits a hard limit");
   require(kernel.get_halt_reason() == HARD_LIMIT, "hard limit should set HARD_LIMIT halt reason");
   require(hard_limit_output.find("Limit switch") != std::string::npos ||
               hard_limit_output.find("Hard limit") != std::string::npos,
           "hard-limit halt should be reported on the firmware stream");
-
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
-  require(!kernel.is_halted(),
-          "firmware M999 should clear the hard-limit halt even before the switch mechanically releases");
-
-  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, false);
-  runtime.pump_free_running(8, 5'000);
-  require(!kernel.is_halted(), "releasing the hard-limit switch should not reassert the alarm after M999");
-
-  runtime.write_serial("G0 X-1 F120\n");
-  require(runtime.run_until_idle(200'000), "firmware should accept motion after hard-limit recovery");
-  require(!kernel.is_halted(), "post-recovery motion should not reassert the hard-limit alarm");
-
-  runtime.write_serial("G0 X100 F120\n");
-  runtime.pump_free_running(32, 500);
-  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, true);
-  pump_until_halted(runtime, kernel);
-  require(kernel.is_halted(), "second hard limit should halt before controller reset");
 
   runtime.write_serial("reset\n");
   runtime.run_main_loop(1);
@@ -118,6 +95,31 @@ int main() {
   auto& rebooted_kernel = runtime.boot();
   require(!rebooted_kernel.is_halted(), "runtime should reboot cleanly after controller reset from a hard limit");
   require(runtime.is_homed(), "runtime should home again after controller reset");
+
+  runtime.write_serial("G91\n");
+  runtime.write_serial("G0 X100 F120\n");
+  require(sim::test::pump_until_axis_moves_by(runtime, simulator, rebooted_kernel, 0, 0.02),
+          "second test move should start before the hard-limit switch is asserted");
+  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, true);
+  require(sim::test::pump_until_halted(runtime, rebooted_kernel), "second hard limit should halt before M999 recovery");
+
+  runtime.write_serial("M999\n");
+  runtime.run_until_idle(20'000);
+  const auto m999_output = runtime.read_serial();
+  require(!rebooted_kernel.is_halted(),
+          "firmware M999 should clear the hard-limit halt even before the switch mechanically releases");
+  require(m999_output.find("After HALT you should HOME") != std::string::npos,
+          "M999 recovery should warn that the machine must home before motion");
+
+  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, false);
+  runtime.pump_free_running(8, 5'000);
+  require(!rebooted_kernel.is_halted(), "releasing the hard-limit switch should not reassert the alarm after M999");
+
+  runtime.write_serial("G0 X-1 F120\n");
+  require(sim::test::pump_until_axis_moves_by(runtime, simulator, rebooted_kernel, 0, 0.02),
+          "firmware should accept motion after M999 recovery");
+  require(runtime.run_until_idle(200'000), "post-M999 recovery motion should reach idle");
+  require(!rebooted_kernel.is_halted(), "post-M999 recovery motion should not reassert the hard-limit alarm");
 
   std::filesystem::remove_all(root);
   return 0;

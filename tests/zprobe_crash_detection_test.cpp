@@ -22,6 +22,7 @@
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
+#include "support/runtime_wait.hpp"
 
 int main() {
   using sim::test::require;
@@ -49,12 +50,13 @@ int main() {
 
   runtime.write_serial("G91\nG0 X10 F60\n");
   std::string serial;
-  for (int i = 0; i < 80 && !kernel.is_halted(); ++i) {
-    runtime.pump_free_running(8, 5'000);
+  const bool halted = sim::test::pump_until(runtime, [&] {
     serial += runtime.read_serial();
-  }
+    return kernel.is_halted();
+  });
+  serial += runtime.read_serial();
 
-  require(kernel.is_halted(), "real ZProbe should halt firmware when a 3D probe contacts stock during normal motion");
+  require(halted, "real ZProbe should halt firmware when a 3D probe contacts stock during normal motion");
   require(kernel.get_halt_reason() == CRASH_DETECTED,
           "3D probe contact outside a probe cycle should report CRASH_DETECTED");
   require(serial.find("3D Probe crash detected") != std::string::npos,

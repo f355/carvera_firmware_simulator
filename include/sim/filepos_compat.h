@@ -18,6 +18,7 @@
 #ifndef SIMULATOR_SIM_FILEPOS_COMPAT_H
 #define SIMULATOR_SIM_FILEPOS_COMPAT_H
 
+#include <cstdio>
 #include <stdio.h>
 
 static inline int sim_fgetpos_as_long(FILE* stream, long* pos) {

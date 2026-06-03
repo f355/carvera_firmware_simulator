@@ -19,6 +19,7 @@
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
+#include "support/runtime_wait.hpp"
 
 int main() {
   using sim::test::require;
@@ -40,12 +41,13 @@ int main() {
 
   runtime.write_serial("G91\nG0 X-10 F60\n");
   std::string serial;
-  for (int i = 0; i < 120 && !kernel.is_halted(); ++i) {
-    runtime.pump_free_running(8, 5'000);
+  const bool halted = sim::test::pump_until(runtime, [&] {
     serial += runtime.read_serial();
-  }
+    return kernel.is_halted();
+  });
+  serial += runtime.read_serial();
 
-  require(kernel.is_halted(), "stock Z probe side contact should halt through a simulated motor alarm");
+  require(halted, "stock Z probe side contact should halt through a simulated motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_X, "stock Z probe side contact in X should report MOTOR_ERROR_X");
   require(runtime.motor_alarm(0), "stock Z probe side contact should drive the X motor alarm input");
   require(serial.find("3D Probe crash detected") == std::string::npos,
