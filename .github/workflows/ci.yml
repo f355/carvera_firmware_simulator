@@ -9,7 +9,6 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
-    continue-on-error: ${{ matrix.experimental }}
     defaults:
       run:
         shell: bash
@@ -19,13 +18,10 @@ jobs:
         include:
           - os: ubuntu-latest
             name: ubuntu-latest
-            experimental: false
           - os: macos-latest
             name: macos-latest
-            experimental: false
           - os: windows-latest
             name: windows-latest / WSL
-            experimental: true
 
     steps:
       - uses: actions/checkout@v5
