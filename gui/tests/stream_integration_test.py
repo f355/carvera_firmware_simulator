@@ -18,6 +18,7 @@ from __future__ import annotations
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -25,6 +26,24 @@ from gui.protocol.sim_client import SimulatorClient
 
 TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
 pytestmark = pytest.mark.integration
+STREAM_STARTUP_TIMEOUT_S = 45.0
+
+
+def _wait_for_stream_startup(snapshots: list[Any], io_events: list[Any]) -> None:
+    deadline = time.monotonic() + STREAM_STARTUP_TIMEOUT_S
+    while time.monotonic() < deadline:
+        if snapshots and snapshots[-1].firmware_booted and snapshots[-1].homed and io_events:
+            return
+        time.sleep(0.1)
+
+    latest = snapshots[-1] if snapshots else None
+    if latest is None:
+        pytest.fail(f"simulator stream did not publish a machine snapshot within {STREAM_STARTUP_TIMEOUT_S:.0f}s")
+    pytest.fail(
+        "simulator stream did not reach homed startup state within "
+        f"{STREAM_STARTUP_TIMEOUT_S:.0f}s: "
+        f"firmware_booted={latest.firmware_booted}, homed={latest.homed}, io_events={len(io_events)}"
+    )
 
 
 def test_stream_integration_test() -> None:
@@ -61,10 +80,7 @@ def test_stream_integration_test() -> None:
             transport = simulator.start_interactive_transport(enable_uart=True, tcp_ports=[0])
             assert transport.tcp_endpoints[0].host == "127.0.0.1"
             assert transport.tcp_endpoints[0].port > 0
-            for _ in range(150):
-                if snapshots and snapshots[-1].firmware_booted and snapshots[-1].homed and io_events:
-                    break
-                time.sleep(0.1)
+            _wait_for_stream_startup(snapshots, io_events)
             assert len(snapshots) >= 1
             assert snapshots[-1].firmware_booted is True
             assert snapshots[-1].homed is True
