@@ -1,0 +1,23 @@
+* text=auto
+
+# Files used from WSL or POSIX shells must stay LF even after a Windows checkout.
+*.sh text eol=lf
+
+# Keep source and build metadata stable across platforms.
+*.c text eol=lf
+*.cc text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.hh text eol=lf
+*.hpp text eol=lf
+*.py text eol=lf
+*.pyi text eol=lf
+*.cmake text eol=lf
+*.proto text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+CMakeLists.txt text eol=lf
+
+# Meshes are binary assets.
+*.glb binary
