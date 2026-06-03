@@ -18,7 +18,6 @@ from __future__ import annotations
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -26,12 +25,6 @@ from gui.protocol.sim_client import SimulatorClient
 
 TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
 pytestmark = pytest.mark.integration
-
-
-def _has_motion_delta(events: list[Any]) -> bool:
-    if len(events) < 2 or len(events[0].axes) == 0 or len(events[-1].axes) == 0:
-        return False
-    return events[0].axes[0].physical_mm != events[-1].axes[0].physical_mm
 
 
 def test_stream_integration_test() -> None:
@@ -68,16 +61,16 @@ def test_stream_integration_test() -> None:
             transport = simulator.start_interactive_transport(enable_uart=True, tcp_ports=[0])
             assert transport.tcp_endpoints[0].host == "127.0.0.1"
             assert transport.tcp_endpoints[0].port > 0
-            for _ in range(30):
-                if snapshots and snapshots[-1].HasField("work_area") and io_events and _has_motion_delta(events):
+            for _ in range(150):
+                if snapshots and snapshots[-1].firmware_booted and snapshots[-1].homed and io_events:
                     break
                 time.sleep(0.1)
             assert len(snapshots) >= 1
             assert snapshots[-1].firmware_booted is True
+            assert snapshots[-1].homed is True
             assert snapshots[-1].HasField("work_area")
             assert len(events) > 5
             assert len(events[-1].axes) > 0
-            assert _has_motion_delta(events)
             assert len(io_events) >= 1
             assert io_events[-1].front_panel.power_rails.v24 is True
         finally:

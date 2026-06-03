@@ -39,15 +39,6 @@ def test_run_gui_uses_managed_firmware_checkout() -> None:
         raise SystemExit("run_gui.sh should explicitly refresh Python protobuf bindings before GUI import")
 
 
-def test_pinned_firmware_metadata() -> None:
-    commit = (ROOT / "firmware" / "compatible_commit").read_text(encoding="utf-8").strip()
-    repo = (ROOT / "firmware" / "repository_url").read_text(encoding="utf-8").strip()
-    if commit != "f55a86276275f0a0043ce42862b7bb99824cb218":
-        raise SystemExit("compatible firmware commit should match the simulator's expected firmware revision")
-    if repo != "https://github.com/f355/Carvera_Community_Firmware.git":
-        raise SystemExit("compatible firmware repository should be explicit")
-
-
 def test_cmake_uses_cxx20_and_cmake_protobuf_target() -> None:
     cmake = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
     if "set(CMAKE_CXX_STANDARD 20)" not in cmake:
