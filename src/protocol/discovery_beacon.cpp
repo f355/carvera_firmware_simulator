@@ -21,33 +21,10 @@
 
 #include "sim/platform_io.hpp"
 
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
 #include <netinet/in.h>
 #include <sys/socket.h>
-#endif
 
 namespace sim {
-
-namespace {
-
-#ifdef _WIN32
-using NativeSocket = SOCKET;
-#else
-using NativeSocket = int;
-#endif
-
-NativeSocket native_socket(platform_io::IoHandle handle) { return static_cast<NativeSocket>(handle); }
-
-}  // namespace
 
 LocalhostDiscoveryBeacon::LocalhostDiscoveryBeacon() = default;
 
@@ -62,15 +39,9 @@ bool LocalhostDiscoveryBeacon::start() {
   }
 
   const auto socket_fd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-#ifdef _WIN32
-  if (socket_fd == INVALID_SOCKET) {
-    return false;
-  }
-#else
   if (socket_fd < 0) {
     return false;
   }
-#endif
   socket_fd_ = static_cast<platform_io::IoHandle>(socket_fd);
   next_send_ = std::chrono::steady_clock::now();
   return true;
@@ -110,8 +81,7 @@ void LocalhostDiscoveryBeacon::send_payload(std::string_view payload) const {
   address.sin_family = AF_INET;
   address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   address.sin_port = htons(3333);
-  ::sendto(native_socket(socket_fd_), payload.data(), static_cast<int>(payload.size()), 0,
-           reinterpret_cast<sockaddr*>(&address), sizeof(address));
+  ::sendto(socket_fd_, payload.data(), payload.size(), 0, reinterpret_cast<sockaddr*>(&address), sizeof(address));
 }
 
 }  // namespace sim

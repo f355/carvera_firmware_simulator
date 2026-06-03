@@ -23,31 +23,12 @@
 #include "sim/m8266_wifi.hpp"
 #include "sim/platform_io.hpp"
 
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
 #include <netinet/in.h>
 #include <sys/socket.h>
-#endif
 
 namespace sim {
 
 namespace {
-
-#ifdef _WIN32
-using NativeSocket = SOCKET;
-#else
-using NativeSocket = int;
-#endif
-
-NativeSocket native_socket(platform_io::IoHandle handle) { return static_cast<NativeSocket>(handle); }
 
 bool is_realtime_command_byte(char byte) {
   switch (byte) {
@@ -107,40 +88,30 @@ bool LocalhostTcpBridge::start(std::uint16_t requested_port) {
   }
 
   const auto listen_socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-#ifdef _WIN32
-  if (listen_socket == INVALID_SOCKET) {
-    return false;
-  }
-#else
   if (listen_socket < 0) {
     return false;
   }
-#endif
   listen_fd_ = static_cast<platform_io::IoHandle>(listen_socket);
 
   int yes = 1;
-  ::setsockopt(native_socket(listen_fd_), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+  ::setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
   sockaddr_in address{};
   address.sin_family = AF_INET;
   address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   address.sin_port = htons(requested_port);
-  if (::bind(native_socket(listen_fd_), reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
+  if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
     stop();
     return false;
   }
-  if (::listen(native_socket(listen_fd_), 4) != 0) {
+  if (::listen(listen_fd_, 4) != 0) {
     stop();
     return false;
   }
 
   sockaddr_in bound{};
-#ifdef _WIN32
-  int bound_len = sizeof(bound);
-#else
   socklen_t bound_len = sizeof(bound);
-#endif
-  if (::getsockname(native_socket(listen_fd_), reinterpret_cast<sockaddr*>(&bound), &bound_len) == 0) {
+  if (::getsockname(listen_fd_, reinterpret_cast<sockaddr*>(&bound), &bound_len) == 0) {
     port_ = ntohs(bound.sin_port);
   }
   platform_io::set_nonblocking(listen_fd_);
@@ -237,16 +208,10 @@ void LocalhostTcpBridge::update_firmware_connection_state(bool connected) {
 
 void LocalhostTcpBridge::accept_pending_clients() {
   for (;;) {
-    const auto client = ::accept(native_socket(listen_fd_), nullptr, nullptr);
-#ifdef _WIN32
-    if (client == INVALID_SOCKET) {
-      break;
-    }
-#else
+    const auto client = ::accept(listen_fd_, nullptr, nullptr);
     if (client < 0) {
       break;
     }
-#endif
 #ifdef SO_NOSIGPIPE
     int yes = 1;
     ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes));

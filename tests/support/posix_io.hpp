@@ -24,24 +24,16 @@
 #include <string>
 #include <thread>
 
-#ifndef _WIN32
 #include <cerrno>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#endif
 
 namespace sim::test {
 
 inline bool write_exact(int fd, const void* data, std::size_t size) {
-#ifdef _WIN32
-  (void)fd;
-  (void)data;
-  (void)size;
-  return false;
-#else
   auto* bytes = static_cast<const char*>(data);
   while (size > 0) {
     const auto written = ::write(fd, bytes, size);
@@ -55,16 +47,9 @@ inline bool write_exact(int fd, const void* data, std::size_t size) {
     size -= static_cast<std::size_t>(written);
   }
   return true;
-#endif
 }
 
 inline bool read_exact(int fd, void* data, std::size_t size) {
-#ifdef _WIN32
-  (void)fd;
-  (void)data;
-  (void)size;
-  return false;
-#else
   auto* bytes = static_cast<char*>(data);
   while (size > 0) {
     const auto received = ::read(fd, bytes, size);
@@ -81,17 +66,9 @@ inline bool read_exact(int fd, void* data, std::size_t size) {
     size -= static_cast<std::size_t>(received);
   }
   return true;
-#endif
 }
 
 inline bool read_exact_timeout(int fd, void* data, std::size_t size, std::chrono::milliseconds timeout) {
-#ifdef _WIN32
-  (void)fd;
-  (void)data;
-  (void)size;
-  (void)timeout;
-  return false;
-#else
   auto* bytes = static_cast<char*>(data);
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (size > 0 && std::chrono::steady_clock::now() < deadline) {
@@ -111,12 +88,10 @@ inline bool read_exact_timeout(int fd, void* data, std::size_t size, std::chrono
     size -= static_cast<std::size_t>(received);
   }
   return size == 0;
-#endif
 }
 
 inline std::string read_available(int fd, std::size_t buffer_size = 1024) {
   std::string output;
-#ifndef _WIN32
   std::string buffer(buffer_size, '\0');
   for (;;) {
     const auto received = ::read(fd, buffer.data(), buffer.size());
@@ -129,17 +104,11 @@ inline std::string read_available(int fd, std::size_t buffer_size = 1024) {
     }
     return output;
   }
-#else
-  (void)fd;
-  (void)buffer_size;
-  return output;
-#endif
 }
 
 inline std::string read_until(int fd, const std::string& needle,
                               std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
   std::string output;
-#ifndef _WIN32
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     fd_set read_set;
@@ -158,21 +127,10 @@ inline std::string read_until(int fd, const std::string& needle,
       }
     }
   }
-#else
-  (void)fd;
-  (void)needle;
-  (void)timeout;
-#endif
   return output;
 }
 
 inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50) {
-#ifdef _WIN32
-  (void)port;
-  (void)client;
-  (void)attempts;
-  return false;
-#else
   client = ::socket(AF_INET, SOCK_STREAM, 0);
   if (client < 0) {
     return false;
@@ -191,7 +149,6 @@ inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50)
   ::close(client);
   client = -1;
   return false;
-#endif
 }
 
 inline bool localhost_accepts_tcp(std::uint32_t port) {
@@ -199,29 +156,17 @@ inline bool localhost_accepts_tcp(std::uint32_t port) {
   if (!connect_loopback(static_cast<std::uint16_t>(port), client, 1)) {
     return false;
   }
-#ifndef _WIN32
   ::close(client);
-#endif
   return true;
 }
 
 inline int open_virtual_com_slave(const std::string& path) {
-#ifdef _WIN32
-  (void)path;
-  return -1;
-#else
   return ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-#endif
 }
 
 inline bool set_nonblocking(int fd) {
-#ifdef _WIN32
-  (void)fd;
-  return false;
-#else
   const int flags = ::fcntl(fd, F_GETFL, 0);
   return flags >= 0 && ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
-#endif
 }
 
 }  // namespace sim::test

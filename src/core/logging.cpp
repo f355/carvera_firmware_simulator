@@ -42,11 +42,7 @@ std::string elapsed_timestamp() {
       std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
 
   std::tm utc{};
-#ifdef _WIN32
-  gmtime_s(&utc, &seconds);
-#else
   gmtime_r(&seconds, &utc);
-#endif
 
   std::ostringstream out;
   out << std::put_time(&utc, "%Y-%m-%dT%H:%M:%S") << '.' << std::setw(3) << std::setfill('0') << milliseconds << 'Z';

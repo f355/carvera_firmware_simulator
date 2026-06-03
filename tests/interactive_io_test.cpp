@@ -30,9 +30,7 @@
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
 
-#ifndef _WIN32
 #include <unistd.h>
-#endif
 
 namespace {
 
@@ -46,9 +44,6 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-#ifdef _WIN32
-  return 0;
-#else
   const auto root = std::filesystem::temp_directory_path() / "carvera_sim_interactive_io_test";
   std::filesystem::remove_all(root);
   sim::test::write_cartesian_config(root);
@@ -150,5 +145,4 @@ int main() {
 
   std::filesystem::remove_all(root);
   return 0;
-#endif
 }

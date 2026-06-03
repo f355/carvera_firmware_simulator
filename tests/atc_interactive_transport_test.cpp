@@ -32,9 +32,7 @@
 #include "support/posix_io.hpp"
 #include "support/temp_sdcard.hpp"
 
-#ifndef _WIN32
 #include <unistd.h>
-#endif
 
 namespace {
 
@@ -43,9 +41,6 @@ using sim::test::require;
 }  // namespace
 
 int main() {
-#ifdef _WIN32
-  return 0;
-#else
   sim::test::TempSdCard sd("carvera_sim_atc_interactive_transport_test");
   sim::test::C1AtcConfigOptions config_options;
   config_options.include_atc_home_pin = false;
@@ -100,5 +95,4 @@ int main() {
   pump.join();
   ::close(client);
   return 0;
-#endif
 }

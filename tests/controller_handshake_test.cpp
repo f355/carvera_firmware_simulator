@@ -30,15 +30,12 @@
 #include "support/temp_sdcard.hpp"
 #include "support/xmodem.hpp"
 
-#ifndef _WIN32
 #include <unistd.h>
-#endif
 
 namespace {
 
 using sim::test::require;
 
-#ifndef _WIN32
 std::string send_and_read_until(int fd, const char* command, const std::string& needle) {
   require(sim::test::write_exact(fd, command, std::strlen(command)), "controller command should write");
   return sim::test::read_until(fd, needle);
@@ -58,14 +55,10 @@ void require_no_hard_limit(const std::string& response, const char* message) {
   require(response.find("Hard limit") == std::string::npos && response.find("Limit switch") == std::string::npos,
           message);
 }
-#endif
 
 }  // namespace
 
 int main() {
-#ifdef _WIN32
-  return 0;
-#else
   sim::test::TempSdCard sd("carvera_sim_controller_handshake_test");
   sd.write_config_txt(
       "# controller handshake config\n"
@@ -155,5 +148,4 @@ int main() {
   pump.join();
   ::close(client);
   return 0;
-#endif
 }

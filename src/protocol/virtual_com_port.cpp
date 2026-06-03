@@ -20,10 +20,8 @@
 #include "sim/firmware_runtime.hpp"
 #include "sim/platform_io.hpp"
 
-#ifndef _WIN32
 #include <fcntl.h>
 #include <stdlib.h>
-#endif
 
 namespace sim {
 
@@ -31,18 +29,9 @@ VirtualComPort::VirtualComPort(FirmwareRuntime& runtime) : runtime_(runtime) {}
 
 VirtualComPort::~VirtualComPort() { stop(); }
 
-bool VirtualComPort::supported() const {
-#ifdef _WIN32
-  return false;
-#else
-  return true;
-#endif
-}
+bool VirtualComPort::supported() const { return true; }
 
 bool VirtualComPort::start() {
-#ifdef _WIN32
-  return false;
-#else
   if (io_.open()) {
     return true;
   }
@@ -72,7 +61,6 @@ bool VirtualComPort::start() {
     service_io_locked();
   });
   return true;
-#endif
 }
 
 void VirtualComPort::stop() {
@@ -85,14 +73,11 @@ void VirtualComPort::stop() {
 }
 
 void VirtualComPort::poll() {
-#ifndef _WIN32
   poll_input();
   write_output(runtime_.read_serial());
-#endif
 }
 
 std::string VirtualComPort::poll_input() {
-#ifndef _WIN32
   if (!io_.open()) {
     return {};
   }
@@ -107,9 +92,6 @@ std::string VirtualComPort::poll_input() {
     runtime_.write_serial(input);
   }
   return input;
-#else
-  return {};
-#endif
 }
 
 void VirtualComPort::write_output(const std::string& bytes) {
@@ -122,12 +104,10 @@ void VirtualComPort::write_output(const std::string& bytes) {
 }
 
 void VirtualComPort::service_io_locked() {
-#ifndef _WIN32
   NonblockingFdPumpOptions options;
   options.close_on_read_error = false;
   options.close_on_write_error = false;
   io_.service(options);
-#endif
 }
 
 }  // namespace sim

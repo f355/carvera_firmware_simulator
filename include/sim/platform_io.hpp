@@ -18,12 +18,11 @@
 #ifndef SIMULATOR_SIM_PLATFORM_IO_HPP
 #define SIMULATOR_SIM_PLATFORM_IO_HPP
 
-#include <cstdint>
 #include <string>
 
 namespace sim::platform_io {
 
-using IoHandle = std::intptr_t;
+using IoHandle = int;
 
 constexpr IoHandle kInvalidHandle = -1;
 

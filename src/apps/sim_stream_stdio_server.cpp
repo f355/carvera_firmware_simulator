@@ -33,13 +33,10 @@
 #include "sim/machine_state_proto.hpp"
 #include "sim/motion_telemetry.hpp"
 
-#ifndef _WIN32
+#include <cerrno>
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
-
-#include <cerrno>
-#endif
 
 namespace {
 
@@ -57,14 +54,10 @@ class StreamRequestPump {
   using Handler = std::function<carvera::sim::v1::Response(const carvera::sim::v1::Request&)>;
 
   StreamRequestPump() {
-#ifdef _WIN32
-    blocking_stdio_ = true;
-#else
     const int flags = ::fcntl(STDIN_FILENO, F_GETFL, 0);
     if (flags >= 0) {
       ::fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
     }
-#endif
   }
 
   bool closed() const { return closed_; }
@@ -101,33 +94,6 @@ class StreamRequestPump {
 
  private:
   bool read_available() {
-#ifdef _WIN32
-    if (blocking_stdio_) {
-      std::array<char, 4> header{};
-      std::cin.read(header.data(), static_cast<std::streamsize>(header.size()));
-      if (!std::cin.good()) {
-        closed_ = true;
-        return false;
-      }
-      const auto size = static_cast<std::uint32_t>(static_cast<unsigned char>(header[0])) |
-                        (static_cast<std::uint32_t>(static_cast<unsigned char>(header[1])) << 8) |
-                        (static_cast<std::uint32_t>(static_cast<unsigned char>(header[2])) << 16) |
-                        (static_cast<std::uint32_t>(static_cast<unsigned char>(header[3])) << 24);
-      if (size > max_frame_size) {
-        return false;
-      }
-      buffer_.append(header.data(), header.size());
-      std::string payload(size, '\0');
-      std::cin.read(payload.data(), static_cast<std::streamsize>(payload.size()));
-      if (!std::cin.good()) {
-        closed_ = true;
-        return false;
-      }
-      buffer_ += payload;
-      return true;
-    }
-    return false;
-#else
     pollfd fd{};
     fd.fd = STDIN_FILENO;
     fd.events = POLLIN;
@@ -171,11 +137,9 @@ class StreamRequestPump {
       return false;
     }
     return read_any;
-#endif
   }
 
   bool closed_{false};
-  bool blocking_stdio_{false};
   std::string buffer_;
 };
 

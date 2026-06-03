@@ -26,8 +26,4 @@
 
 #include "fastmath.h"
 
-#ifdef _WIN32
-using caddr_t = char*;
-#endif
-
 #endif
