@@ -18,6 +18,8 @@
 #ifndef SIMULATOR_SIM_HOST_PRELUDE_HPP
 #define SIMULATOR_SIM_HOST_PRELUDE_HPP
 
+#include <stdint.h>
+
 #include <cstring>
 #include <vector>
 
