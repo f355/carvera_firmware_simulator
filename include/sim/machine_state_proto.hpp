@@ -21,6 +21,10 @@
 #include "carvera_sim.pb.h"
 #include "sim/machine_state_snapshot.hpp"
 
+namespace sim {
+struct MachineTelemetry;
+}
+
 namespace sim::api {
 
 void fill_box_proto(carvera::sim::v1::Box& target, const Box& source);
@@ -29,6 +33,7 @@ void fill_spindle_state_proto(carvera::sim::v1::SpindleState& target, const spin
 void fill_atc_state_proto(carvera::sim::v1::AtcState& target, const MachineStateSnapshot& source);
 void fill_machine_snapshot_proto(carvera::sim::v1::MachineSnapshot& target, const MachineStateSnapshot& source);
 void fill_machine_telemetry_proto(carvera::sim::v1::MachineTelemetry& target, const MachineStateSnapshot& source);
+void fill_machine_telemetry_proto(carvera::sim::v1::MachineTelemetry& target, const MachineTelemetry& source);
 
 }  // namespace sim::api
 

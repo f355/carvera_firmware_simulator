@@ -48,9 +48,15 @@ body { background: #f6f7f9; color: #1f2933; }
 .main-splitter { width: 100vw; height: 100%; min-height: 0; overflow: hidden; }
 .main-splitter .q-splitter__before, .main-splitter .q-splitter__after { min-height: 0; overflow: hidden; }
 .main-splitter .q-splitter__separator { background: #cbd5e1; width: 6px; }
-.scene-pane { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+.scene-pane { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .machine-scene { flex: 1 1 auto; width: 100%; height: 100%; min-height: 0; min-width: 0; }
 .machine-scene canvas { display: block; width: 100%; height: 100%; }
+.scene-action-bar {
+  position: absolute; right: 14px; bottom: 14px; z-index: 2;
+  display: flex; gap: 8px; padding: 6px;
+  background: rgba(255, 255, 255, 0.82); border: 1px solid #d7dde5; border-radius: 6px;
+  backdrop-filter: blur(6px);
+}
 .side-panel {
   width: 100%; height: 100%; min-height: 0; overflow: hidden;
   background: #ffffff; display: grid; grid-template-rows: auto 1fr;

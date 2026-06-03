@@ -26,6 +26,7 @@ from gui.protocol.model import AtcSnapshot, Box3D, MachineState
 from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, scene_material_patch_javascript
 
 from .atc_tool_layer import AtcToolLayer
+from .backplot_layer import BackplotLayer
 from .machine_model_asset import MachineModelAsset
 from .scene_geometry import MachineSceneGeometry
 from .scene_transform import (
@@ -99,6 +100,7 @@ class MachineSceneView:
     cad_models_visible: bool = True
     work_envelope: WorkEnvelopeLayer = field(init=False)
     spindle_overlay: SpindleOverlayLayer = field(init=False)
+    backplot: BackplotLayer = field(init=False)
     fallback_bed: Any = None
     fallback_bed_base_position: tuple[float, float, float] | None = None
     tool_setter_button: Any = None
@@ -109,10 +111,12 @@ class MachineSceneView:
     def __post_init__(self) -> None:
         self.work_envelope = WorkEnvelopeLayer(scene=self.scene)
         self.spindle_overlay = SpindleOverlayLayer(scene=self.scene)
+        self.backplot = BackplotLayer(scene=self.scene)
         self.atc_tools = AtcToolLayer(scene=self.scene)
 
     def reset(self) -> None:
         self.work_envelope.clear()
+        self.backplot.clear()
         self.latest_work_area = None
         self.latest_physical_travel = None
         self.latest_atc_data = None
@@ -124,6 +128,9 @@ class MachineSceneView:
         self.atc_tools.reset()
         if self.tool_setter_button is not None:
             self.tool_setter_button.visible(False)
+
+    def clear_backplot(self) -> None:
+        self.backplot.clear()
 
     def _tool_setter_visual_spec(self) -> ToolSetterVisualSpec:
         if self._is_c1_model():
@@ -216,6 +223,8 @@ class MachineSceneView:
         bed_y_delta = self._move_machine_axis_components(raw_position, position)
         self._rotate_rotary_chuck(axes.get("A", 0.0))
         self._move_work_area_lines(bed_y_delta)
+        if state.telemetry_time_s is not None:
+            self._update_backplot(raw_position, bed_y_delta, state.telemetry_time_s)
         self._move_fallback_primitives(raw_position, position, bed_y_delta)
         self._move_tool_setter_button(bed_y_delta)
         self._update_atc_tools(state, position, bed_y_delta)
@@ -345,8 +354,23 @@ class MachineSceneView:
         self._apply_shell_visibility()
         self.work_envelope.scene = self.scene
         self.work_envelope.redraw(physical_box, soft_box, key=key, geometry=self._geometry())
+        self.backplot.scene = self.scene
+        self.backplot.reset_position()
         self._redraw_fallback_bed(physical_box)
         self._apply_fallback_visibility()
+
+    def _update_backplot(self, raw_position: list[float], bed_y_delta: float, sample_time_s: float) -> None:
+        if self.scene_transform is None:
+            return
+        geometry = self._geometry()
+        stickout_mm = physical_tool_stickout_mm(self.latest_atc_data)
+        point = geometry.spindle_face_point(raw_position[0], raw_position[1], raw_position[2] - stickout_mm)
+        self.backplot.scene = self.scene
+        self.backplot.record(point, sample_time_s=sample_time_s)
+        if self._uses_bed_aligned_motion() or self._is_c1_model():
+            self.backplot.move(y_delta=bed_y_delta)
+        else:
+            self.backplot.move(y_delta=0.0)
 
     def _redraw_fallback_bed(self, physical_box: Box3D) -> None:
         if self.scene_transform is None or self.scene is None:

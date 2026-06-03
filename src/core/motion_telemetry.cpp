@@ -115,6 +115,7 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
 
   MachineTelemetry sample;
   sample.sequence = next_sequence_++;
+  sample.time_us = now_us;
   MachineStateSnapshotOptions options;
   options.axis_count = axis_count;
   static_cast<MachineStateSnapshot&>(sample) = assemble_machine_state(kernel, model, options);

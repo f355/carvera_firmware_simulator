@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "sim/api_conversions.hpp"
+#include "sim/motion_telemetry.hpp"
 #include "sim/proto_axis.hpp"
 
 namespace sim::api {
@@ -115,6 +116,11 @@ void fill_machine_telemetry_proto(carvera::sim::v1::MachineTelemetry& target, co
   for (const auto& axis : source.axes) {
     fill_axis_state_proto(*target.add_axes(), axis);
   }
+}
+
+void fill_machine_telemetry_proto(carvera::sim::v1::MachineTelemetry& target, const MachineTelemetry& source) {
+  fill_machine_telemetry_proto(target, static_cast<const MachineStateSnapshot&>(source));
+  target.set_time_us(source.time_us);
 }
 
 }  // namespace sim::api

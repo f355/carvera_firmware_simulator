@@ -69,12 +69,14 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
 
     telemetry = model.pb.MachineTelemetry()
     telemetry.firmware_booted = True
+    telemetry.time_us = 12_340_000
     telemetry.axes.add(axis=model.pb.AXIS_A, physical_mm=10.5)
 
     frame = model.telemetry_to_state(telemetry)
     assert frame.axis("A").physical_mm == 10.5
     assert frame.work_area is None
     assert frame.atc is None
+    assert frame.telemetry_time_s == 12.34
 
 
 def test_eeprom_and_transport_protobufs_use_typed_domain_state() -> None:

@@ -102,6 +102,12 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                         .classes("machine-scene")
                         .style("width: 100%;")
                     )
+                    with ui.element("div").classes("scene-action-bar"):
+                        ui.button(
+                            "Clear Backplot",
+                            icon="timeline",
+                            on_click=lambda: actions.clear_backplot(view),
+                        ).props("dense outline")
                     machine_scene.move_camera(x=430, y=-560, z=320, look_at_x=0, look_at_y=0, look_at_z=70, duration=0)
                     machine_scene.axes_helper(35)
                     configure_scene_lighting(machine_scene)

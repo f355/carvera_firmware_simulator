@@ -76,6 +76,10 @@ class AppActions:
         if view.machine_scene_view is not None:
             view.machine_scene_view.set_cad_models_visible(event_bool(event))
 
+    def clear_backplot(self, view: AppView) -> None:
+        if view.machine_scene_view is not None:
+            view.machine_scene_view.clear_backplot()
+
     def update_model_selector_lock(self, view: AppView) -> None:
         assert view.model_select is not None
         snapshot = self.session.state_store.snapshot()

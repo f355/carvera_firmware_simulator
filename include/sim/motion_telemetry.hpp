@@ -34,6 +34,7 @@ using AxisTelemetry = AxisMachineState;
 
 struct MachineTelemetry : MachineStateSnapshot {
   std::uint64_t sequence{0};
+  std::uint64_t time_us{0};
 };
 
 class MotionTelemetry {

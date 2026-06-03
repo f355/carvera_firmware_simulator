@@ -160,6 +160,7 @@ class MachineState:
     atc: AtcSnapshot | None
     spindle: SpindleSnapshot | None
     tool_setter: Box3D | None
+    telemetry_time_s: float | None = None
 
     def axes_by_name(self) -> dict[str, AxisSnapshot]:
         return {axis.axis: axis for axis in self.axes}
@@ -247,6 +248,7 @@ def telemetry_to_state(telemetry: pb.MachineTelemetry) -> MachineState:
         atc=_atc_to_state(telemetry.atc) if telemetry.HasField("atc") else None,
         spindle=_spindle_to_state(telemetry.spindle) if telemetry.HasField("spindle") else None,
         tool_setter=None,
+        telemetry_time_s=float(telemetry.time_us) / 1_000_000.0,
     )
 
 

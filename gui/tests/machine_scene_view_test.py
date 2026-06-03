@@ -33,6 +33,7 @@ from gui.scene.scene_transform import (
     C1_BED_MESH_Y_ALIGNMENT_MM,
     SceneTransform,
     ca1_bed_scene_point,
+    ca1_spindle_face_scene_point,
     c1_model_point,
     c1_spindle_face_point,
 )
@@ -72,15 +73,18 @@ class FakeLine:
         self.start = start
         self.end = end
         self.last_move: tuple[float, float, float] | None = None
+        self.color = ""
+        self.deleted = False
 
-    def material(self, _color: str) -> "FakeLine":
+    def material(self, color: str) -> "FakeLine":
+        self.color = color
         return self
 
     def move(self, x: float, y: float, z: float) -> None:
         self.last_move = (x, y, z)
 
     def delete(self) -> None:
-        pass
+        self.deleted = True
 
 
 class FakeScene:
@@ -156,6 +160,7 @@ def machine_state(
     atc: AtcSnapshot | None = None,
     spindle: SpindleSnapshot | None = None,
     tool_setter: Box3D | None = None,
+    telemetry_time_s: float | None = None,
 ) -> MachineState:
     return MachineState(
         firmware_booted=True,
@@ -167,6 +172,7 @@ def machine_state(
         atc=atc,
         spindle=spindle,
         tool_setter=tool_setter,
+        telemetry_time_s=telemetry_time_s,
     )
 
 
@@ -522,3 +528,36 @@ def test_c1_work_envelope_tracks_spindle_face_and_loaded_tool_tip() -> None:
     unloaded_view.latest_atc_data = AtcSnapshot(available=True, spindle=tool(70.0), pockets=())
     unloaded_view._move_work_area_lines(bed_y_delta)
     assert all(line.last_move == (0.0, bed_y_delta, -50.0) for line in fake_scene.lines)
+
+
+def test_backplot_tracks_transformed_spindle_motion_and_can_be_cleared() -> None:
+    physical = box(min_x=-303.0, min_y=-213.0, min_z=-122.0, max_x=1.0, max_y=1.0, max_z=1.0)
+    scene = FakeScene()
+    view = make_view(scene=scene, asset=ca1_asset())
+    view.update_shell_model("ca1")
+
+    view.update(
+        machine_state(
+            physical_travel=physical,
+            axes=(axis("X", -2.0), axis("Y", -2.0), axis("Z", -2.0)),
+            telemetry_time_s=10.0,
+        ),
+    )
+    view.update(
+        machine_state(
+            physical_travel=physical,
+            axes=(axis("X", -12.0), axis("Y", -2.0), axis("Z", -2.0)),
+            telemetry_time_s=10.2,
+        ),
+    )
+
+    backplot_line = scene.lines[-1]
+    expected_start = ca1_spindle_face_scene_point(SceneTransform.from_work_area(physical), -2.0, -2.0, -2.0)
+    expected_end = ca1_spindle_face_scene_point(SceneTransform.from_work_area(physical), -12.0, -2.0, -2.0)
+    assert len(view.backplot.segments) == 1
+    assert rounded_tuple(view.backplot.segments[0].start) == rounded_tuple(expected_start)
+    assert rounded_tuple(view.backplot.segments[0].end) == rounded_tuple(expected_end)
+
+    view.clear_backplot()
+    assert backplot_line.deleted is True
+    assert view.backplot.segments == []

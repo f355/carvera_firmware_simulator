@@ -877,20 +877,22 @@ class TcpEndpoint(_message.Message):
     def __init__(self, host: _Optional[str] = ..., port: _Optional[int] = ...) -> None: ...
 
 class MachineTelemetry(_message.Message):
-    __slots__ = ("firmware_booted", "homed", "axes", "physical_travel", "spindle", "atc")
+    __slots__ = ("firmware_booted", "homed", "axes", "physical_travel", "spindle", "atc", "time_us")
     FIRMWARE_BOOTED_FIELD_NUMBER: _ClassVar[int]
     HOMED_FIELD_NUMBER: _ClassVar[int]
     AXES_FIELD_NUMBER: _ClassVar[int]
     PHYSICAL_TRAVEL_FIELD_NUMBER: _ClassVar[int]
     SPINDLE_FIELD_NUMBER: _ClassVar[int]
     ATC_FIELD_NUMBER: _ClassVar[int]
+    TIME_US_FIELD_NUMBER: _ClassVar[int]
     firmware_booted: bool
     homed: bool
     axes: _containers.RepeatedCompositeFieldContainer[AxisState]
     physical_travel: Box
     spindle: SpindleState
     atc: AtcState
-    def __init__(self, firmware_booted: _Optional[bool] = ..., homed: _Optional[bool] = ..., axes: _Optional[_Iterable[_Union[AxisState, _Mapping]]] = ..., physical_travel: _Optional[_Union[Box, _Mapping]] = ..., spindle: _Optional[_Union[SpindleState, _Mapping]] = ..., atc: _Optional[_Union[AtcState, _Mapping]] = ...) -> None: ...
+    time_us: int
+    def __init__(self, firmware_booted: _Optional[bool] = ..., homed: _Optional[bool] = ..., axes: _Optional[_Iterable[_Union[AxisState, _Mapping]]] = ..., physical_travel: _Optional[_Union[Box, _Mapping]] = ..., spindle: _Optional[_Union[SpindleState, _Mapping]] = ..., atc: _Optional[_Union[AtcState, _Mapping]] = ..., time_us: _Optional[int] = ...) -> None: ...
 
 class AxisState(_message.Message):
     __slots__ = ("axis", "physical_steps", "physical_mm", "machine_position", "endstop_triggered")

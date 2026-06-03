@@ -761,6 +761,9 @@ message MachineTelemetry {
   // Physical ATC/rack ownership, streamed with stepper movement so tool visuals
   // follow the clamp handoff instead of waiting for a slower full snapshot.
   AtcState atc = 6;
+
+  // Simulator virtual time at which this telemetry sample was captured.
+  uint64 time_us = 7;
 }
 
 // Machine-axis state for GUI/black-box clients.
