@@ -122,16 +122,17 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  bool saw_unhomed_telemetry = false;
+  bool saw_machine_telemetry = false;
   bool saw_snapshot_with_work_area = false;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-  while (std::chrono::steady_clock::now() < deadline && !(saw_unhomed_telemetry && saw_snapshot_with_work_area)) {
+  while (std::chrono::steady_clock::now() < deadline && !(saw_machine_telemetry && saw_snapshot_with_work_area)) {
     carvera::sim::v1::StreamFrame frame;
     if (!sim::test::read_stream_frame_timeout(from_child[0], frame, std::chrono::milliseconds(250))) {
       continue;
     }
     if (frame.payload_case() == carvera::sim::v1::StreamFrame::kEvent && frame.event().has_machine_telemetry()) {
-      saw_unhomed_telemetry = !frame.event().machine_telemetry().homed();
+      const auto& telemetry = frame.event().machine_telemetry();
+      saw_machine_telemetry = telemetry.firmware_booted() && telemetry.axes_size() > 0;
     }
     if (frame.payload_case() == carvera::sim::v1::StreamFrame::kEvent && frame.event().has_machine_snapshot()) {
       const auto& snapshot = frame.event().machine_snapshot();
@@ -144,7 +145,7 @@ int main(int argc, char** argv) {
   int status = 0;
   waitpid(child, &status, 0);
 
-  return expect(saw_unhomed_telemetry, "interactive startup should emit telemetry before homing completes") &&
+  return expect(saw_machine_telemetry, "interactive startup should emit firmware telemetry frames") &&
                  expect(saw_snapshot_with_work_area,
                         "interactive startup should emit full machine snapshots with soft-limit work area")
              ? 0
