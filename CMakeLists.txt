@@ -84,6 +84,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(HOST_FILEPOS_COMPAT ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/filepos_compat.h)
 set(HOST_FILE_SHIM ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/host_file_shim.h)
 if(SIM_PROTOBUF_CONFIG_MODE)
   protobuf_generate(
@@ -222,6 +223,10 @@ set_source_files_properties(
 set_source_files_properties(
   ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
   PROPERTIES COMPILE_OPTIONS "-include;${HOST_FILE_SHIM};-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
+)
+set_property(
+  SOURCE ${FIRMWARE_SRC}/libs/ConfigSources/FileConfigSource.cpp
+  APPEND PROPERTY COMPILE_OPTIONS "-include;${HOST_FILEPOS_COMPAT}"
 )
 
 include(cmake/TestsAndApps.cmake)

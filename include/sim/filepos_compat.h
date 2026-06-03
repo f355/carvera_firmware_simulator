@@ -15,15 +15,24 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMULATOR_SIM_HOST_PRELUDE_HPP
-#define SIMULATOR_SIM_HOST_PRELUDE_HPP
+#ifndef SIMULATOR_SIM_FILEPOS_COMPAT_H
+#define SIMULATOR_SIM_FILEPOS_COMPAT_H
 
-#include <stdint.h>
+#include <stdio.h>
 
-#include <algorithm>
-#include <cstring>
-#include <vector>
+static inline int sim_fgetpos_as_long(FILE* stream, long* pos) {
+  long value = ftell(stream);
+  if (value < 0) {
+    return -1;
+  }
+  *pos = value;
+  return 0;
+}
 
-#include "fastmath.h"
+static inline int sim_fsetpos_as_long(FILE* stream, const long* pos) { return fseek(stream, *pos, SEEK_SET); }
+
+#define fpos_t long
+#define fgetpos sim_fgetpos_as_long
+#define fsetpos sim_fsetpos_as_long
 
 #endif
