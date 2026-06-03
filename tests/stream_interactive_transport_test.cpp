@@ -180,6 +180,20 @@ class DiscoveryListener {
   int fd_{-1};
 };
 
+bool wait_for_discovery_while_draining_stream(const DiscoveryListener& discovery_listener, int stream_fd,
+                                              std::string_view expected_name, std::uint16_t expected_port,
+                                              std::chrono::milliseconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (discovery_listener.wait_for(expected_name, expected_port, std::chrono::milliseconds(50))) {
+      return true;
+    }
+    carvera::sim::v1::StreamFrame frame;
+    (void)sim::test::read_stream_frame_timeout(stream_fd, frame, std::chrono::milliseconds(50));
+  }
+  return discovery_listener.wait_for(expected_name, expected_port, std::chrono::milliseconds(0));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -294,6 +308,8 @@ int main(int argc, char** argv) {
   if (!expect(discovery_listener.ok(), "failed to listen for controller discovery UDP")) {
     return 1;
   }
+  const bool discovered = wait_for_discovery_while_draining_stream(discovery_listener, from_child[0], "CARVERA_01001",
+                                                                   port, std::chrono::seconds(10));
 
   int stale_client = -1;
   const char stale_query[] = "version\n";
@@ -356,7 +372,6 @@ int main(int argc, char** argv) {
     return 1;
   }
   const auto downloaded_config = sim::test::receive_xmodem_download(client);
-  const bool discovered = discovery_listener.wait_for("CARVERA_01001", port, std::chrono::seconds(3));
   close(client);
   close(to_child[1]);
   close(from_child[0]);
