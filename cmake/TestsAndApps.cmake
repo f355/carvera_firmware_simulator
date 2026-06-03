@@ -18,6 +18,7 @@ include(ProcessorCount)
 
 set(SIM_DEFAULT_TEST_TIMEOUT_SECONDS 30 CACHE STRING "Default timeout for simulator CTest tests")
 set(SIM_LONG_TEST_TIMEOUT_SECONDS 90 CACHE STRING "Timeout for simulator integration CTest tests")
+set(SIM_EXTRA_LONG_TEST_TIMEOUT_SECONDS 180 CACHE STRING "Timeout for the heaviest simulator integration CTest tests")
 
 function(sim_register_test name)
   set(options)
@@ -125,6 +126,7 @@ endforeach()
 foreach(test_name IN LISTS SIM_RUNTIME_TESTS)
   sim_add_runtime_test(${test_name})
 endforeach()
+set_tests_properties(atc_m6_runtime_test PROPERTIES TIMEOUT ${SIM_EXTRA_LONG_TEST_TIMEOUT_SECONDS})
 
 target_compile_definitions(free_running_homing_test PRIVATE CARVERA_FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT}")
 
