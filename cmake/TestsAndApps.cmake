@@ -129,6 +129,7 @@ foreach(test_name IN LISTS SIM_RUNTIME_TESTS)
   sim_add_runtime_test(${test_name})
 endforeach()
 set_tests_properties(atc_m6_runtime_test PROPERTIES TIMEOUT ${SIM_EXTRA_LONG_TEST_TIMEOUT_SECONDS})
+set_tests_properties(realtime_timer_pacing_test realtime_motion_speed_test PROPERTIES RUN_SERIAL TRUE)
 
 target_compile_definitions(free_running_homing_test PRIVATE CARVERA_FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT}")
 
@@ -182,6 +183,7 @@ add_dependencies(stream_player_realtime_speed_test carvera_sim_stream_stdio)
 add_test(NAME stream_player_realtime_speed_test
   COMMAND stream_player_realtime_speed_test $<TARGET_FILE:carvera_sim_stream_stdio>)
 sim_register_test(stream_player_realtime_speed_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+set_tests_properties(stream_player_realtime_speed_test PROPERTIES RUN_SERIAL TRUE)
 configure_file(
   ${FIRMWARE_SRC}/main.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/generated/main.cpp

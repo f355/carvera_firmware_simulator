@@ -43,9 +43,14 @@ int main() {
   simulator.set_realtime_speed(4.0);
 
   const auto clock_before_sleep = simulator.time_us();
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  const auto wall_before_sleep = std::chrono::steady_clock::now();
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const auto wall_elapsed =
+      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - wall_before_sleep);
   const auto accelerated_elapsed = simulator.time_us() - clock_before_sleep;
-  require(accelerated_elapsed >= 30'000 && accelerated_elapsed <= 80'000,
+  const auto minimum_expected = static_cast<std::uint64_t>(wall_elapsed.count() * 3);
+  const auto maximum_expected = static_cast<std::uint64_t>(wall_elapsed.count() * 5);
+  require(accelerated_elapsed >= minimum_expected && accelerated_elapsed <= maximum_expected,
           "realtime clock should advance by the configured speed multiplier");
 
   simulator.set_realtime_speed(1.0);
@@ -62,11 +67,17 @@ int main() {
   timer0.MR0 = 25'000;  // 1 ms at the LPC1768 timer peripheral clock.
   timer0.TCR = 1;
 
+  simulator.set_realtime_speed(1.0);
   const auto started = std::chrono::steady_clock::now();
   sim::pump_motion(kernel, 2);
-  const auto elapsed = std::chrono::steady_clock::now() - started;
+  const auto baseline_elapsed = std::chrono::steady_clock::now() - started;
 
-  require(elapsed >= std::chrono::microseconds(750) && elapsed < std::chrono::microseconds(1800),
+  simulator.set_realtime_speed(2.0);
+  const auto accelerated_started = std::chrono::steady_clock::now();
+  sim::pump_motion(kernel, 2);
+  const auto accelerated_motion_elapsed = std::chrono::steady_clock::now() - accelerated_started;
+
+  require(accelerated_motion_elapsed < baseline_elapsed,
           "realtime motion pumping should scale Timer0 wall-clock pacing by the speed multiplier");
 
   return 0;

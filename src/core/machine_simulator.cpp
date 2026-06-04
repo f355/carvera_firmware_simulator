@@ -90,7 +90,6 @@ bool MachineSimulator::set_realtime_speed(double speed) {
   if (!context_->clock().set_realtime_speed(speed)) {
     return false;
   }
-  context_->realtime_timer_pacer().reset();
   return true;
 }
 

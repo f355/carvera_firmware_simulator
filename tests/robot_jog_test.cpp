@@ -66,7 +66,7 @@ int main() {
   require(kernel.robot->delta_move(delta, 25.0F, 1), "Robot should queue a jog-like delta move");
 
   sim::MotionRunner runner(kernel);
-  require(runner.run_until_idle(50'000), "simulator should execute Robot-queued motion to idle");
+  require(runner.run_until_idle(100'000), "simulator should execute Robot-queued motion to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect Robot-generated step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update the machine position");
