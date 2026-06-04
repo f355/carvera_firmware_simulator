@@ -15,12 +15,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
 #include <string>
-#include <thread>
 
 #include "sim/delay_hooks.hpp"
 #include "sim/firmware_runtime.hpp"
@@ -54,18 +52,14 @@ int main() {
   sim::LocalhostTcpBridge bridge(runtime);
   require(bridge.start(0), "localhost WiFi bridge should start");
 
-  std::atomic_bool running{true};
-  std::thread pump([&] {
-    while (running.load()) {
-      bridge.poll();
-      {
-        sim::delay_hooks::ScopedCallback blocking_wait_io_pump([&] { bridge.poll(); });
-        runtime.pump_free_running(8, 100'000);
-      }
-      bridge.poll();
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  auto pump_once = [&] {
+    bridge.poll();
+    {
+      sim::delay_hooks::ScopedCallback blocking_wait_io_pump([&] { bridge.poll(); });
+      runtime.pump_free_running(8, 100'000);
     }
-  });
+    bridge.poll();
+  };
 
   int client = -1;
   require(sim::test::connect_loopback(bridge.port(), client),
@@ -74,13 +68,13 @@ int main() {
   const char initial_status_poll[] = "?\n";
   require(sim::test::write_exact(client, initial_status_poll, std::strlen(initial_status_poll)),
           "initial status poll should write");
-  const auto initial_status = sim::test::read_until(client, "MPos:", std::chrono::seconds(5));
+  const auto initial_status = sim::test::read_until_pumping(client, "MPos:", pump_once, std::chrono::seconds(5));
   require(initial_status.find("<Idle") != std::string::npos, "initial controller status query should return Idle");
 
   const char tool_change[] = "M6 T2\n";
   require(sim::test::write_exact(client, tool_change, std::strlen(tool_change)),
           "ATC tool-change command should write");
-  const auto atc_started = sim::test::read_until(client, "Homing atc", std::chrono::seconds(8));
+  const auto atc_started = sim::test::read_until_pumping(client, "Homing atc", pump_once, std::chrono::seconds(8));
   if (atc_started.find("Homing atc") == std::string::npos) {
     std::cerr << atc_started << '\n';
   }
@@ -88,11 +82,9 @@ int main() {
 
   const char status_poll[] = "?\n";
   require(sim::test::write_exact(client, status_poll, std::strlen(status_poll)), "status poll during ATC should write");
-  const auto status = sim::test::read_until(client, "MPos:", std::chrono::seconds(3));
+  const auto status = sim::test::read_until_pumping(client, "MPos:", pump_once, std::chrono::seconds(3));
   require(status.find("MPos:") != std::string::npos, "interactive transport should answer status polls during ATC");
 
-  running.store(false);
-  pump.join();
   ::close(client);
   return 0;
 }

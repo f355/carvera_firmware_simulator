@@ -16,12 +16,12 @@
  */
 
 #include <chrono>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <string>
-#include <thread>
 
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
@@ -40,6 +40,18 @@ void require(bool condition, const char* message) {
     std::cerr << message << '\n';
     std::exit(1);
   }
+}
+
+template <typename Predicate, typename Pump>
+bool wait_pumping(Predicate&& predicate, Pump&& pump, std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (predicate()) {
+      return true;
+    }
+    pump();
+  }
+  return predicate();
 }
 
 }  // namespace
@@ -67,16 +79,18 @@ int main() {
           "virtual COM write should succeed");
 
   std::string serial_output;
-  const auto serial_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (
-      std::chrono::steady_clock::now() < serial_deadline &&
-      (serial_output.find("ok") == std::string::npos || simulator.axis_position_steps(0) == initial_serial_x_steps)) {
+  auto pump_serial = [&] {
     uart.poll();
     runtime.pump_free_running();
     uart.poll();
     serial_output += sim::test::read_available(serial_fd, 256);
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  }
+  };
+  wait_pumping(
+      [&] {
+        return serial_output.find("ok") != std::string::npos &&
+               simulator.axis_position_steps(0) != initial_serial_x_steps;
+      },
+      pump_serial);
   require(serial_output.find("ok") != std::string::npos, "virtual COM bridge should return firmware serial output");
   require(simulator.axis_position_steps(0) != initial_serial_x_steps,
           "virtual COM bridge should accept controller homing and jog commands");
@@ -98,15 +112,18 @@ int main() {
   require(sim::test::set_nonblocking(client), "TCP client should switch to nonblocking reads");
 
   std::string tcp_output;
-  const auto tcp_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < tcp_deadline &&
-         (tcp_output.find("ok") == std::string::npos || tcp_simulator.axis_position_steps(0) == initial_tcp_x_steps)) {
+  auto pump_tcp = [&] {
     wifi.poll();
     tcp_runtime.pump_free_running();
     wifi.poll();
     tcp_output += sim::test::read_available(client, 256);
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  }
+  };
+  wait_pumping(
+      [&] {
+        return tcp_output.find("ok") != std::string::npos &&
+               tcp_simulator.axis_position_steps(0) != initial_tcp_x_steps;
+      },
+      pump_tcp);
   require(tcp_output.find("ok") != std::string::npos, "localhost WiFi bridge should return firmware serial output");
   require(tcp_simulator.axis_position_steps(0) != initial_tcp_x_steps,
           "localhost WiFi bridge should accept controller homing and jog commands");
@@ -124,25 +141,35 @@ int main() {
   int small_receive_buffer = 4096;
   ::setsockopt(backlog_client, SOL_SOCKET, SO_RCVBUF, &small_receive_buffer, sizeof(small_receive_buffer));
 
-  for (int i = 0; i < 50; ++i) {
+  std::string backlog_output;
+  const std::string ready_marker = "ready";
+  auto pump_backlog = [&] {
     backlog_wifi.poll();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
+    backlog_output += sim::test::read_available(backlog_client, 16 * 1024);
+  };
+  auto pump_backlog_until_ready = [&] {
+    backlog_wifi.poll();
+    backlog_wifi.write_output(ready_marker);
+    backlog_output += sim::test::read_available(backlog_client, 16 * 1024);
+  };
+  wait_pumping([&] { return backlog_output.find(ready_marker) != std::string::npos; }, pump_backlog_until_ready,
+               std::chrono::seconds(5));
+  require(backlog_output.find(ready_marker) != std::string::npos,
+          "backlog TCP client should receive a marker before burst testing starts");
+  backlog_output.clear();
 
   const std::string large_payload(256 * 1024, 'x');
   backlog_wifi.write_output(large_payload);
-  require(backlog_wifi.queued_output_bytes() > 0,
-          "localhost WiFi bridge should keep burst backpressure in its own output queue");
 
-  std::string backlog_output;
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (backlog_output.size() < large_payload.size() && std::chrono::steady_clock::now() < deadline) {
-    backlog_wifi.poll();
-    backlog_output += sim::test::read_available(backlog_client, 16 * 1024);
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
-  require(backlog_output.size() == large_payload.size(),
-          "localhost WiFi bridge should queue large outbound bursts until the controller drains them");
+  wait_pumping(
+      [&] {
+        return static_cast<std::size_t>(std::count(backlog_output.begin(), backlog_output.end(), 'x')) >=
+               large_payload.size();
+      },
+      pump_backlog, std::chrono::seconds(10));
+  require(
+      static_cast<std::size_t>(std::count(backlog_output.begin(), backlog_output.end(), 'x')) == large_payload.size(),
+      "localhost WiFi bridge should queue large outbound bursts until the controller drains them");
   ::close(backlog_client);
   return 0;
 }

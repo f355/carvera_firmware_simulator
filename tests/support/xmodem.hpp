@@ -21,7 +21,6 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
-
 #include "posix_io.hpp"
 
 namespace sim::test {
@@ -38,7 +37,8 @@ inline std::uint16_t crc16_xmodem(const std::string& data) {
   return crc;
 }
 
-inline std::string receive_xmodem_download(int fd) {
+template <typename Pump>
+std::string receive_xmodem_download(int fd, Pump&& pump) {
   constexpr char stx = '\x02';
   constexpr char eot = '\x04';
   constexpr char ack = '\x06';
@@ -54,7 +54,7 @@ inline std::string receive_xmodem_download(int fd) {
     if (!write_exact(fd, &request, 1)) {
       return {};
     }
-    if (read_exact_timeout(fd, &next, 1, std::chrono::milliseconds(500))) {
+    if (read_exact_timeout_pumping(fd, &next, 1, std::chrono::milliseconds(500), pump)) {
       break;
     }
   }
@@ -64,7 +64,7 @@ inline std::string receive_xmodem_download(int fd) {
       return write_exact(fd, &ack, 1) ? received_file : std::string{};
     }
     if (next != stx) {
-      if (!read_exact_timeout(fd, &next, 1, std::chrono::seconds(2))) {
+      if (!read_exact_timeout_pumping(fd, &next, 1, std::chrono::seconds(2), pump)) {
         return {};
       }
       continue;
@@ -72,8 +72,8 @@ inline std::string receive_xmodem_download(int fd) {
 
     char header[2]{};
     std::string payload(2 + packet_size + 2, '\0');
-    if (!read_exact_timeout(fd, header, sizeof(header), std::chrono::seconds(2)) ||
-        !read_exact_timeout(fd, payload.data(), payload.size(), std::chrono::seconds(2))) {
+    if (!read_exact_timeout_pumping(fd, header, sizeof(header), std::chrono::seconds(2), pump) ||
+        !read_exact_timeout_pumping(fd, payload.data(), payload.size(), std::chrono::seconds(2), pump)) {
       return {};
     }
 
@@ -103,11 +103,15 @@ inline std::string receive_xmodem_download(int fd) {
       return {};
     }
     expected_sequence = (expected_sequence + 1) & 0xffu;
-    if (!read_exact_timeout(fd, &next, 1, std::chrono::seconds(2))) {
+    if (!read_exact_timeout_pumping(fd, &next, 1, std::chrono::seconds(2), pump)) {
       return {};
     }
   }
   return {};
+}
+
+inline std::string receive_xmodem_download(int fd) {
+  return receive_xmodem_download(fd, [] {});
 }
 
 }  // namespace sim::test

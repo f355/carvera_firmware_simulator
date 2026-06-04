@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import tempfile
-import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -29,14 +29,34 @@ pytestmark = pytest.mark.integration
 STREAM_STARTUP_TIMEOUT_S = 45.0
 
 
-def _wait_for_stream_startup(snapshots: list[Any], io_events: list[Any]) -> None:
-    deadline = time.monotonic() + STREAM_STARTUP_TIMEOUT_S
-    while time.monotonic() < deadline:
-        if snapshots and snapshots[-1].firmware_booted and snapshots[-1].homed and io_events:
-            return
-        time.sleep(0.1)
+def _wait_for_stream_startup(
+    events: list[Any],
+    snapshots: list[Any],
+    io_events: list[Any],
+    condition: threading.Condition,
+) -> None:
+    with condition:
 
-    latest = snapshots[-1] if snapshots else None
+        def ready() -> bool:
+            return bool(
+                snapshots
+                and snapshots[-1].firmware_booted
+                and snapshots[-1].homed
+                and io_events
+                and len(events) > 5
+                and events[-1].axes
+            )
+
+        if ready():
+            return
+        condition.wait_for(
+            ready,
+            timeout=STREAM_STARTUP_TIMEOUT_S,
+        )
+        if ready():
+            return
+
+        latest = snapshots[-1] if snapshots else None
     if latest is None:
         pytest.fail(f"simulator stream did not publish a machine snapshot within {STREAM_STARTUP_TIMEOUT_S:.0f}s")
     pytest.fail(
@@ -55,14 +75,17 @@ def test_stream_integration_test() -> None:
     events = []
     snapshots = []
     io_events = []
+    stream_condition = threading.Condition()
 
     def handle_event(event) -> None:
-        if event.WhichOneof("event") == "machine_telemetry":
-            events.append(event.machine_telemetry)
-        if event.WhichOneof("event") == "machine_snapshot":
-            snapshots.append(event.machine_snapshot)
-        if event.WhichOneof("event") == "physical_io":
-            io_events.append(event.physical_io)
+        with stream_condition:
+            if event.WhichOneof("event") == "machine_telemetry":
+                events.append(event.machine_telemetry)
+            if event.WhichOneof("event") == "machine_snapshot":
+                snapshots.append(event.machine_snapshot)
+            if event.WhichOneof("event") == "physical_io":
+                io_events.append(event.physical_io)
+            stream_condition.notify_all()
 
     simulator = SimulatorClient(
         simulator_binary,
@@ -80,14 +103,17 @@ def test_stream_integration_test() -> None:
             transport = simulator.start_interactive_transport(enable_uart=True, tcp_ports=[0])
             assert transport.tcp_endpoints[0].host == "127.0.0.1"
             assert transport.tcp_endpoints[0].port > 0
-            _wait_for_stream_startup(snapshots, io_events)
-            assert len(snapshots) >= 1
-            assert snapshots[-1].firmware_booted is True
-            assert snapshots[-1].homed is True
-            assert snapshots[-1].HasField("work_area")
-            assert len(events) > 5
-            assert len(events[-1].axes) > 0
-            assert len(io_events) >= 1
-            assert io_events[-1].front_panel.power_rails.v24 is True
+            _wait_for_stream_startup(events, snapshots, io_events, stream_condition)
+            with stream_condition:
+                latest_snapshot = snapshots[-1]
+                latest_event = events[-1]
+                latest_io = io_events[-1]
+                event_count = len(events)
+            assert latest_snapshot.firmware_booted is True
+            assert latest_snapshot.homed is True
+            assert latest_snapshot.HasField("work_area")
+            assert event_count > 5
+            assert len(latest_event.axes) > 0
+            assert latest_io.front_panel.power_rails.v24 is True
         finally:
             simulator.stop()

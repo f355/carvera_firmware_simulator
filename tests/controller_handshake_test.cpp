@@ -36,17 +36,20 @@ namespace {
 
 using sim::test::require;
 
-std::string send_and_read_until(int fd, const char* command, const std::string& needle) {
+template <typename Pump>
+std::string send_and_read_until(int fd, const char* command, const std::string& needle, Pump&& pump,
+                                std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
   require(sim::test::write_exact(fd, command, std::strlen(command)), "controller command should write");
-  return sim::test::read_until(fd, needle);
+  return sim::test::read_until_pumping(fd, needle, pump, timeout);
 }
 
-std::string poll_status_until(int fd, const std::string& state,
+template <typename Pump>
+std::string poll_status_until(int fd, const std::string& state, Pump&& pump,
                               std::chrono::seconds timeout = std::chrono::seconds(5)) {
   std::string output;
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline && output.find(state) == std::string::npos) {
-    output += send_and_read_until(fd, "?\n", "MPos:");
+    output += send_and_read_until(fd, "?\n", "MPos:", pump, std::chrono::milliseconds(500));
   }
   return output;
 }
@@ -81,15 +84,16 @@ int main() {
         runtime.pump_free_running();
       }
       bridge.poll();
-      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   });
+  auto pump_bridge_io = [&] { bridge.poll(); };
 
   int client = -1;
   require(sim::test::connect_loopback(bridge.port(), client),
           "controller client should connect to localhost WiFi bridge");
 
-  const auto status = send_and_read_until(client, "?\n", "MPos:");
+  const auto status = send_and_read_until(client, "?\n", "MPos:", pump_bridge_io);
   require(status.find("<Idle") != std::string::npos, "controller status query should return firmware status");
 
   const char download[] = "download /sd/config.txt\n";
@@ -97,41 +101,37 @@ int main() {
   const auto config = sim::test::receive_xmodem_download(client);
   require(config.find("# controller handshake config") != std::string::npos,
           "controller config download should return host SD config.txt");
-  const auto download_done = sim::test::read_until(client, "download success");
+  const auto download_done = sim::test::read_until_pumping(client, "download success", pump_bridge_io);
   require(download_done.find("download success") != std::string::npos,
           "firmware should finish config download cleanly");
 
-  const auto sync_response = send_and_read_until(client, "time\nmodel\nversion\n", "version =");
+  const auto sync_response = send_and_read_until(client, "time\nmodel\nversion\n", "version =", pump_bridge_io);
   require(sync_response.find("time =") != std::string::npos, "controller sync should return firmware time");
   require(sync_response.find("model =") != std::string::npos, "controller sync should return firmware model");
   require(sync_response.find("version =") != std::string::npos, "controller sync should return firmware version");
 
   require(sim::test::write_exact(client, "$J X10 F10000\n", std::strlen("$J X10 F10000\n")),
           "controller jog should write");
-  const auto jog_status = poll_status_until(client, "<Idle");
+  const auto jog_status = poll_status_until(client, "<Idle", pump_bridge_io);
   require(jog_status.find("<Idle") != std::string::npos, "controller jog should return to idle");
   require_no_hard_limit(jog_status, "controller jog after startup should not trip a hard limit");
 
   require(sim::test::write_exact(client, "$J X10000 F10000\n", std::strlen("$J X10000 F10000\n")),
           "controller soft-limit jog should write");
-  const auto soft_limit_status = poll_status_until(client, "<Idle");
+  const auto soft_limit_status = poll_status_until(client, "<Idle", pump_bridge_io);
   require_no_hard_limit(soft_limit_status, "controller jog past soft travel should stop before hard switches");
   require(soft_limit_status.find("<Alarm") == std::string::npos,
           "soft-limit rejection should not leave the controller in hard-limit alarm");
 
-  const auto reset_response = send_and_read_until(client, "reset\n", "Rebooting machine");
+  const auto reset_response = send_and_read_until(client, "reset\n", "Rebooting machine", pump_bridge_io);
   require(reset_response.find("Rebooting machine") != std::string::npos, "controller reset command should be accepted");
 
-  const auto reset_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < reset_deadline) {
-    require(sim::test::write_exact(client, "?", 1), "controller status poll during reset should write");
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
-  const auto reboot_sync = send_and_read_until(client, "version\n", "version =");
+  const auto reboot_sync =
+      send_and_read_until(client, "version\n", "version =", pump_bridge_io, std::chrono::seconds(8));
   require(reboot_sync.find("version =") != std::string::npos,
           "controller reset test should wait for commands accepted after the actual firmware reboot");
 
-  const auto post_reset_status = poll_status_until(client, "<Idle", std::chrono::seconds(8));
+  const auto post_reset_status = poll_status_until(client, "<Idle", pump_bridge_io, std::chrono::seconds(8));
   require(post_reset_status.find("<Idle") != std::string::npos,
           "controller reset should reboot firmware back to an idle status");
 
@@ -140,7 +140,7 @@ int main() {
   const auto post_reset_config = sim::test::receive_xmodem_download(client);
   require(post_reset_config.find("# controller handshake config") != std::string::npos,
           "controller config download should still work after firmware reset");
-  const auto post_reset_download_done = sim::test::read_until(client, "download success");
+  const auto post_reset_download_done = sim::test::read_until_pumping(client, "download success", pump_bridge_io);
   require(post_reset_download_done.find("download success") != std::string::npos,
           "post-reset config download should finish cleanly");
 

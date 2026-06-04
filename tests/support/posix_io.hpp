@@ -90,6 +90,44 @@ inline bool read_exact_timeout(int fd, void* data, std::size_t size, std::chrono
   return size == 0;
 }
 
+template <typename Pump>
+bool read_exact_timeout_pumping(int fd, void* data, std::size_t size, std::chrono::milliseconds timeout, Pump&& pump) {
+  auto* bytes = static_cast<char*>(data);
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (size > 0 && std::chrono::steady_clock::now() < deadline) {
+    pump();
+
+    fd_set read_set;
+    FD_ZERO(&read_set);
+    FD_SET(fd, &read_set);
+    timeval tv{0, 10000};
+    const int ready = ::select(fd + 1, &read_set, nullptr, nullptr, &tv);
+    if (ready < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return false;
+    }
+    if (ready == 0 || !FD_ISSET(fd, &read_set)) {
+      continue;
+    }
+
+    const auto received = ::read(fd, bytes, size);
+    if (received < 0) {
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+        continue;
+      }
+      return false;
+    }
+    if (received == 0) {
+      return false;
+    }
+    bytes += received;
+    size -= static_cast<std::size_t>(received);
+  }
+  return size == 0;
+}
+
 inline std::string read_available(int fd, std::size_t buffer_size = 1024) {
   std::string output;
   std::string buffer(buffer_size, '\0');
@@ -125,6 +163,48 @@ inline std::string read_until(int fd, const std::string& needle,
           return output;
         }
       }
+    }
+  }
+  return output;
+}
+
+template <typename Pump>
+std::string read_until_pumping(int fd, const std::string& needle, Pump&& pump,
+                               std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
+  std::string output;
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    pump();
+
+    fd_set read_set;
+    FD_ZERO(&read_set);
+    FD_SET(fd, &read_set);
+    timeval tv{0, 10000};
+    const int ready = ::select(fd + 1, &read_set, nullptr, nullptr, &tv);
+    if (ready < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return output;
+    }
+    if (ready == 0 || !FD_ISSET(fd, &read_set)) {
+      continue;
+    }
+
+    char buffer[512];
+    const auto received = ::read(fd, buffer, sizeof(buffer));
+    if (received < 0) {
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+        continue;
+      }
+      return output;
+    }
+    if (received == 0) {
+      return output;
+    }
+    output.append(buffer, static_cast<std::size_t>(received));
+    if (output.find(needle) != std::string::npos) {
+      return output;
     }
   }
   return output;

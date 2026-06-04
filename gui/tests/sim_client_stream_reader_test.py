@@ -18,7 +18,7 @@ from __future__ import annotations
 import stat
 import sys
 import tempfile
-import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -92,18 +92,20 @@ if len(header) == 4:
 def test_sim_client_stream_reader_test() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     events: list[pb.Event] = []
+    event_received = threading.Event()
+
+    def handle_event(event: pb.Event) -> None:
+        events.append(event)
+        event_received.set()
 
     with tempfile.TemporaryDirectory(prefix="carvera_sim_stream_client_test_") as tmp:
         server = Path(tmp) / "fake_stream_server.py"
         write_fake_stream_server(server, repo_root)
 
-        client = SimulatorClient(server, stream_frames=True, event_handler=events.append)
+        client = SimulatorClient(server, stream_frames=True, event_handler=handle_event)
         client.start()
         try:
-            deadline = time.monotonic() + 1.0
-            while time.monotonic() < deadline and not events:
-                time.sleep(0.01)
-            assert events, "stream-mode client did not dispatch events while idle"
+            assert event_received.wait(timeout=1.0), "stream-mode client did not dispatch events while idle"
             assert events[0].WhichOneof("event") == "machine_telemetry"
 
             request = pb.Request()
