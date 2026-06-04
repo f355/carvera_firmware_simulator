@@ -26,7 +26,7 @@ from gui.protocol.model import AtcSnapshot, Box3D, MachineState
 from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, scene_material_patch_javascript
 
 from .atc_tool_layer import AtcToolLayer
-from .backplot_layer import BackplotLayer
+from .backplot_layer import BackplotHistoryStore, BackplotLayer
 from .machine_model_asset import MachineModelAsset
 from .scene_geometry import MachineSceneGeometry
 from .scene_transform import (
@@ -87,6 +87,7 @@ class MachineSceneView:
     machine_model_scale: float
     model_offset_override: tuple[float, float, float] | None = None
     model_rotation_override: tuple[float, float, float] | None = None
+    backplot_history: BackplotHistoryStore | None = None
 
     latest_work_area: Box3D | None = None
     latest_physical_travel: Box3D | None = None
@@ -111,7 +112,7 @@ class MachineSceneView:
     def __post_init__(self) -> None:
         self.work_envelope = WorkEnvelopeLayer(scene=self.scene)
         self.spindle_overlay = SpindleOverlayLayer(scene=self.scene)
-        self.backplot = BackplotLayer(scene=self.scene)
+        self.backplot = BackplotLayer(scene=self.scene, history_store=self.backplot_history)
         self.atc_tools = AtcToolLayer(scene=self.scene)
 
     def reset(self) -> None:
@@ -131,6 +132,9 @@ class MachineSceneView:
 
     def clear_backplot(self) -> None:
         self.backplot.clear()
+
+    def restore_backplot(self) -> None:
+        self.backplot.restore_from_history()
 
     def _tool_setter_visual_spec(self) -> ToolSetterVisualSpec:
         if self._is_c1_model():

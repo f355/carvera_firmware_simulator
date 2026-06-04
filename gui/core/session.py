@@ -33,6 +33,7 @@ from gui.protocol.model import (
     snapshot_to_state,
     telemetry_to_state,
 )
+from gui.scene.backplot_layer import BackplotHistoryStore
 from gui.protocol.sim_client import SimulatorClient
 from gui.scene.model_registry import MachineModelRegistry
 
@@ -46,6 +47,7 @@ class SimulatorSession:
     snapshot_buffer: TelemetryBuffer[MachineState]
     physical_io_buffer: TelemetryBuffer[PhysicalIoState]
     transport_log_store: TransportLogStore
+    backplot_history: BackplotHistoryStore
     state_store: GuiStateStore
     client: SimulatorClient
     process_controller: SimulatorProcessController
@@ -73,6 +75,7 @@ class SimulatorSession:
         snapshot_buffer = TelemetryBuffer(snapshot_to_state, event_name="machine_snapshot")
         physical_io_buffer = TelemetryBuffer(physical_io_to_state, event_name="physical_io")
         transport_log_store = TransportLogStore()
+        backplot_history = BackplotHistoryStore()
         state_store = GuiStateStore()
 
         def handle_stream_event(event: Any) -> None:
@@ -109,6 +112,7 @@ class SimulatorSession:
             snapshot_buffer=snapshot_buffer,
             physical_io_buffer=physical_io_buffer,
             transport_log_store=transport_log_store,
+            backplot_history=backplot_history,
             state_store=state_store,
             client=client,
             process_controller=process_controller,

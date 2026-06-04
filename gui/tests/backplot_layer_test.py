@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from gui.scene.backplot_layer import BackplotLayer
+from gui.scene.backplot_layer import BackplotHistoryStore, BackplotLayer, BackplotSegment
 
 
 class FakeLine:
@@ -57,7 +57,7 @@ def test_backplot_layer_draws_single_green_motion_line_and_clears_it() -> None:
 
     assert len(scene.lines) == 1
     assert layer.segments[0].start == [0.0, 0.0, 0.0]
-    assert layer.segments[0].end == [1.0, 0.0, 0.0]
+    assert layer.segments[0].end == [21.0, 0.0, 0.0]
     assert scene.lines[0].color == "#16a34a"
 
     first_line = scene.lines[0]
@@ -75,7 +75,8 @@ def test_backplot_layer_does_not_create_one_scene_object_per_segment() -> None:
         layer.record([float(index), 0.0, 0.0], sample_time_s=float(index) * 0.01)
 
     assert len(scene.lines) == 1
-    assert len(layer.segments) > 100
+    assert len(layer.segments) == 1
+    assert layer.segments[0].end == [499.0, 0.0, 0.0]
 
 
 def test_backplot_layer_uses_simulator_sample_time_for_segment_decimation() -> None:
@@ -87,3 +88,74 @@ def test_backplot_layer_uses_simulator_sample_time_for_segment_decimation() -> N
 
     assert layer.segments[-1].start == [0.0, 0.0, 0.0]
     assert layer.segments[-1].end == [1.0, 0.0, 0.0]
+
+
+def test_backplot_layer_coalesces_axis_aligned_motion_in_same_direction() -> None:
+    scene = FakeScene()
+    layer = BackplotLayer(scene=scene)
+
+    layer.record([0.0, 0.0, 0.0], sample_time_s=0.0)
+    layer.record([0.0, -2.0, 0.0], sample_time_s=0.1)
+    layer.record([0.0, -4.0, 0.0], sample_time_s=0.2)
+    layer.record([0.0, -5.0, 0.0], sample_time_s=0.3)
+    layer.record([0.0, -3.0, 0.0], sample_time_s=0.4)
+    layer.record([1.0, -3.0, 0.0], sample_time_s=0.5)
+
+    assert len(layer.segments) == 3
+    assert layer.segments[0].start == [0.0, 0.0, 0.0]
+    assert layer.segments[0].end == [0.0, -5.0, 0.0]
+    assert layer.segments[1].start == [0.0, -5.0, 0.0]
+    assert layer.segments[1].end == [0.0, -3.0, 0.0]
+    assert layer.segments[2].start == [0.0, -3.0, 0.0]
+    assert layer.segments[2].end == [1.0, -3.0, 0.0]
+
+
+def test_backplot_layer_persists_and_restores_history() -> None:
+    history = BackplotHistoryStore()
+    first_scene = FakeScene()
+    first_layer = BackplotLayer(scene=first_scene, history_store=history)
+
+    first_layer.record([0.0, 0.0, 0.0], sample_time_s=0.0)
+    first_layer.record([0.0, 3.0, 0.0], sample_time_s=0.1)
+    first_layer.move(y_delta=7.0)
+
+    second_scene = FakeScene()
+    second_layer = BackplotLayer(scene=second_scene, history_store=history)
+    second_layer.restore_from_history()
+
+    assert len(second_scene.lines) == 1
+    assert len(second_layer.segments) == 1
+    assert second_layer.segments[0].start == [0.0, 0.0, 0.0]
+    assert second_layer.segments[0].end == [0.0, 3.0, 0.0]
+    assert second_layer.last_point == [0.0, 3.0, 0.0]
+    assert second_scene.lines[0].last_move == (0.0, 7.0, 0.0)
+
+
+def test_backplot_layer_starts_hydrated_so_reload_telemetry_cannot_erase_history() -> None:
+    history = BackplotHistoryStore()
+    first_layer = BackplotLayer(scene=FakeScene(), history_store=history)
+    first_layer.record([0.0, 0.0, 0.0], sample_time_s=0.0)
+    first_layer.record([0.0, 3.0, 0.0], sample_time_s=0.1)
+
+    reloaded_layer = BackplotLayer(scene=FakeScene(), history_store=history)
+    reloaded_layer.move(y_delta=4.0)
+
+    snapshot = history.snapshot()
+    assert len(snapshot.segments) == 1
+    assert snapshot.segments[0].start == [0.0, 0.0, 0.0]
+    assert snapshot.segments[0].end == [0.0, 3.0, 0.0]
+    assert snapshot.y_delta == 4.0
+
+
+def test_backplot_patch_retries_until_scene_object_exists() -> None:
+    from gui.scene.backplot_layer import backplot_patch_javascript
+
+    script = backplot_patch_javascript(
+        10,
+        20,
+        [BackplotSegment(start=[0.0, 0.0, 0.0], end=[1.0, 0.0, 0.0])],
+    )
+
+    assert "requestAnimationFrame(() => patchBackplot" in script
+    assert "attempt + 1" in script
+    assert "missing-object" in script

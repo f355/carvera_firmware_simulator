@@ -49,21 +49,13 @@ class AppActions:
         self.publish_machine_state(view, snapshot_to_state(snapshot))
 
     def publish_machine_state(self, view: AppView, state: MachineState) -> None:
-        assert view.firmware_state_view is not None
         merged_state = self.session.state_store.apply_full_snapshot(state).machine_state
         assert merged_state is not None
-        state = merged_state
-        set_status_badge(view.firmware_state_view.firmware_badge, state.firmware_booted, "booted", "off")
-        set_status_badge(view.firmware_state_view.homed_badge, state.homed, "homed", "not homed")
-        set_status_badge(view.firmware_state_view.soft_limit_badge, state.soft_endstop_enabled, "enabled", "disabled")
-        if view.axis_panel_view is not None:
-            view.axis_panel_view.update(state)
-        if view.atc_panel_view is not None:
-            view.atc_panel_view.update(state.atc)
-        self.update_machine_scene(view, state)
+        self._render_machine_state(view, merged_state)
 
     async def publish_transport(self, view: AppView, transport: InteractiveTransportState | None) -> None:
-        self.session.state_store.set_online(transport=transport)
+        model = str(view.model_select.value) if view.model_select is not None else None
+        self.session.state_store.set_online(transport=transport, machine_model=model)
         if view.transport_panel_view is not None and transport is not None:
             view.transport_panel_view.update(transport)
 
@@ -97,7 +89,7 @@ class AppActions:
         if gui_state.power_transition:
             view.power_switch.value = gui_state.machine_online
             return
-        self.session.state_store.set_power_transition(True)
+        self.session.state_store.set_power_transition(True, machine_model=str(view.model_select.value))
         view.power_switch.disable()
         set_control_locked(view.model_select, True)
         try:
@@ -119,6 +111,25 @@ class AppActions:
             self.update_model_selector_lock(view)
             view.power_switch.enable()
 
+    def restore_view(self, view: AppView) -> None:
+        gui_state = self.session.state_store.snapshot()
+        if view.model_select is not None and gui_state.machine_model is not None:
+            view.model_select.value = gui_state.machine_model
+            self.update_machine_shell_model(view)
+        if view.power_switch is not None:
+            view.power_switch.value = gui_state.machine_online or gui_state.power_transition
+            if gui_state.power_transition:
+                view.power_switch.disable()
+            else:
+                view.power_switch.enable()
+        self.update_model_selector_lock(view)
+        if view.transport_panel_view is not None and gui_state.transport is not None:
+            view.transport_panel_view.update(gui_state.transport)
+        if gui_state.machine_state is not None:
+            self._render_machine_state(view, gui_state.machine_state)
+        if view.machine_scene_view is not None:
+            view.machine_scene_view.restore_backplot()
+
     async def power_off(self, view: AppView) -> None:
         assert view.power_switch is not None
         assert view.firmware_state_view is not None
@@ -133,6 +144,7 @@ class AppActions:
         try:
             await self.session.process_controller.power_off()
             self.session.state_store.mark_offline()
+            self.session.backplot_history.clear()
             if view.axis_panel_view is not None:
                 view.axis_panel_view.reset()
             if view.transport_panel_view is not None:
@@ -156,6 +168,17 @@ class AppActions:
             await self.power_on(view)
         else:
             await self.power_off(view)
+
+    def _render_machine_state(self, view: AppView, state: MachineState) -> None:
+        assert view.firmware_state_view is not None
+        set_status_badge(view.firmware_state_view.firmware_badge, state.firmware_booted, "booted", "off")
+        set_status_badge(view.firmware_state_view.homed_badge, state.homed, "homed", "not homed")
+        set_status_badge(view.firmware_state_view.soft_limit_badge, state.soft_endstop_enabled, "enabled", "disabled")
+        if view.axis_panel_view is not None:
+            view.axis_panel_view.update(state)
+        if view.atc_panel_view is not None:
+            view.atc_panel_view.update(state.atc)
+        self.update_machine_scene(view, state)
 
     async def apply_atc_table(self, view: AppView, *, notify: bool = True) -> None:
         tools = collect_tool_table(view.tool_rows, rack_only=True)

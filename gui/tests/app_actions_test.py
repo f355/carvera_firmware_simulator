@@ -21,7 +21,7 @@ from typing import Any, cast
 from gui.app_actions import AppActions
 from gui.app_view import AppView
 from gui.core.gui_state import GuiStateStore
-from gui.protocol.model import AxisSnapshot, Box3D, MachineState
+from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, TransportEndpoint
 from gui.views.machine_tab import FirmwareStateView
 
 
@@ -46,9 +46,17 @@ class FakeAxisPanel:
 class FakeMachineScene:
     def __init__(self) -> None:
         self.updated_with: MachineState | None = None
+        self.shell_model: str | None = None
+        self.backplot_restored = False
 
     def update(self, state: MachineState | None) -> None:
         self.updated_with = state
+
+    def update_shell_model(self, model: str) -> None:
+        self.shell_model = model
+
+    def restore_backplot(self) -> None:
+        self.backplot_restored = True
 
 
 class FakeLabel:
@@ -66,6 +74,26 @@ class FakeLabel:
                 if part not in existing:
                     existing.append(part)
             self.classes_text = " ".join(existing)
+
+
+class FakeControl:
+    def __init__(self, value: object = None) -> None:
+        self.value = value
+        self.disabled = False
+
+    def disable(self) -> None:
+        self.disabled = True
+
+    def enable(self) -> None:
+        self.disabled = False
+
+
+class FakeTransportPanel:
+    def __init__(self) -> None:
+        self.updated_with: InteractiveTransportState | None = None
+
+    def update(self, value: InteractiveTransportState) -> None:
+        self.updated_with = value
 
 
 def make_firmware_state_view() -> FirmwareStateView:
@@ -188,3 +216,55 @@ def test_drain_snapshot_does_not_advance_cursor_while_offline() -> None:
 
     assert buffer.last_cursor is None
     assert view.snapshot_cursor == 0
+
+
+def test_restore_view_applies_running_machine_state_to_new_page() -> None:
+    store = GuiStateStore()
+    transport = InteractiveTransportState(
+        uart_supported=True,
+        uart_path="/dev/ttys123",
+        tcp_endpoints=(TransportEndpoint("127.0.0.1", 2222),),
+    )
+    state = MachineState(
+        firmware_booted=True,
+        homed=True,
+        soft_endstop_enabled=True,
+        work_area=Box3D(-10.0, -10.0, -10.0, 1.0, 1.0, 1.0),
+        physical_travel=Box3D(-11.0, -11.0, -11.0, 2.0, 2.0, 2.0),
+        axes=(AxisSnapshot("X", 10, -2.0, -2.0, False),),
+        atc=None,
+        spindle=None,
+        tool_setter=None,
+    )
+    store.set_power_transition(True, machine_model="ca1")
+    store.set_online(transport=transport, machine_model="ca1")
+    store.set_machine_state(state)
+    session = SimpleNamespace(state_store=store)
+    actions = AppActions(session)  # type: ignore[arg-type]
+    firmware_view = make_firmware_state_view()
+    axis_panel = FakeAxisPanel()
+    machine_scene = FakeMachineScene()
+    transport_panel = FakeTransportPanel()
+    view = AppView()
+    model_select = FakeControl("c1")
+    power_switch = FakeControl(False)
+    view.header.model_select = model_select
+    view.header.power_switch = power_switch
+    view.firmware_state_view = cast(Any, firmware_view)
+    view.axis_panel_view = cast(Any, axis_panel)
+    view.machine_scene_view = cast(Any, machine_scene)
+    view.transport_panel_view = cast(Any, transport_panel)
+
+    actions.restore_view(view)
+
+    assert model_select.value == "ca1"
+    assert model_select.disabled is True
+    assert power_switch.value is True
+    assert power_switch.disabled is False
+    assert firmware_view.firmware_badge.text == "booted"
+    assert firmware_view.homed_badge.text == "homed"
+    assert axis_panel.updated_with == state
+    assert machine_scene.updated_with == state
+    assert machine_scene.shell_model == "ca1"
+    assert machine_scene.backplot_restored is True
+    assert transport_panel.updated_with == transport

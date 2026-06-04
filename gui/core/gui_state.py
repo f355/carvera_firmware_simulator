@@ -25,6 +25,7 @@ from gui.protocol.model import InteractiveTransportState, MachineState
 class GuiStateSnapshot:
     machine_online: bool = False
     power_transition: bool = False
+    machine_model: str | None = None
     transport: InteractiveTransportState | None = None
     machine_state: MachineState | None = None
 
@@ -45,18 +46,25 @@ class GuiStateStore:
                 return cursor, None
             return self._version, self._snapshot
 
-    def set_power_transition(self, active: bool) -> GuiStateSnapshot:
+    def set_power_transition(self, active: bool, *, machine_model: str | None = None) -> GuiStateSnapshot:
         with self._lock:
-            self._snapshot = replace(self._snapshot, power_transition=active)
+            self._snapshot = replace(
+                self._snapshot,
+                power_transition=active,
+                machine_model=machine_model if machine_model is not None else self._snapshot.machine_model,
+            )
             self._version += 1
             return self._snapshot
 
-    def set_online(self, *, transport: InteractiveTransportState | None) -> GuiStateSnapshot:
+    def set_online(
+        self, *, transport: InteractiveTransportState | None, machine_model: str | None = None
+    ) -> GuiStateSnapshot:
         with self._lock:
             self._snapshot = replace(
                 self._snapshot,
                 machine_online=True,
                 power_transition=False,
+                machine_model=machine_model if machine_model is not None else self._snapshot.machine_model,
                 transport=transport,
             )
             self._version += 1

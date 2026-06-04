@@ -43,6 +43,8 @@ ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
 
 def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
     view = AppView()
+    gui_state = session.state_store.snapshot()
+    selected_model = gui_state.machine_model or session.args.model
 
     def machine_model_value() -> str:
         assert view.model_select is not None
@@ -57,7 +59,7 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
             ui.label("Carvera Simulator").classes("sim-title")
             view.header.model_select = ui.toggle(
                 {"c1": "Carvera (C1)", "ca1": "Carvera Air (CA1)"},
-                value=session.args.model,
+                value=selected_model,
                 on_change=lambda _: actions.update_machine_shell_model(view),
             ).props("dense unelevated toggle-color=primary")
             view.header.cad_models_switch = ui.switch(
@@ -228,13 +230,12 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
             machine_model_scale=float(session.args.machine_model_scale),
             model_offset_override=session.machine_model_offset_override,
             model_rotation_override=session.machine_model_rotation_override,
+            backplot_history=session.backplot_history,
         )
         assert view.cad_models_switch is not None
         view.machine_scene_view.set_cad_models_visible(bool(view.cad_models_switch.value))
         actions.update_machine_shell_model(view)
-        gui_state = session.state_store.snapshot()
-        if gui_state.transport is not None:
-            view.transport_panel_view.update(gui_state.transport)
+        actions.restore_view(view)
 
     ui.timer(0.033, lambda: actions.drain_telemetry(view))
     ui.timer(0.1, lambda: actions.drain_snapshots(view))
