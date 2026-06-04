@@ -46,6 +46,7 @@ void MotionTelemetry::reset() {
   last_emitted_spindle_rpm_.reset();
   last_emitted_spindle_target_rpm_.reset();
   last_emitted_time_us_.reset();
+  last_emitted_wall_time_.reset();
   last_emitted_steps_.reset();
 }
 
@@ -80,6 +81,7 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
     ++ticks_since_emit_;
   }
   const auto now_us = clock::active().read_us();
+  const auto now_wall = std::chrono::steady_clock::now();
 
   const auto model = machine_model_from_kernel(kernel);
   const auto spindle = spindle_state::snapshot(model);
@@ -94,8 +96,14 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
   }
 
   const bool tick_interval_elapsed = ticks_since_emit_ >= interval_ticks_;
-  const bool time_interval_elapsed = !last_emitted_time_us_.has_value() || now_us < *last_emitted_time_us_ ||
-                                     now_us - *last_emitted_time_us_ >= interval_us_;
+  bool time_interval_elapsed = false;
+  if (clock::active().is_realtime()) {
+    time_interval_elapsed = !last_emitted_wall_time_.has_value() ||
+                            now_wall - *last_emitted_wall_time_ >= std::chrono::microseconds(interval_us_);
+  } else {
+    time_interval_elapsed = !last_emitted_time_us_.has_value() || now_us < *last_emitted_time_us_ ||
+                            now_us - *last_emitted_time_us_ >= interval_us_;
+  }
   const bool interval_elapsed =
       changed_since_last_observation ? (tick_interval_elapsed || time_interval_elapsed) : time_interval_elapsed;
   if (!force && !interval_elapsed && last_emitted_steps_.has_value()) {
@@ -112,6 +120,7 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
   last_emitted_spindle_rpm_ = spindle.actual_rpm;
   last_emitted_spindle_target_rpm_ = spindle.target_rpm;
   last_emitted_time_us_ = now_us;
+  last_emitted_wall_time_ = now_wall;
 
   MachineTelemetry sample;
   sample.sequence = next_sequence_++;

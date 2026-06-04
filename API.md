@@ -96,15 +96,17 @@ state should be sent before that.
 ### Lifecycle and time
 
 * `Reset`: reset simulator and firmware runtime.
-* `GetStatus`: read virtual time, time mode, machine model, and `FuncSetting`.
+* `GetStatus`: read virtual time, time mode, realtime speed, machine model, and `FuncSetting`.
 * `SetMachineModel`: choose C1/CA1 and factory function byte before boot.
 * `SetTimeMode`: choose manual deterministic time or realtime wall-clock time.
+* `SetRealtimeSpeed`: scale realtime virtual time against wall-clock time.
 * `AdvanceTime`: advance manual-mode virtual time.
 * `Poll`: dispatch pending simulator work in realtime mode.
 
 Manual time is meant for tests. Realtime mode is meant for the GUI and the
 controller, where the simulated machine should keep moving while nobody is
-explicitly advancing time.
+explicitly advancing time. Realtime speed is useful for fast interactive
+dry-runs; controller I/O still runs on normal host wall-clock time.
 
 ### Host filesystem
 

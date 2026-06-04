@@ -81,6 +81,7 @@ class FirmwareRuntime {
   void run_main_loop(std::size_t iterations);
   bool run_until_idle(std::size_t max_step_ticks);
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
+  double realtime_speed() const;
 
  private:
   MachineModel machine_model() const;

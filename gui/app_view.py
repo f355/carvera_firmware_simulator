@@ -144,6 +144,10 @@ class AppView:
         return self.environment_tab_view.temperature_status if self.environment_tab_view is not None else None
 
     @property
+    def realtime_speed(self) -> Any | None:
+        return self.environment_tab_view.realtime_speed if self.environment_tab_view is not None else None
+
+    @property
     def tool_rows(self) -> dict[int, dict[str, Any]]:
         return self.atc_tab_view.tool_rows if self.atc_tab_view is not None else {}
 

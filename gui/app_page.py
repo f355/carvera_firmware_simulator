@@ -36,6 +36,7 @@ from gui.views.machine_tab import build_firmware_state_panel, build_machine_tab
 from gui.views.signals_tab import build_signals_tab
 from gui.views.styles import SIM_CSS
 from gui.views.transport_panel import build_transport_panel
+from gui.views.ui_helpers import event_value
 
 
 ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
@@ -141,6 +142,9 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                             view.environment_tab_view = build_environment_tab(
                                 motor_alarm_changed=lambda axis, event: actions.motor_alarm_changed(view, axis, event),
                                 spindle_alarm_changed=lambda event: actions.spindle_alarm_changed(view, event),
+                                realtime_speed_changed=lambda event: actions.realtime_speed_changed(
+                                    view, event_value(event)
+                                ),
                                 scene_appearance_changed=scene_appearance_event,
                                 set_temperature=lambda: actions.set_temperature(view),
                             )

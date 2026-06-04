@@ -86,6 +86,16 @@ void MachineSimulator::pause_realtime() { context_->clock().pause_realtime(); }
 
 bool MachineSimulator::is_realtime() const { return context_->clock().is_realtime(); }
 
+bool MachineSimulator::set_realtime_speed(double speed) {
+  if (!context_->clock().set_realtime_speed(speed)) {
+    return false;
+  }
+  context_->realtime_timer_pacer().reset();
+  return true;
+}
+
+double MachineSimulator::realtime_speed() const { return context_->clock().realtime_speed(); }
+
 void MachineSimulator::poll() { us_ticker::dispatch_due_events(); }
 
 std::uint64_t MachineSimulator::time_us() const { return context_->clock().read_us(); }

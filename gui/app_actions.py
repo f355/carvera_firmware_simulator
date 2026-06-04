@@ -21,6 +21,7 @@ from typing import Any
 from nicegui import ui
 
 from gui.app_view import AppView
+from gui.core.logging import log_gui_event
 from gui.core.session import SimulatorSession
 from gui.protocol.model import InteractiveTransportState, MachineState, ToolKind, pb, snapshot_to_state
 from gui.protocol.sim_client import SimulatorClientError
@@ -38,6 +39,7 @@ from gui.views.tool_table import (
     load_default_tools as load_default_tool_controls,
     physical_length_from_stickout,
 )
+from gui.views.environment_tab import GUI_REALTIME_SPEED_MAX
 from gui.views.ui_helpers import event_bool, set_control_locked, set_status_badge
 
 
@@ -99,6 +101,7 @@ class AppActions:
                 rotary_enabled=event_bool(view.rotary_accessory_switch),
             )
             await self.publish_transport(view, result.transport)
+            await self.realtime_speed_changed(view)
             if result.snapshot is not None:
                 await self.publish_snapshot(view, result.snapshot)
             await self.apply_physical_boxes(view, notify=False)
@@ -358,6 +361,21 @@ class AppActions:
             if view.io_panel_view is not None:
                 view.io_panel_view.set_temperature_status(celsius)
         except SimulatorClientError as exc:
+            ui.notify(str(exc), type="negative")
+
+    async def realtime_speed_changed(self, view: AppView, value: float | int | str | None = None) -> None:
+        if not self.session.state_store.snapshot().machine_online:
+            ui.notify("Power the simulator before changing realtime speed.", type="warning")
+            return
+        if view.realtime_speed is None:
+            return
+        try:
+            source_value = value if value is not None else view.realtime_speed.value
+            multiplier = max(0.25, min(GUI_REALTIME_SPEED_MAX, float(source_value or 1.0)))
+            view.realtime_speed.value = multiplier
+            log_gui_event(f"realtime speed requested={multiplier:g}x")
+            await self.session.process_controller.call(self.session.client.set_realtime_speed, multiplier)
+        except (SimulatorClientError, TypeError, ValueError) as exc:
             ui.notify(str(exc), type="negative")
 
     async def refresh_eeprom(self, view: AppView, *, notify: bool = True) -> None:

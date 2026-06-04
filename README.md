@@ -26,7 +26,7 @@ configs, persist EEPROM, run Player from host-backed files, simulate the spindle
 PWM/tach path, laser state, probing, ETS contact, C1 ATC tool changes, CA1
 manual tool changes, front-panel inputs, e-stop, cover, motor alarms, thermistor
 inputs, fan outputs, and the optional rotary A-axis at a basic homing/jogging
-level.
+level. Free-running mode can also be sped up for interactive dry-runs.
 
 The GUI is a machine simulator surface, not a controller replacement.
 Controller commands should still go through the virtual COM port or fake Wi-Fi
@@ -304,9 +304,9 @@ messages on stdin and writes length-prefixed `Response` messages on stdout. The
 same dispatcher backs the GUI.
 
 The API is intentionally hardware-shaped: configure physical tools, stock,
-machine inputs, temperatures, and alarms; read physical axes, GPIO/PWM,
-laser/spindle state, probe contacts, telemetry, EEPROM fields, and controller
-traffic.
+machine inputs, temperatures, alarms, and realtime speed; read physical axes,
+GPIO/PWM, laser/spindle state, probe contacts, telemetry, EEPROM fields, and
+controller traffic.
 
 ## Useful development commands
 

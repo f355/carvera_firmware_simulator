@@ -57,6 +57,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       status->set_time_mode(api::time_mode(simulator_.is_realtime()));
       status->set_machine_model(api::proto_machine_model(factory_settings.machine_model));
       status->set_function_setting(factory_settings.function_setting);
+      status->set_realtime_speed(simulator_.realtime_speed());
       return response;
     }
     case Request::kSetTimeMode:
@@ -72,6 +73,16 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
         default:
           return error(request.id(), "unsupported time mode");
       }
+    case Request::kSetRealtimeSpeed: {
+      const double multiplier = request.set_realtime_speed().multiplier();
+      if (!simulator_.set_realtime_speed(multiplier)) {
+        return error(request.id(), "realtime speed multiplier must be > 0 and <= 100");
+      }
+      std::ostringstream message;
+      message << "realtime speed=" << multiplier << "x";
+      logging::event("lifecycle", message.str());
+      return ok(request.id());
+    }
     case Request::kAdvanceTime:
       simulator_.advance_us(request.advance_time().delta_us());
       return ok(request.id());
@@ -107,6 +118,18 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       logging::event("lifecycle", message.str());
       return ok(request.id());
     }
+    default:
+      return std::nullopt;
+  }
+}
+
+std::optional<ApiService::Response> ApiService::handle_cooperative_lifecycle_command(
+    const carvera::sim::v1::Request& request) {
+  using Request = carvera::sim::v1::Request;
+
+  switch (request.command_case()) {
+    case Request::kSetRealtimeSpeed:
+      return handle_lifecycle_command(request);
     default:
       return std::nullopt;
   }

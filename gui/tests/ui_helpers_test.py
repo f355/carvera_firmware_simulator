@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from gui.views.ui_helpers import event_bool, set_badge, set_control_locked, set_status_badge
+from gui.views.ui_helpers import event_bool, event_value, set_badge, set_control_locked, set_status_badge
 
 
 class FakeLabel:
@@ -83,3 +83,10 @@ def test_ui_helpers_test() -> None:
         raise SystemExit("zero event values should be false")
     if not event_bool(SimpleNamespace(value=1)):
         raise SystemExit("nonzero event values should be true")
+
+    if event_value(SimpleNamespace(value=6.0)) != 6.0:
+        raise SystemExit("value-change events should expose their value")
+    if event_value(SimpleNamespace(args=[7.0])) != 7.0:
+        raise SystemExit("generic single-argument events should expose their argument")
+    if event_value(SimpleNamespace(args=8.0)) != 8.0:
+        raise SystemExit("generic scalar events should expose their argument")

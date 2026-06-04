@@ -44,6 +44,7 @@ class ApiService {
   using Response = carvera::sim::v1::Response;
 
   std::optional<Response> handle_lifecycle_command(const carvera::sim::v1::Request& request);
+  std::optional<Response> handle_cooperative_lifecycle_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_harness_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_cooperative_harness_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_serial_motion_command(const carvera::sim::v1::Request& request);

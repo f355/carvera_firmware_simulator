@@ -57,8 +57,10 @@
 #include "sim/runtime_pin_config.hpp"
 #include "sim/runtime_temperature.hpp"
 #include "sim/spindle_state.hpp"
+#include "sim/virtual_clock.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <string>
@@ -75,6 +77,14 @@ using runtime_pins::default_main_button_pin;
 using runtime_pins::drive_configured_input;
 using runtime_pins::pin_address;
 
+std::size_t idle_motion_iterations() {
+  const double speed = clock::active().realtime_speed();
+  if (!clock::active().is_realtime() || !std::isfinite(speed) || speed <= 1.0) {
+    return 1;
+  }
+  return std::clamp(static_cast<std::size_t>(std::ceil(speed)), std::size_t{1}, std::size_t{100});
+}
+
 // These bridge modules let the firmware's event loop observe simulated hardware
 // side effects without teaching the firmware about the simulator.
 class SimulatorTimerPumpBridgeModule : public Module {
@@ -88,7 +98,7 @@ class SimulatorTimerPumpBridgeModule : public Module {
       }
       // Firmware blocking waits spin ON_IDLE; give emulated LPC timers a chance
       // to fire without shortcutting directly into firmware ticker callbacks.
-      pump_motion(*THEKERNEL, 1);
+      pump_motion(*THEKERNEL, idle_motion_iterations());
     }
   }
 };

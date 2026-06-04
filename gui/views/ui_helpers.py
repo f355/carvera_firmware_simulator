@@ -37,6 +37,17 @@ def event_bool(event: Any) -> bool:
     return bool(value)
 
 
+def event_value(event: Any) -> Any:
+    if hasattr(event, "value"):
+        return event.value
+    if hasattr(event, "args"):
+        args = event.args
+        if isinstance(args, (list, tuple)) and len(args) == 1:
+            return args[0]
+        return args
+    return event
+
+
 def set_badge(
     label: BadgeLike, active: bool, on_text: str = "ON", off_text: str = "OFF", *, warn: bool = False
 ) -> None:

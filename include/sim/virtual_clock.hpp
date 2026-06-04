@@ -35,6 +35,8 @@ class VirtualClock {
   void start_realtime();
   void pause_realtime();
   bool is_realtime() const { return mode_ == Mode::Realtime; }
+  bool set_realtime_speed(double speed);
+  double realtime_speed() const { return realtime_speed_; }
   std::uint64_t read_us() const;
 
  private:
@@ -43,6 +45,7 @@ class VirtualClock {
   Mode mode_{Mode::Manual};
   std::uint64_t base_us_{0};
   SteadyClock::time_point realtime_started_at_{};
+  double realtime_speed_{1.0};
 };
 
 namespace clock {

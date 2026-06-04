@@ -297,6 +297,11 @@ class SimulatorClient:
         request.set_time_mode.mode = pb.TIME_MODE_REALTIME
         self.request(request)
 
+    def set_realtime_speed(self, multiplier: float) -> None:
+        request = pb.Request()
+        request.set_realtime_speed.multiplier = multiplier
+        self.request(request)
+
     def get_status(self) -> Any:
         request = pb.Request()
         request.get_status.SetInParent()

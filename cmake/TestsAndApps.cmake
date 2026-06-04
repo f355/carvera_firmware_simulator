@@ -86,6 +86,7 @@ set(SIM_RUNTIME_TESTS
   motor_alarm_api_test
   nonblocking_snapshot_homed_test
   player_laser_runtime_test
+  realtime_motion_speed_test
   rotary_axis_runtime_test
   runtime_boot_composition_test
   runtime_temperature_reporting_test
@@ -105,6 +106,7 @@ set(SIM_SPECIAL_TESTS
   stdio_api_test
   stream_busy_control_test
   stream_interactive_transport_test
+  stream_player_realtime_speed_test
   stream_startup_telemetry_test
 )
 
@@ -172,6 +174,14 @@ add_dependencies(stream_busy_control_test carvera_sim_stream_stdio)
 add_test(NAME stream_busy_control_test
   COMMAND stream_busy_control_test $<TARGET_FILE:carvera_sim_stream_stdio>)
 sim_register_test(stream_busy_control_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+
+add_executable(stream_player_realtime_speed_test tests/stream_player_realtime_speed_test.cpp)
+sim_force_include(stream_player_realtime_speed_test ${HOST_PRELUDE})
+target_link_libraries(stream_player_realtime_speed_test PRIVATE carvera_sim_api)
+add_dependencies(stream_player_realtime_speed_test carvera_sim_stream_stdio)
+add_test(NAME stream_player_realtime_speed_test
+  COMMAND stream_player_realtime_speed_test $<TARGET_FILE:carvera_sim_stream_stdio>)
+sim_register_test(stream_player_realtime_speed_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
 configure_file(
   ${FIRMWARE_SRC}/main.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/generated/main.cpp

@@ -60,6 +60,8 @@ class MachineSimulator {
   void start_realtime();
   void pause_realtime();
   bool is_realtime() const;
+  bool set_realtime_speed(double speed);
+  double realtime_speed() const;
   void poll();
   std::uint64_t time_us() const;
 

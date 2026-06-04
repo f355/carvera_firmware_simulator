@@ -133,6 +133,11 @@ body { background: #f6f7f9; color: #1f2933; }
 .appearance-control .q-slider { padding: 0 4px; }
 .custom-gpio { display: grid; grid-template-columns: 70px 70px 1fr; gap: 8px; align-items: end; margin-top: 8px; }
 .box-grid { display: grid; grid-template-columns: 70px 70px 70px 70px 70px 70px; gap: 6px; margin-top: 8px; }
+.speed-drive {
+  display: grid; grid-template-columns: minmax(320px, 1fr) 76px; gap: 12px; align-items: center; margin-top: 8px;
+  max-width: 620px;
+}
+.speed-drive .q-slider { padding: 0 8px; }
 .temperature-drive { display: grid; grid-template-columns: 132px 94px 1fr; gap: 8px; align-items: end; margin-top: 8px; }
 .compact-field .q-field__control { min-height: 32px; height: 32px; }
 .compact-actions { display: flex; gap: 4px; flex-wrap: nowrap; }

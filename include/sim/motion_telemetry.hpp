@@ -18,6 +18,7 @@
 #ifndef SIMULATOR_SIM_MOTION_TELEMETRY_HPP
 #define SIMULATOR_SIM_MOTION_TELEMETRY_HPP
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -57,6 +58,7 @@ class MotionTelemetry {
   std::optional<double> last_emitted_spindle_rpm_{};
   std::optional<double> last_emitted_spindle_target_rpm_{};
   std::optional<std::uint64_t> last_emitted_time_us_{};
+  std::optional<std::chrono::steady_clock::time_point> last_emitted_wall_time_{};
   std::optional<std::vector<std::int64_t>> last_emitted_steps_{};
 };
 

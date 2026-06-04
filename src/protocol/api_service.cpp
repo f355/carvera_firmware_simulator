@@ -49,6 +49,9 @@ carvera::sim::v1::Response ApiService::handle(const carvera::sim::v1::Request& r
 }
 
 carvera::sim::v1::Response ApiService::handle_cooperative(const carvera::sim::v1::Request& request) {
+  if (auto response = handle_cooperative_lifecycle_command(request)) {
+    return *response;
+  }
   if (auto response = handle_cooperative_harness_command(request)) {
     return *response;
   }

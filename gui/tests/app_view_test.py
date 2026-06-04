@@ -45,6 +45,7 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
     view.environment_tab_view.temperature_sensor = SimpleNamespace(value="spindle")
     view.environment_tab_view.temperature_celsius = SimpleNamespace(value=25.0)
     view.environment_tab_view.temperature_status = SimpleNamespace(text="")
+    view.environment_tab_view.realtime_speed = SimpleNamespace(value=5.0)
     view.stock_tab_view = GpioTabView()
     view.stock_tab_view.box_controls["stock"] = {"enabled": SimpleNamespace(value=True)}
     view.stock_tab_view.pin_badges["unused"] = SimpleNamespace(text="")
@@ -78,3 +79,5 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
     assert view.temperature_sensor.value == "spindle"
     assert view.temperature_celsius.value == 25.0
     assert view.temperature_status.text == ""
+    assert view.realtime_speed is not None
+    assert view.realtime_speed.value == 5.0

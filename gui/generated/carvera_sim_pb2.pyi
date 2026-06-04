@@ -103,13 +103,14 @@ EEPROM_FIELD_TYPE_INT: EepromFieldType
 EEPROM_FIELD_TYPE_BOOL: EepromFieldType
 
 class Request(_message.Message):
-    __slots__ = ("id", "reset", "poll", "get_status", "set_time_mode", "advance_time", "set_machine_model", "mount_filesystem", "start_interactive_transport", "stop_interactive_transport", "write_serial", "read_serial", "run_until_idle", "jog", "set_cover_open", "get_cover_open", "set_motor_alarm", "get_motor_alarm", "set_spindle_alarm", "get_spindle_alarm", "set_atc_pocket_tools", "set_main_button_pressed", "set_e_stop_pressed", "get_front_panel_state", "set_temperature", "set_limit_switch", "get_limit_switch", "set_spindle_tool", "set_probe_tool_installed", "set_stock_box", "get_machine_snapshot", "get_pwm_output", "get_switch_state", "get_laser_state", "set_rotary_accessory_installed", "get_eeprom_bytes", "set_eeprom_bytes", "get_eeprom_fields", "set_eeprom_fields", "get_probe_inputs", "get_adc_input", "set_gpio_input", "get_gpio_level", "attach_step_dir_axis", "get_axis_position", "trigger_interrupt_rise", "set_probe_inputs", "set_tool_setter_box", "set_adc_input", "set_switch_state")
+    __slots__ = ("id", "reset", "poll", "get_status", "set_time_mode", "advance_time", "set_realtime_speed", "set_machine_model", "mount_filesystem", "start_interactive_transport", "stop_interactive_transport", "write_serial", "read_serial", "run_until_idle", "jog", "set_cover_open", "get_cover_open", "set_motor_alarm", "get_motor_alarm", "set_spindle_alarm", "get_spindle_alarm", "set_atc_pocket_tools", "set_main_button_pressed", "set_e_stop_pressed", "get_front_panel_state", "set_temperature", "set_limit_switch", "get_limit_switch", "set_spindle_tool", "set_probe_tool_installed", "set_stock_box", "get_machine_snapshot", "get_pwm_output", "get_switch_state", "get_laser_state", "set_rotary_accessory_installed", "get_eeprom_bytes", "set_eeprom_bytes", "get_eeprom_fields", "set_eeprom_fields", "get_probe_inputs", "get_adc_input", "set_gpio_input", "get_gpio_level", "attach_step_dir_axis", "get_axis_position", "trigger_interrupt_rise", "set_probe_inputs", "set_tool_setter_box", "set_adc_input", "set_switch_state")
     ID_FIELD_NUMBER: _ClassVar[int]
     RESET_FIELD_NUMBER: _ClassVar[int]
     POLL_FIELD_NUMBER: _ClassVar[int]
     GET_STATUS_FIELD_NUMBER: _ClassVar[int]
     SET_TIME_MODE_FIELD_NUMBER: _ClassVar[int]
     ADVANCE_TIME_FIELD_NUMBER: _ClassVar[int]
+    SET_REALTIME_SPEED_FIELD_NUMBER: _ClassVar[int]
     SET_MACHINE_MODEL_FIELD_NUMBER: _ClassVar[int]
     MOUNT_FILESYSTEM_FIELD_NUMBER: _ClassVar[int]
     START_INTERACTIVE_TRANSPORT_FIELD_NUMBER: _ClassVar[int]
@@ -160,6 +161,7 @@ class Request(_message.Message):
     get_status: GetStatus
     set_time_mode: SetTimeMode
     advance_time: AdvanceTime
+    set_realtime_speed: SetRealtimeSpeed
     set_machine_model: SetMachineModel
     mount_filesystem: MountFilesystem
     start_interactive_transport: StartInteractiveTransport
@@ -204,7 +206,7 @@ class Request(_message.Message):
     set_tool_setter_box: SetToolSetterBox
     set_adc_input: SetAdcInput
     set_switch_state: SetSwitchState
-    def __init__(self, id: _Optional[int] = ..., reset: _Optional[_Union[Reset, _Mapping]] = ..., poll: _Optional[_Union[Poll, _Mapping]] = ..., get_status: _Optional[_Union[GetStatus, _Mapping]] = ..., set_time_mode: _Optional[_Union[SetTimeMode, _Mapping]] = ..., advance_time: _Optional[_Union[AdvanceTime, _Mapping]] = ..., set_machine_model: _Optional[_Union[SetMachineModel, _Mapping]] = ..., mount_filesystem: _Optional[_Union[MountFilesystem, _Mapping]] = ..., start_interactive_transport: _Optional[_Union[StartInteractiveTransport, _Mapping]] = ..., stop_interactive_transport: _Optional[_Union[StopInteractiveTransport, _Mapping]] = ..., write_serial: _Optional[_Union[WriteSerial, _Mapping]] = ..., read_serial: _Optional[_Union[ReadSerial, _Mapping]] = ..., run_until_idle: _Optional[_Union[RunUntilIdle, _Mapping]] = ..., jog: _Optional[_Union[Jog, _Mapping]] = ..., set_cover_open: _Optional[_Union[SetCoverOpen, _Mapping]] = ..., get_cover_open: _Optional[_Union[GetCoverOpen, _Mapping]] = ..., set_motor_alarm: _Optional[_Union[SetMotorAlarm, _Mapping]] = ..., get_motor_alarm: _Optional[_Union[GetMotorAlarm, _Mapping]] = ..., set_spindle_alarm: _Optional[_Union[SetSpindleAlarm, _Mapping]] = ..., get_spindle_alarm: _Optional[_Union[GetSpindleAlarm, _Mapping]] = ..., set_atc_pocket_tools: _Optional[_Union[SetAtcPocketTools, _Mapping]] = ..., set_main_button_pressed: _Optional[_Union[SetMainButtonPressed, _Mapping]] = ..., set_e_stop_pressed: _Optional[_Union[SetEStopPressed, _Mapping]] = ..., get_front_panel_state: _Optional[_Union[GetFrontPanelState, _Mapping]] = ..., set_temperature: _Optional[_Union[SetTemperature, _Mapping]] = ..., set_limit_switch: _Optional[_Union[SetLimitSwitch, _Mapping]] = ..., get_limit_switch: _Optional[_Union[GetLimitSwitch, _Mapping]] = ..., set_spindle_tool: _Optional[_Union[SetSpindleTool, _Mapping]] = ..., set_probe_tool_installed: _Optional[_Union[SetProbeToolInstalled, _Mapping]] = ..., set_stock_box: _Optional[_Union[SetStockBox, _Mapping]] = ..., get_machine_snapshot: _Optional[_Union[GetMachineSnapshot, _Mapping]] = ..., get_pwm_output: _Optional[_Union[GetPwmOutput, _Mapping]] = ..., get_switch_state: _Optional[_Union[GetSwitchState, _Mapping]] = ..., get_laser_state: _Optional[_Union[GetLaserState, _Mapping]] = ..., set_rotary_accessory_installed: _Optional[_Union[SetRotaryAccessoryInstalled, _Mapping]] = ..., get_eeprom_bytes: _Optional[_Union[GetEepromBytes, _Mapping]] = ..., set_eeprom_bytes: _Optional[_Union[SetEepromBytes, _Mapping]] = ..., get_eeprom_fields: _Optional[_Union[GetEepromFields, _Mapping]] = ..., set_eeprom_fields: _Optional[_Union[SetEepromFields, _Mapping]] = ..., get_probe_inputs: _Optional[_Union[GetProbeInputs, _Mapping]] = ..., get_adc_input: _Optional[_Union[GetAdcInput, _Mapping]] = ..., set_gpio_input: _Optional[_Union[SetGpioInput, _Mapping]] = ..., get_gpio_level: _Optional[_Union[GetGpioLevel, _Mapping]] = ..., attach_step_dir_axis: _Optional[_Union[AttachStepDirAxis, _Mapping]] = ..., get_axis_position: _Optional[_Union[GetAxisPosition, _Mapping]] = ..., trigger_interrupt_rise: _Optional[_Union[TriggerInterruptRise, _Mapping]] = ..., set_probe_inputs: _Optional[_Union[SetProbeInputs, _Mapping]] = ..., set_tool_setter_box: _Optional[_Union[SetToolSetterBox, _Mapping]] = ..., set_adc_input: _Optional[_Union[SetAdcInput, _Mapping]] = ..., set_switch_state: _Optional[_Union[SetSwitchState, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., reset: _Optional[_Union[Reset, _Mapping]] = ..., poll: _Optional[_Union[Poll, _Mapping]] = ..., get_status: _Optional[_Union[GetStatus, _Mapping]] = ..., set_time_mode: _Optional[_Union[SetTimeMode, _Mapping]] = ..., advance_time: _Optional[_Union[AdvanceTime, _Mapping]] = ..., set_realtime_speed: _Optional[_Union[SetRealtimeSpeed, _Mapping]] = ..., set_machine_model: _Optional[_Union[SetMachineModel, _Mapping]] = ..., mount_filesystem: _Optional[_Union[MountFilesystem, _Mapping]] = ..., start_interactive_transport: _Optional[_Union[StartInteractiveTransport, _Mapping]] = ..., stop_interactive_transport: _Optional[_Union[StopInteractiveTransport, _Mapping]] = ..., write_serial: _Optional[_Union[WriteSerial, _Mapping]] = ..., read_serial: _Optional[_Union[ReadSerial, _Mapping]] = ..., run_until_idle: _Optional[_Union[RunUntilIdle, _Mapping]] = ..., jog: _Optional[_Union[Jog, _Mapping]] = ..., set_cover_open: _Optional[_Union[SetCoverOpen, _Mapping]] = ..., get_cover_open: _Optional[_Union[GetCoverOpen, _Mapping]] = ..., set_motor_alarm: _Optional[_Union[SetMotorAlarm, _Mapping]] = ..., get_motor_alarm: _Optional[_Union[GetMotorAlarm, _Mapping]] = ..., set_spindle_alarm: _Optional[_Union[SetSpindleAlarm, _Mapping]] = ..., get_spindle_alarm: _Optional[_Union[GetSpindleAlarm, _Mapping]] = ..., set_atc_pocket_tools: _Optional[_Union[SetAtcPocketTools, _Mapping]] = ..., set_main_button_pressed: _Optional[_Union[SetMainButtonPressed, _Mapping]] = ..., set_e_stop_pressed: _Optional[_Union[SetEStopPressed, _Mapping]] = ..., get_front_panel_state: _Optional[_Union[GetFrontPanelState, _Mapping]] = ..., set_temperature: _Optional[_Union[SetTemperature, _Mapping]] = ..., set_limit_switch: _Optional[_Union[SetLimitSwitch, _Mapping]] = ..., get_limit_switch: _Optional[_Union[GetLimitSwitch, _Mapping]] = ..., set_spindle_tool: _Optional[_Union[SetSpindleTool, _Mapping]] = ..., set_probe_tool_installed: _Optional[_Union[SetProbeToolInstalled, _Mapping]] = ..., set_stock_box: _Optional[_Union[SetStockBox, _Mapping]] = ..., get_machine_snapshot: _Optional[_Union[GetMachineSnapshot, _Mapping]] = ..., get_pwm_output: _Optional[_Union[GetPwmOutput, _Mapping]] = ..., get_switch_state: _Optional[_Union[GetSwitchState, _Mapping]] = ..., get_laser_state: _Optional[_Union[GetLaserState, _Mapping]] = ..., set_rotary_accessory_installed: _Optional[_Union[SetRotaryAccessoryInstalled, _Mapping]] = ..., get_eeprom_bytes: _Optional[_Union[GetEepromBytes, _Mapping]] = ..., set_eeprom_bytes: _Optional[_Union[SetEepromBytes, _Mapping]] = ..., get_eeprom_fields: _Optional[_Union[GetEepromFields, _Mapping]] = ..., set_eeprom_fields: _Optional[_Union[SetEepromFields, _Mapping]] = ..., get_probe_inputs: _Optional[_Union[GetProbeInputs, _Mapping]] = ..., get_adc_input: _Optional[_Union[GetAdcInput, _Mapping]] = ..., set_gpio_input: _Optional[_Union[SetGpioInput, _Mapping]] = ..., get_gpio_level: _Optional[_Union[GetGpioLevel, _Mapping]] = ..., attach_step_dir_axis: _Optional[_Union[AttachStepDirAxis, _Mapping]] = ..., get_axis_position: _Optional[_Union[GetAxisPosition, _Mapping]] = ..., trigger_interrupt_rise: _Optional[_Union[TriggerInterruptRise, _Mapping]] = ..., set_probe_inputs: _Optional[_Union[SetProbeInputs, _Mapping]] = ..., set_tool_setter_box: _Optional[_Union[SetToolSetterBox, _Mapping]] = ..., set_adc_input: _Optional[_Union[SetAdcInput, _Mapping]] = ..., set_switch_state: _Optional[_Union[SetSwitchState, _Mapping]] = ...) -> None: ...
 
 class Response(_message.Message):
     __slots__ = ("id", "ok", "error", "status", "gpio_level", "attached_axis", "axis_position", "serial_data", "run_result", "jog_result", "pwm_output", "adc_input", "probe_inputs", "machine_snapshot", "interactive_transport", "cover_state", "motor_alarm_state", "front_panel_state", "switch_state", "limit_switch_state", "spindle_alarm_state", "laser_state", "eeprom_bytes", "eeprom_fields")
@@ -297,6 +299,12 @@ class SetTimeMode(_message.Message):
     MODE_FIELD_NUMBER: _ClassVar[int]
     mode: TimeMode
     def __init__(self, mode: _Optional[_Union[TimeMode, str]] = ...) -> None: ...
+
+class SetRealtimeSpeed(_message.Message):
+    __slots__ = ("multiplier",)
+    MULTIPLIER_FIELD_NUMBER: _ClassVar[int]
+    multiplier: float
+    def __init__(self, multiplier: _Optional[float] = ...) -> None: ...
 
 class AdvanceTime(_message.Message):
     __slots__ = ("delta_us",)
@@ -753,16 +761,18 @@ class StopInteractiveTransport(_message.Message):
     def __init__(self) -> None: ...
 
 class Status(_message.Message):
-    __slots__ = ("time_us", "time_mode", "machine_model", "function_setting")
+    __slots__ = ("time_us", "time_mode", "machine_model", "function_setting", "realtime_speed")
     TIME_US_FIELD_NUMBER: _ClassVar[int]
     TIME_MODE_FIELD_NUMBER: _ClassVar[int]
     MACHINE_MODEL_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_SETTING_FIELD_NUMBER: _ClassVar[int]
+    REALTIME_SPEED_FIELD_NUMBER: _ClassVar[int]
     time_us: int
     time_mode: TimeMode
     machine_model: MachineModel
     function_setting: int
-    def __init__(self, time_us: _Optional[int] = ..., time_mode: _Optional[_Union[TimeMode, str]] = ..., machine_model: _Optional[_Union[MachineModel, str]] = ..., function_setting: _Optional[int] = ...) -> None: ...
+    realtime_speed: float
+    def __init__(self, time_us: _Optional[int] = ..., time_mode: _Optional[_Union[TimeMode, str]] = ..., machine_model: _Optional[_Union[MachineModel, str]] = ..., function_setting: _Optional[int] = ..., realtime_speed: _Optional[float] = ...) -> None: ...
 
 class GpioLevel(_message.Message):
     __slots__ = ("pin", "high")

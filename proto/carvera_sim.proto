@@ -29,6 +29,7 @@ message Request {
     GetStatus get_status = 12;
     SetTimeMode set_time_mode = 13;
     AdvanceTime advance_time = 14;
+    SetRealtimeSpeed set_realtime_speed = 59;
     SetMachineModel set_machine_model = 24;
 
     // Host environment and controller-facing links.
@@ -164,6 +165,12 @@ message GetStatus {}
 // Command: select deterministic manual time or free-running realtime.
 message SetTimeMode {
   TimeMode mode = 1;
+}
+
+// Command: set the realtime wall-clock multiplier.
+message SetRealtimeSpeed {
+  // Simulated-time seconds per host wall-clock second.
+  double multiplier = 1;
 }
 
 // Command: advance manual-mode simulator time.
@@ -632,6 +639,9 @@ message Status {
 
   // Current simulator-configured factory FuncSetting byte.
   uint32 function_setting = 4;
+
+  // Simulated-time seconds per host wall-clock second in realtime mode.
+  double realtime_speed = 5;
 }
 
 // Response payload for GetGpioLevel.

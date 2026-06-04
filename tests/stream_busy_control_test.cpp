@@ -37,6 +37,19 @@ bool expect(bool condition, const char* message) {
 
 constexpr auto kBusyProbeDeadline = std::chrono::seconds(5);
 constexpr auto kBusyResponseDeadline = std::chrono::seconds(2);
+constexpr auto kAcceleratedMotionDeadline = std::chrono::milliseconds(1500);
+
+bool telemetry_z_below(const carvera::sim::v1::StreamFrame& frame, double threshold) {
+  if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_telemetry()) {
+    return false;
+  }
+  for (const auto& axis : frame.event().machine_telemetry().axes()) {
+    if (axis.axis() == carvera::sim::v1::AXIS_Z && axis.machine_position() < threshold) {
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace
 
@@ -154,8 +167,8 @@ int main(int argc, char** argv) {
 
   request.Clear();
   request.set_id(23);
-  request.mutable_set_e_stop_pressed()->set_pressed(true);
-  if (!expect(simulator.write_request(request), "failed to write e-stop request")) {
+  request.mutable_set_realtime_speed()->set_multiplier(4.0);
+  if (!expect(simulator.write_request(request), "failed to write realtime speed request")) {
     return 1;
   }
 
@@ -179,7 +192,39 @@ int main(int argc, char** argv) {
   }
 
   response.Clear();
-  const bool e_stop_acknowledged = simulator.wait_response(23, response, kBusyResponseDeadline) && response.ok();
+  const bool realtime_speed_acknowledged =
+      simulator.wait_response(23, response, kBusyResponseDeadline) && response.ok();
+  if (!expect(realtime_speed_acknowledged, "busy stream should acknowledge realtime speed changes quickly")) {
+    return 1;
+  }
+
+  if (!expect(simulator.wait_frame([](const auto& frame) { return telemetry_z_below(frame, -20.0); },
+                                   kBusyProbeDeadline),
+              "probing move should continue after realtime speed change")) {
+    return 1;
+  }
+
+  const auto accelerated_start = std::chrono::steady_clock::now();
+  if (!expect(simulator.wait_frame([](const auto& frame) { return telemetry_z_below(frame, -40.0); },
+                                   kAcceleratedMotionDeadline),
+              "busy stream realtime speed change should accelerate subsequent motion")) {
+    return 1;
+  }
+  const auto accelerated_elapsed = std::chrono::steady_clock::now() - accelerated_start;
+  if (!expect(accelerated_elapsed < kAcceleratedMotionDeadline,
+              "accelerated motion threshold should be reached before the deadline")) {
+    return 1;
+  }
+
+  request.Clear();
+  request.set_id(24);
+  request.mutable_set_e_stop_pressed()->set_pressed(true);
+  if (!expect(simulator.write_request(request), "failed to write e-stop request")) {
+    return 1;
+  }
+
+  response.Clear();
+  const bool e_stop_acknowledged = simulator.wait_response(24, response, kBusyResponseDeadline) && response.ok();
   if (!expect(e_stop_acknowledged, "busy stream should acknowledge urgent e-stop input quickly")) {
     return 1;
   }

@@ -23,6 +23,8 @@ from nicegui import ui
 
 from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, SceneLightingSettings
 
+GUI_REALTIME_SPEED_MAX = 10.0
+
 
 @dataclass
 class EnvironmentTabView:
@@ -32,6 +34,7 @@ class EnvironmentTabView:
     spindle_alarm_badge: Any | None = None
     lighting_controls: dict[str, Any] = field(default_factory=dict)
     material_controls: dict[str, Any] = field(default_factory=dict)
+    realtime_speed: Any | None = None
     temperature_sensor: Any | None = None
     temperature_celsius: Any | None = None
     temperature_status: Any | None = None
@@ -41,10 +44,30 @@ def build_environment_tab(
     *,
     motor_alarm_changed: Callable[[str, Any], Awaitable[None]],
     spindle_alarm_changed: Callable[[Any], Awaitable[None]],
+    realtime_speed_changed: Callable[[Any], Awaitable[None]],
     scene_appearance_changed: Callable[[Any], None],
     set_temperature: Callable[[], Awaitable[None]],
 ) -> EnvironmentTabView:
     view = EnvironmentTabView()
+    with ui.element("div").classes("panel-section"):
+        ui.label("Simulation Clock").classes("section-title")
+        with ui.element("div").classes("speed-drive"):
+            view.realtime_speed = ui.slider(
+                min=0.25,
+                max=GUI_REALTIME_SPEED_MAX,
+                value=1.0,
+                step=0.25,
+            ).props("label-always")
+            view.realtime_speed.on(
+                "update:model-value",
+                realtime_speed_changed,
+                throttle=0.15,
+                leading_events=True,
+                trailing_events=True,
+                js_handler="(value) => emit(value)",
+            )
+            ui.label("x requested").classes("metric-name")
+
     with ui.element("div").classes("panel-section"):
         ui.label("Fault Injection").classes("section-title")
         with ui.element("div").classes("input-grid"):

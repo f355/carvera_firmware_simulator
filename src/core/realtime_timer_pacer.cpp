@@ -33,6 +33,11 @@ std::chrono::nanoseconds cycles_to_duration(std::uint32_t cycles) {
   return std::chrono::nanoseconds(nanos);
 }
 
+std::chrono::nanoseconds scale_duration(std::chrono::nanoseconds duration, double speed) {
+  const auto scaled = static_cast<long double>(duration.count()) / speed;
+  return std::chrono::nanoseconds(std::max<std::int64_t>(1, static_cast<std::int64_t>(scaled)));
+}
+
 }  // namespace
 
 namespace sim {
@@ -50,7 +55,7 @@ void RealtimeTimerPacer::pace_cycles(std::uint32_t cycles) {
     next_deadline_ = now;
   }
 
-  *next_deadline_ += cycles_to_duration(cycles);
+  *next_deadline_ += scale_duration(cycles_to_duration(cycles), clock::active().realtime_speed());
   if (*next_deadline_ > now) {
     std::this_thread::sleep_until(*next_deadline_);
     return;

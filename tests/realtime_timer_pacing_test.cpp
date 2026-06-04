@@ -18,6 +18,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 #include "StepTicker.h"
 #include "libs/Kernel.h"
@@ -39,6 +40,21 @@ void require(bool condition, const char* message) {
 int main() {
   sim::MachineSimulator simulator;
   simulator.start_realtime();
+  simulator.set_realtime_speed(4.0);
+
+  const auto clock_before_sleep = simulator.time_us();
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  const auto accelerated_elapsed = simulator.time_us() - clock_before_sleep;
+  require(accelerated_elapsed >= 30'000 && accelerated_elapsed <= 80'000,
+          "realtime clock should advance by the configured speed multiplier");
+
+  simulator.set_realtime_speed(1.0);
+  const auto before_speed_change = simulator.time_us();
+  simulator.set_realtime_speed(2.0);
+  const auto after_speed_change = simulator.time_us();
+  require(after_speed_change >= before_speed_change && after_speed_change - before_speed_change < 10'000,
+          "changing realtime speed should preserve virtual time continuity");
+
   Kernel kernel;
   kernel.step_ticker->start();
 
@@ -50,8 +66,8 @@ int main() {
   sim::pump_motion(kernel, 2);
   const auto elapsed = std::chrono::steady_clock::now() - started;
 
-  require(elapsed >= std::chrono::microseconds(1500),
-          "realtime motion pumping should be paced by Timer0 wall-clock time");
+  require(elapsed >= std::chrono::microseconds(750) && elapsed < std::chrono::microseconds(1800),
+          "realtime motion pumping should scale Timer0 wall-clock pacing by the speed multiplier");
 
   return 0;
 }

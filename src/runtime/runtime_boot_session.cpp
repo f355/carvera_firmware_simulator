@@ -83,10 +83,16 @@ Kernel& RuntimeBootSession::boot() {
 
 void RuntimeBootSession::reset() {
   factory_settings_ = factory_settings();
+  const bool was_realtime = simulator_.is_realtime();
+  const double realtime_speed = simulator_.realtime_speed();
   kernel_.reset();
   wireless_probe_serial_ = nullptr;
   Kernel::instance = nullptr;
   simulator_.reset(true);
+  simulator_.set_realtime_speed(realtime_speed);
+  if (was_realtime) {
+    simulator_.start_realtime();
+  }
   initialize_eeprom_for_reboot(factory_settings_);
   m8266_wifi::active().reset();
   homed_ = false;

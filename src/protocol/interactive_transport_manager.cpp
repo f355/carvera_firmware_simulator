@@ -17,6 +17,8 @@
 
 #include "sim/interactive_transport_manager.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <string_view>
 
@@ -26,6 +28,10 @@
 #include "sim/m8266_wifi.hpp"
 
 namespace {
+
+constexpr std::size_t kBaseFreeRunningTimerTicks = 1000;
+constexpr std::size_t kBaseFreeRunningMainLoops = 4;
+constexpr std::size_t kMaxFreeRunningBatches = 100;
 
 sim::InteractiveTransportStartResult start_error(std::string message) {
   sim::InteractiveTransportStartResult result;
@@ -53,6 +59,14 @@ std::string localhost_discovery_payload(std::string_view firmware_payload, std::
   payload += std::to_string(tcp_port);
   payload += firmware_payload.substr(third_comma);
   return payload;
+}
+
+std::size_t free_running_batches(double realtime_speed) {
+  if (!std::isfinite(realtime_speed) || realtime_speed <= 1.0) {
+    return 1;
+  }
+  const auto scaled = static_cast<std::size_t>(std::ceil(realtime_speed));
+  return std::clamp(scaled, std::size_t{1}, kMaxFreeRunningBatches);
 }
 
 }  // namespace
@@ -154,7 +168,13 @@ void InteractiveTransportManager::pump() {
 
   {
     delay_hooks::ScopedCallback delay_io_pump(pump_transport_io);
-    firmware_.pump_free_running();
+    const auto batches = free_running_batches(firmware_.realtime_speed());
+    for (std::size_t batch = 0; batch < batches; ++batch) {
+      firmware_.pump_free_running(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
+      pump_transport_io();
+      relay_wifi_discovery();
+      discovery_beacon_.poll();
+    }
   }
 
   pump_transport_io();

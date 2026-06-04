@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -22,6 +23,7 @@ from gui.app_actions import AppActions
 from gui.app_view import AppView
 from gui.core.gui_state import GuiStateStore
 from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, TransportEndpoint
+from gui.views.environment_tab import GUI_REALTIME_SPEED_MAX
 from gui.views.machine_tab import FirmwareStateView
 
 
@@ -94,6 +96,19 @@ class FakeTransportPanel:
 
     def update(self, value: InteractiveTransportState) -> None:
         self.updated_with = value
+
+
+class FakeProcessController:
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, tuple[object, ...]]] = []
+
+    async def call(self, method: object, *args: object) -> None:
+        self.calls.append((method, args))
+
+
+class FakeClient:
+    def set_realtime_speed(self, multiplier: float) -> None:
+        _ = multiplier
 
 
 def make_firmware_state_view() -> FirmwareStateView:
@@ -268,3 +283,54 @@ def test_restore_view_applies_running_machine_state_to_new_page() -> None:
     assert machine_scene.shell_model == "ca1"
     assert machine_scene.backplot_restored is True
     assert transport_panel.updated_with == transport
+
+
+def test_realtime_speed_changed_sends_selected_multiplier() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    process_controller = FakeProcessController()
+    client = FakeClient()
+    session = SimpleNamespace(
+        state_store=store,
+        process_controller=process_controller,
+        client=client,
+    )
+    actions = AppActions(session)  # type: ignore[arg-type]
+    view = AppView()
+    view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(5.0))  # type: ignore[assignment]
+
+    asyncio.run(actions.realtime_speed_changed(view))
+
+    assert process_controller.calls == [(client.set_realtime_speed, (5.0,))]
+
+
+def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    process_controller = FakeProcessController()
+    client = FakeClient()
+    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    actions = AppActions(session)  # type: ignore[arg-type]
+    view = AppView()
+    view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(1.0))  # type: ignore[assignment]
+
+    asyncio.run(actions.realtime_speed_changed(view, value=6.0))
+
+    assert process_controller.calls == [(client.set_realtime_speed, (6.0,))]
+
+
+def test_realtime_speed_changed_clamps_to_gui_cap() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    process_controller = FakeProcessController()
+    client = FakeClient()
+    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    actions = AppActions(session)  # type: ignore[arg-type]
+    speed_control = FakeControl(1.0)
+    view = AppView()
+    view.environment_tab_view = SimpleNamespace(realtime_speed=speed_control)  # type: ignore[assignment]
+
+    asyncio.run(actions.realtime_speed_changed(view, value=19.5))
+
+    assert process_controller.calls == [(client.set_realtime_speed, (GUI_REALTIME_SPEED_MAX,))]
+    assert speed_control.value == GUI_REALTIME_SPEED_MAX

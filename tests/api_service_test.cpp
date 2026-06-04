@@ -54,8 +54,49 @@ int main() {
   require(response.ok(), "get_status should succeed");
   require(response.status().time_us() == 123, "status should report simulator time");
   require(response.status().time_mode() == carvera::sim::v1::TIME_MODE_MANUAL, "default time mode should be manual");
+  require(response.status().realtime_speed() == 1.0, "default realtime speed should be 1x");
   require(response.status().machine_model() == carvera::sim::v1::MACHINE_MODEL_CARVERA_C1,
           "default machine model should be C1");
+
+  request.Clear();
+  request.set_id(20);
+  request.mutable_set_realtime_speed()->set_multiplier(5.0);
+  response = api.handle(request);
+  require(response.ok(), "set_realtime_speed should accept positive multipliers");
+
+  request.Clear();
+  request.set_id(21);
+  request.mutable_get_status();
+  response = api.handle(request);
+  require(response.ok(), "get_status after set_realtime_speed should succeed");
+  require(response.status().realtime_speed() == 5.0, "status should report configured realtime speed");
+
+  request.Clear();
+  request.set_id(211);
+  request.mutable_set_time_mode()->set_mode(carvera::sim::v1::TIME_MODE_REALTIME);
+  response = api.handle(request);
+  require(response.ok(), "set_time_mode realtime should succeed");
+
+  request.Clear();
+  request.set_id(212);
+  request.mutable_reset();
+  response = api.handle(request);
+  require(response.ok(), "firmware reset should succeed");
+
+  request.Clear();
+  request.set_id(213);
+  request.mutable_get_status();
+  response = api.handle(request);
+  require(response.ok(), "get_status after firmware reset should succeed");
+  require(response.status().time_mode() == carvera::sim::v1::TIME_MODE_REALTIME,
+          "firmware reset should preserve host realtime mode");
+  require(response.status().realtime_speed() == 5.0, "firmware reset should preserve host realtime speed");
+
+  request.Clear();
+  request.set_id(22);
+  request.mutable_set_realtime_speed()->set_multiplier(0.0);
+  response = api.handle(request);
+  require(!response.ok(), "set_realtime_speed should reject non-positive multipliers");
 
   request.Clear();
   request.set_id(120);
