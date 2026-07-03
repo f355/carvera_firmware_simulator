@@ -22,6 +22,7 @@
 #include "lpc17xx_wdt.h"
 #include "lpc1768_sim.h"
 #include "sim/system_reset.hpp"
+#include "sim/machine_simulator.hpp"
 #include "sim/timer_irq.hpp"
 
 namespace {
@@ -31,6 +32,7 @@ using sim::test::require;
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::lpc1768::reset();
   Kernel kernel;
 

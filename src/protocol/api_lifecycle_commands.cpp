@@ -20,8 +20,8 @@
 #include <sstream>
 
 #include "sim/api_conversions.hpp"
-#include "sim/host_filesystem.hpp"
 #include "sim/logging.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 namespace {
@@ -94,7 +94,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       if (mount.host_path().empty()) {
         return error(request.id(), "mount host_path is required");
       }
-      host_filesystem::mount(mount.name(), mount.host_path());
+      simulator_.context().persistent_state().mount(mount.name(), mount.host_path());
       logging::event("filesystem", "mounted /" + mount.name() + " -> " + mount.host_path());
       return ok(request.id());
     }

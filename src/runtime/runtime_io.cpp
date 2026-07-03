@@ -22,13 +22,14 @@
 #include "libs/Kernel.h"
 #include "modules/communication/SerialConsole.h"
 #include "modules/communication/SerialConsole2.h"
-#include "sim/m8266_wifi.hpp"
+#include "sim/machine_simulator.hpp"
 #include "sim/runtime_boot_session.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 
-RuntimeIo::RuntimeIo(RuntimeBootSession& boot_session, BootCallback boot)
-    : boot_session_(boot_session), boot_(std::move(boot)) {}
+RuntimeIo::RuntimeIo(MachineSimulator& simulator, RuntimeBootSession& boot_session, BootCallback boot)
+    : simulator_(simulator), boot_session_(boot_session), boot_(std::move(boot)) {}
 
 void RuntimeIo::write_serial(const std::string& data) {
   auto& kernel = boot_();
@@ -46,17 +47,31 @@ std::string RuntimeIo::read_serial() {
 }
 
 void RuntimeIo::write_wifi_tcp(const std::string& data) {
-  const bool had_client = m8266_wifi::active().has_tcp_client();
+  auto& wifi = simulator_.context().m8266_wifi();
+  const bool had_client = wifi.has_tcp_client();
   boot_();
   if (had_client) {
-    m8266_wifi::active().connect_tcp_client();
+    wifi.connect_tcp_client();
   }
-  m8266_wifi::active().receive_tcp(data);
+  wifi.receive_tcp(data);
 }
 
 std::string RuntimeIo::read_wifi_tcp() {
   boot_();
-  return m8266_wifi::active().take_tcp_tx();
+  return simulator_.context().m8266_wifi().take_tcp_tx();
+}
+
+void RuntimeIo::set_wifi_client_connected(bool connected) {
+  auto& wifi = simulator_.context().m8266_wifi();
+  if (connected) {
+    wifi.connect_tcp_client();
+  } else {
+    wifi.disconnect_tcp_client();
+  }
+}
+
+std::vector<std::string> RuntimeIo::take_wifi_udp_datagrams() {
+  return simulator_.context().m8266_wifi().take_udp_tx_datagrams();
 }
 
 void RuntimeIo::write_wireless_probe_rx(const std::string& data) {

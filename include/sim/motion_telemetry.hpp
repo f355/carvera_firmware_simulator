@@ -31,6 +31,8 @@ class Kernel;
 
 namespace sim {
 
+class SimulatorContext;
+
 using AxisTelemetry = AxisMachineState;
 
 struct MachineTelemetry : MachineStateSnapshot {
@@ -46,7 +48,7 @@ class MotionTelemetry {
   void set_sink(Sink sink);
   void set_interval_ticks(std::size_t ticks);
   void set_interval_us(std::uint64_t interval_us);
-  void observe(Kernel& kernel, bool force = false);
+  void observe(SimulatorContext& context, Kernel& kernel, bool force = false);
 
  private:
   Sink sink_{};
@@ -61,13 +63,6 @@ class MotionTelemetry {
   std::optional<std::chrono::steady_clock::time_point> last_emitted_wall_time_{};
   std::optional<std::vector<std::int64_t>> last_emitted_steps_{};
 };
-
-namespace motion_telemetry {
-
-MotionTelemetry& active();
-void reset();
-
-}  // namespace motion_telemetry
 
 }  // namespace sim
 

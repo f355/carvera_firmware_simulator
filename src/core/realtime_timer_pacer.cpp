@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 #include "sim/virtual_clock.hpp"
 
 extern std::uint32_t SystemCoreClock;
@@ -68,7 +69,7 @@ void RealtimeTimerPacer::pace_cycles(std::uint32_t cycles) {
 
 namespace realtime_timer_pacer {
 
-RealtimeTimerPacer& active() { return simulator_context::active().realtime_timer_pacer(); }
+RealtimeTimerPacer& active() { return compat::active_context().realtime_timer_pacer(); }
 
 void reset() { active().reset(); }
 

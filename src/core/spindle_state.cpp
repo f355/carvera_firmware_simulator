@@ -19,7 +19,6 @@
 
 #include <algorithm>
 
-#include "sim/simulator_context.hpp"
 
 namespace sim {
 
@@ -94,23 +93,5 @@ double SpindleState::target_rpm() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return state_.target_rpm;
 }
-
-namespace spindle_state {
-
-SpindleState& active() { return simulator_context::active().spindle(); }
-
-void reset() { active().reset(); }
-
-void update(MachineModel model, bool enabled, double requested_rpm, std::uint64_t now_us) {
-  active().update(model, enabled, requested_rpm, now_us);
-}
-
-Snapshot snapshot(MachineModel model) { return active().snapshot(model); }
-
-double actual_rpm() { return active().actual_rpm(); }
-
-double target_rpm() { return active().target_rpm(); }
-
-}  // namespace spindle_state
 
 }  // namespace sim

@@ -24,6 +24,7 @@
 #include "sim/adc.hpp"
 #include "sim/lpc1768.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace {
 
@@ -117,7 +118,7 @@ void AdcState::set_global_handler(void (*handler)(int, std::uint32_t)) { global_
 
 namespace adc {
 
-AdcState& active() { return simulator_context::active().adc(); }
+AdcState& active() { return compat::active_context().adc(); }
 
 void reset() { active().reset(); }
 

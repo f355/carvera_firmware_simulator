@@ -105,8 +105,13 @@ void write_atc_config(const std::filesystem::path& root) {
 
 class TestMotionPump : public Module {
  public:
+  explicit TestMotionPump(sim::SimulatorContext& context) : context_(context) {}
+
   void on_module_loaded() override { register_for_event(ON_IDLE); }
-  void on_idle(void*) override { sim::pump_motion(*THEKERNEL); }
+  void on_idle(void*) override { sim::pump_motion(context_, *THEKERNEL); }
+
+ private:
+  sim::SimulatorContext& context_;
 };
 
 class CapturingStream : public StreamOutput {
@@ -133,7 +138,7 @@ int main() {
   Kernel kernel;
   kernel.eeprom_data->TOOL = 0;
   sim::attach_configured_stepper_axes(kernel);
-  kernel.add_module(new TestMotionPump());
+  kernel.add_module(new TestMotionPump(simulator.context()));
   kernel.add_module(new ATCHandler());
   kernel.conveyor->start(kernel.robot->get_number_registered_motors());
   kernel.step_ticker->start();

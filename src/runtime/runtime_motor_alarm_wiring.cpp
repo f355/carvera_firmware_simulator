@@ -21,14 +21,8 @@
 #include "sim/gpio_level.hpp"
 #include "sim/runtime_checksums.hpp"
 #include "sim/runtime_pin_config.hpp"
-#include "sim/simulator_context.hpp"
 
 namespace sim::runtime_motor_alarm_wiring {
-namespace {
-
-MotorAlarmWiring& active_wiring() { return simulator_context::active().motor_alarm_wiring(); }
-
-}  // namespace
 
 void MotorAlarmWiring::clear() { alarm_signals_ = {}; }
 
@@ -47,8 +41,7 @@ void MotorAlarmWiring::drive(std::size_t axis, bool triggered) const {
   gpio::set_level(signal.pin, triggered ? signal.active_level : !signal.active_level);
 }
 
-void configure(Kernel& kernel) {
-  auto& wiring = active_wiring();
+void configure(Kernel& kernel, MotorAlarmWiring& wiring) {
   wiring.clear();
   for (std::size_t axis = 0; axis < runtime_checksums::motor_alarm_count; ++axis) {
     Pin alarm_pin = runtime_pins::configured_pin(kernel, runtime_checksums::motor_alarm[axis], "nc");
@@ -58,7 +51,5 @@ void configure(Kernel& kernel) {
     wiring.set(axis, runtime_pins::pin_address(alarm_pin), runtime_pins::raw_level_for_pin_get(alarm_pin, true));
   }
 }
-
-void drive(std::size_t axis, bool triggered) { active_wiring().drive(axis, triggered); }
 
 }  // namespace sim::runtime_motor_alarm_wiring

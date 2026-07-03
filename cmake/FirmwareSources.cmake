@@ -28,6 +28,7 @@ configure_file(
 )
 
 set(SIM_FIRMWARE_FACADE_SOURCES
+  src/compat/active_context.cpp
   src/firmware/firmware_boot_stubs.cpp
   src/firmware/firm_config_source.cpp
   src/firmware/host_filesystem.cpp

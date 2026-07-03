@@ -23,6 +23,7 @@
 #include "M8266WIFIDrv.h"
 #include "M8266HostIf.h"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim::m8266_wifi {
 namespace {
@@ -231,7 +232,7 @@ void Module::connect_sta(std::string ssid, std::string password) {
 
 void Module::disconnect_sta() { sta_connected_ = false; }
 
-Module& active() { return simulator_context::active().m8266_wifi(); }
+Module& active() { return compat::active_context().m8266_wifi(); }
 
 }  // namespace sim::m8266_wifi
 

@@ -19,6 +19,8 @@
 #include "lpc1768_sim.h"
 #include "support/assertions.hpp"
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 std::uint32_t two_bit_field(std::uint32_t value, std::uint8_t shift) { return (value >> shift) & 0x3u; }
@@ -26,6 +28,7 @@ std::uint32_t two_bit_field(std::uint32_t value, std::uint8_t shift) { return (v
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   using sim::test::require;
 
   sim::lpc1768::reset();

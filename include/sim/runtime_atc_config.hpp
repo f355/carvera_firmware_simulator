@@ -25,7 +25,7 @@ class Kernel;
 namespace sim::runtime_atc {
 
 PhysicalAtcConfig read_config(Kernel& kernel, bool reconcile_persisted_tool = false);
-void configure_physical_scene(Kernel& kernel, bool reconcile_persisted_tool = false);
+void configure_physical_scene(Kernel& kernel, PhysicalScene& scene, bool reconcile_persisted_tool = false);
 
 }  // namespace sim::runtime_atc
 

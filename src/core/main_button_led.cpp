@@ -18,6 +18,7 @@
 #include "sim/main_button_led.hpp"
 
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -33,7 +34,7 @@ void MainButtonLedState::set_strip(const main_button_led::LedStrip& strip) {
 
 namespace main_button_led {
 
-MainButtonLedState& active() { return simulator_context::active().main_button_led(); }
+MainButtonLedState& active() { return compat::active_context().main_button_led(); }
 
 void reset() { active().reset(); }
 

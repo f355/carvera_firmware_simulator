@@ -22,6 +22,7 @@
 #include "mbed.h"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace {
 
@@ -238,7 +239,7 @@ void write(std::uint16_t address, std::uint8_t value) { active().poke(address, v
 
 std::uint8_t read(std::uint16_t address) { return active().peek(address); }
 
-I2cEepromDevice& active() { return simulator_context::active().eeprom(); }
+I2cEepromDevice& active() { return compat::active_context().eeprom(); }
 
 }  // namespace sim::i2c_eeprom
 

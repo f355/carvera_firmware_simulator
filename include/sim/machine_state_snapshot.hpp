@@ -31,6 +31,8 @@ class Kernel;
 
 namespace sim {
 
+class SimulatorContext;
+
 struct AxisMachineState {
   std::size_t axis{0};
   std::int64_t physical_steps{0};
@@ -71,9 +73,9 @@ struct MachineStateSnapshot {
   std::vector<AxisMachineState> axes{};
 };
 
-MachineStateSnapshot assemble_machine_state(Kernel& kernel, bool homed, MachineModel model,
+MachineStateSnapshot assemble_machine_state(SimulatorContext& context, Kernel& kernel, bool homed, MachineModel model,
                                             const MachineStateSnapshotOptions& options = {});
-MachineStateSnapshot assemble_machine_state(Kernel& kernel, MachineModel model,
+MachineStateSnapshot assemble_machine_state(SimulatorContext& context, Kernel& kernel, MachineModel model,
                                             const MachineStateSnapshotOptions& options = {});
 
 }  // namespace sim

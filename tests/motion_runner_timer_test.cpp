@@ -76,7 +76,7 @@ int main() {
   kernel.conveyor->start(1);
   queue_one_axis_move(kernel);
 
-  sim::MotionRunner runner(kernel);
+  sim::MotionRunner runner(simulator, kernel);
   require(!runner.run_until_idle(1000), "MotionRunner should not execute motion before timer IRQs are enabled");
   require(simulator.axis_position_steps(axis) == 0, "physical axis should not move while Timer0 IRQ is disabled");
 

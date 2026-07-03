@@ -21,6 +21,7 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 #include "sim/stepper_axis.hpp"
 
 uint32_t SystemCoreClock = 100000000;
@@ -257,7 +258,7 @@ void Lpc1768::reset() {
 
 namespace lpc1768 {
 
-Lpc1768& active() { return simulator_context::active().mcu(); }
+Lpc1768& active() { return compat::active_context().mcu(); }
 
 void reset() { active().reset(); }
 
@@ -328,7 +329,14 @@ void PINSEL_ConfigPin(PINSEL_CFG_Type* PinCfg) {
     return;
   }
 
-  auto& pincon = sim::lpc1768::active().pincon();
+  auto* context = sim::compat::try_active_context();
+  if (context == nullptr) {
+    // Upstream firmware constructs GPIO objects during static initialization.
+    // The simulated pin controller starts in GPIO mode once a machine exists,
+    // so those pre-main setup writes have no state to preserve.
+    return;
+  }
+  auto& pincon = context->mcu().pincon();
   const auto bank = static_cast<std::uint8_t>((PinCfg->Portnum * 2) + (PinCfg->Pinnum / 16));
 
   if (auto* func_reg = pin_function_register(pincon, bank)) {

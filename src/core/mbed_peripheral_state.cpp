@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -44,9 +45,9 @@ void InterruptInRegistry::simulate_rise(PinName pin) {
 
 namespace mbed_peripherals {
 
-PwmOutRegistry& pwm_outputs() { return simulator_context::active().pwm_outputs(); }
+PwmOutRegistry& pwm_outputs() { return compat::active_context().pwm_outputs(); }
 
-InterruptInRegistry& interrupts() { return simulator_context::active().interrupts(); }
+InterruptInRegistry& interrupts() { return compat::active_context().interrupts(); }
 
 }  // namespace mbed_peripherals
 

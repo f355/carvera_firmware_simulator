@@ -75,7 +75,7 @@ RuntimePumpResult RuntimePump::pump(const RuntimePumpOptions& options) {
 
   kernel.conveyor->force_queue();
   for (std::size_t tick = 0; tick < options.max_step_ticks; ++tick) {
-    pump_motion(kernel);
+    pump_motion(simulator_.context(), kernel);
     kernel.conveyor->on_idle(nullptr);
     kernel.conveyor->force_queue();
 

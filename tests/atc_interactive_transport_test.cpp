@@ -28,6 +28,7 @@
 #include "support/c1_atc_config.hpp"
 #include "support/posix_io.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 #include <unistd.h>
 
@@ -43,7 +44,7 @@ int main() {
   config_options.include_atc_home_pin = false;
   sim::test::write_c1_atc_config(sd.path(), config_options);
   sim::SimulationInstance simulation(sd.persistent_config());
-  sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 62.0);
+  simulation.machine().context().physical_scene().set_atc_pocket_tool(2, 2, true, 62.0);
   auto& runtime = simulation.firmware();
   runtime.boot();
   sim::LocalhostTcpBridge bridge(runtime);

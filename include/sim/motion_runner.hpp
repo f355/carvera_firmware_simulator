@@ -24,13 +24,16 @@ class Kernel;
 
 namespace sim {
 
+class MachineSimulator;
+
 class MotionRunner {
  public:
-  explicit MotionRunner(Kernel& kernel);
+  MotionRunner(MachineSimulator& simulator, Kernel& kernel);
 
   bool run_until_idle(std::size_t max_step_ticks);
 
  private:
+  MachineSimulator& simulator_;
   Kernel& kernel_;
 };
 

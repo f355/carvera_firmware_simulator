@@ -22,6 +22,7 @@
 #include <limits>
 
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 void VirtualClock::reset() {
@@ -81,7 +82,7 @@ std::uint64_t VirtualClock::read_us() const {
   return base_us_ + static_cast<std::uint64_t>(std::min(scaled_elapsed, max_delta));
 }
 
-VirtualClock& clock::active() { return simulator_context::active().clock(); }
+VirtualClock& clock::active() { return compat::active_context().clock(); }
 
 void clock::reset() { active().reset(); }
 

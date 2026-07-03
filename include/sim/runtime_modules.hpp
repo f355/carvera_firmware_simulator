@@ -31,12 +31,12 @@ struct BootModules {
 };
 
 MachineModel machine_model_from_firmware(char model, MachineModel fallback);
-Module* make_atc_physical_module();
+Module* make_atc_physical_module(MachineSimulator& simulator);
 Module* make_spindle_tach_module(MachineSimulator& simulator);
 void initialize_startup_gpio();
 BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, MachineModel model);
 void load_watchdog_if_enabled(Kernel& kernel);
-void replay_config_override(Kernel& kernel);
+void replay_config_override(Kernel& kernel, MachineSimulator& simulator);
 
 }  // namespace sim::runtime_modules
 

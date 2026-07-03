@@ -30,6 +30,7 @@
 #include "libs/Kernel.h"
 #include "lpc1768_sim.h"
 #include "sim/firmware_boot_stubs.hpp"
+#include "sim/machine_simulator.hpp"
 
 void init();
 
@@ -45,6 +46,7 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::lpc1768::reset();
   sim::boot::reset_boot_stubs();
 

@@ -25,6 +25,7 @@
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -43,10 +44,11 @@ int main() {
   sim::test::TempSdCard sd("carvera_sim_atc_m6_runtime");
   sim::test::write_c1_atc_config(sd.path());
   sim::SimulationInstance simulation(sd.persistent_config());
-  sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0);
+  auto& scene = simulation.machine().context().physical_scene();
+  scene.set_atc_pocket_tool(1, 1, true, 62.0);
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
-  const auto tool_setter = sim::physical_scene::active().tool_setter_box();
+  const auto tool_setter = scene.tool_setter_box();
   require(tool_setter.has_value(), "C1 boot should configure the physical ETS volume");
   require(tool_setter->max_z == -105.5,
           "C1 ETS trigger point should be 1mm below an 8mm button over the configured rack surface");
@@ -58,9 +60,9 @@ int main() {
   require(kernel.get_halt_reason() == ATC_TOOL_INVALID, "invalid ATC tool should report ATC_TOOL_INVALID");
   require(serial.find("Invalid tool") != std::string::npos,
           "invalid ATC tool should be reported on the firmware stream");
-  require(!sim::physical_scene::active().atc_spindle().has_tool,
+  require(!scene.atc_spindle().has_tool,
           "invalid ATC tool request should not move a physical tool into the spindle");
-  require(sim::physical_scene::active().atc_pockets().front().occupied,
+  require(scene.atc_pockets().front().occupied,
           "invalid ATC tool request should leave the rack pocket untouched");
 
   runtime.write_serial("M999\n");
@@ -71,9 +73,9 @@ int main() {
   runtime.write_serial("M493.2 T1\n");
   require(runtime.run_until_idle(100'000), "direct firmware tool-state command should run");
   (void)runtime.read_serial();
-  require(!sim::physical_scene::active().atc_spindle().has_tool,
+  require(!scene.atc_spindle().has_tool,
           "M493.2 should not physically move a rack tool into the spindle");
-  require(sim::physical_scene::active().atc_pockets().front().occupied,
+  require(scene.atc_pockets().front().occupied,
           "M493.2 should leave the simulated rack pocket occupied");
 
   runtime.write_serial("M493.2 T-1\n");
@@ -104,11 +106,11 @@ int main() {
   require(status.active_tool == 1, "M6 T1 should install tool 1");
   require(status.tool_offset != 0.0F, "TLO measurement should save a non-zero tool offset");
 
-  const auto pockets = sim::physical_scene::active().atc_pockets();
+  const auto pockets = scene.atc_pockets();
   require(!pockets.empty() && !pockets.front().occupied, "tool 1 should leave the rack pocket after pickup");
-  require(sim::physical_scene::active().atc_spindle().has_tool, "tool 1 should be held in the simulated spindle");
+  require(scene.atc_spindle().has_tool, "tool 1 should be held in the simulated spindle");
 
-  sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 54.0);
+  scene.set_atc_pocket_tool(2, 2, true, 54.0);
   runtime.write_serial("M6 T2\n");
   serial.clear();
   for (int i = 0; i < 900 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
@@ -122,14 +124,14 @@ int main() {
   require(serial.find("Done ATC") != std::string::npos, "M6 T2 should complete after dropping the active T1");
   require(serial.find("ERROR:") == std::string::npos, "M6 T2 should not hit ATC detector or probe errors");
 
-  const auto swapped_pockets = sim::physical_scene::active().atc_pockets();
+  const auto swapped_pockets = scene.atc_pockets();
   require(swapped_pockets.size() >= 2, "tool swap should leave both configured rack pockets visible");
   require(swapped_pockets[0].occupied && swapped_pockets[0].tool == 1, "M6 T2 should drop old T1 back into pocket 1");
   require(!swapped_pockets[1].occupied, "M6 T2 should remove new T2 from pocket 2");
-  require(sim::physical_scene::active().atc_spindle().has_tool && sim::physical_scene::active().atc_spindle().tool == 2,
+  require(scene.atc_spindle().has_tool && scene.atc_spindle().tool == 2,
           "M6 T2 should leave the simulated spindle holding T2");
 
-  sim::physical_scene::active().set_atc_pocket_tool(0, 0, true, 50.0);
+  scene.set_atc_pocket_tool(0, 0, true, 50.0);
   runtime.write_serial("M6 T0\n");
   serial.clear();
   for (int i = 0;
@@ -142,9 +144,9 @@ int main() {
   }
   require(serial.find("Done ATC") != std::string::npos, "M6 T0 should pick and calibrate the C1 wireless probe");
   require(serial.find("ERROR:") == std::string::npos, "M6 T0 should not report a dead/unset wireless probe");
-  require(sim::physical_scene::active().probe_tool_installed(),
+  require(scene.probe_tool_installed(),
           "picking C1 probe pocket T0 should make the spindle probe physically active");
-  require(sim::physical_scene::active().atc_spindle().has_tool && sim::physical_scene::active().atc_spindle().tool == 0,
+  require(scene.atc_spindle().has_tool && scene.atc_spindle().tool == 0,
           "M6 T0 should leave the simulated spindle holding the wireless probe");
 
   runtime.write_serial("M6 T1\n");
@@ -155,10 +157,10 @@ int main() {
     serial += runtime.read_serial();
   }
   require(serial.find("Done ATC") != std::string::npos, "M6 T1 should drop the wireless probe and pick T1");
-  require(!sim::physical_scene::active().probe_tool_installed(),
+  require(!scene.probe_tool_installed(),
           "dropping C1 probe pocket T0 should make the spindle probe inactive");
 
-  sim::physical_scene::active().set_atc_pocket_tool(3, 3, false, 48.0);
+  scene.set_atc_pocket_tool(3, 3, false, 48.0);
   runtime.write_serial("M6 T3\n");
   serial.clear();
   for (int i = 0; i < 900 && serial.find("ERROR:") == std::string::npos && serial.find("Done ATC") == std::string::npos;
@@ -168,7 +170,7 @@ int main() {
   }
   require(serial.find("ERROR:") != std::string::npos, "M6 T3 should report an ATC error when the rack pocket is empty");
   require(
-      !sim::physical_scene::active().atc_spindle().has_tool || sim::physical_scene::active().atc_spindle().tool != 3,
+      !scene.atc_spindle().has_tool || scene.atc_spindle().tool != 3,
       "empty rack pickup should not invent a physical T3 in the spindle");
 
   return 0;

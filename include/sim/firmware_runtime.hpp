@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "sim/i2c_eeprom.hpp"
 #include "sim/runtime_physical_types.hpp"
@@ -75,6 +76,8 @@ class FirmwareRuntime {
   std::string read_serial();
   void write_wifi_tcp(const std::string& data);
   std::string read_wifi_tcp();
+  void set_wifi_client_connected(bool connected);
+  std::vector<std::string> take_wifi_udp_datagrams();
   void write_wireless_probe_rx(const std::string& data);
   std::string read_wireless_probe_tx();
   RuntimePumpResult pump(const RuntimePumpOptions& options);

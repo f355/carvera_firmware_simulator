@@ -24,6 +24,7 @@
 #include "sim/physical_scene.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 extern "C" void TIMER2_IRQHandler(void);
 
@@ -175,7 +176,8 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   require(kernel.is_tool_waiting(), "plain M321 on CA1 should request the firmware laser tool through real ATCHandler");
   require(runtime.laser_state().mode, "plain M321 should enter laser mode while waiting for the laser tool");
 
-  sim::physical_scene::active().set_spindle_tool(8888, 45.0, true);
+  auto& scene = simulation.machine().context().physical_scene();
+  scene.set_spindle_tool(8888, 45.0, true);
   press_front_button(runtime);
   require(!kernel.is_tool_waiting(), "front button should confirm the CA1 laser tool change");
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
@@ -190,7 +192,7 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
           "confirmed CA1 laser tool change should finish through the real ATC/TLO script");
   require(serial.find("ERROR:") == std::string::npos, "plain M321 CA1 laser tool change should not hit probe errors");
   require(runtime.laser_state().mode, "laser mode should remain active after installing the CA1 laser tool");
-  const auto spindle = sim::physical_scene::active().atc_spindle();
+  const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 8888, "virtual CA1 laser tool should remain in the spindle");
 
   runtime.write_serial("M322\n");

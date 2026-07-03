@@ -27,6 +27,7 @@
 #include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -69,7 +70,8 @@ int main() {
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");
-  sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 58.0);
+  auto& scene = simulation.machine().context().physical_scene();
+  scene.set_atc_pocket_tool(2, 2, true, 58.0);
   (void)runtime.boot();
   require(runtime.is_homed(), "CA1 manual tool-change test should start from a homed machine");
 
@@ -91,7 +93,7 @@ int main() {
   }
   require(runtime.boot().is_tool_waiting(), "CA1 manual tool change should wait for controller or button confirm");
 
-  sim::physical_scene::active().set_spindle_tool(2, 58.0, true);
+  scene.set_spindle_tool(2, 58.0, true);
   press_front_button(runtime);
   require(!runtime.boot().is_tool_waiting(), "front button should confirm CA1 manual tool change waiting state");
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
@@ -120,7 +122,7 @@ int main() {
   require_near(status.cur_tool_mz, ca1_geometry->tool_setter.max_z + cutting_stickout, 0.05,
                "CA1 firmware TLO state should preserve its machine-coordinate homing offset");
 
-  const auto spindle = sim::physical_scene::active().atc_spindle();
+  const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 2, "CA1 virtual tool 2 should be held in the spindle");
   require(spindle.length_mm == 58.0, "CA1 virtual tool length should come from the simulator tool table");
   return 0;

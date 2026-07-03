@@ -192,7 +192,7 @@ add_library(carvera_sim_host_objects OBJECT
   ${SIM_PROTOCOL_SOURCES}
   ${SIM_RUNTIME_SUPPORT_SOURCES}
 )
-target_include_directories(carvera_sim_host_objects PRIVATE include)
+target_include_directories(carvera_sim_host_objects PRIVATE include src)
 target_include_directories(carvera_sim_host_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
 target_compile_definitions(carvera_sim_host_objects PRIVATE
   CHECKSUM_USE_CPP

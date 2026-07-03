@@ -46,10 +46,8 @@
 #include "modules/utils/simpleshell/SimpleShell.h"
 #include "modules/utils/wifi/WifiProvider.h"
 #include "sim/delay_hooks.hpp"
-#include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_pump.hpp"
-#include "sim/physical_scene.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "sim/runtime_atc_config.hpp"
 #include "sim/runtime_checksums.hpp"
@@ -57,7 +55,7 @@
 #include "sim/runtime_pin_config.hpp"
 #include "sim/runtime_temperature.hpp"
 #include "sim/spindle_state.hpp"
-#include "sim/virtual_clock.hpp"
+#include "sim/simulator_context.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -77,9 +75,10 @@ using runtime_pins::default_main_button_pin;
 using runtime_pins::drive_configured_input;
 using runtime_pins::pin_address;
 
-std::size_t idle_motion_iterations() {
-  const double speed = clock::active().realtime_speed();
-  if (!clock::active().is_realtime() || !std::isfinite(speed) || speed <= 1.0) {
+std::size_t idle_motion_iterations(const MachineSimulator& simulator) {
+  const auto& clock = simulator.context().clock();
+  const double speed = clock.realtime_speed();
+  if (!clock.is_realtime() || !std::isfinite(speed) || speed <= 1.0) {
     return 1;
   }
   return std::clamp(static_cast<std::size_t>(std::ceil(speed)), std::size_t{1}, std::size_t{100});
@@ -89,6 +88,8 @@ std::size_t idle_motion_iterations() {
 // side effects without teaching the firmware about the simulator.
 class SimulatorTimerPumpBridgeModule : public Module {
  public:
+  explicit SimulatorTimerPumpBridgeModule(MachineSimulator& simulator) : simulator_(simulator) {}
+
   void on_module_loaded() override { register_for_event(ON_IDLE); }
 
   void on_idle(void* argument) override {
@@ -98,25 +99,33 @@ class SimulatorTimerPumpBridgeModule : public Module {
       }
       // Firmware blocking waits spin ON_IDLE; give emulated LPC timers a chance
       // to fire without shortcutting directly into firmware ticker callbacks.
-      pump_motion(*THEKERNEL, idle_motion_iterations());
+      pump_motion(simulator_.context(), *THEKERNEL, idle_motion_iterations(simulator_));
     }
   }
+
+ private:
+  MachineSimulator& simulator_;
 };
 
 class SimulatorAtcPhysicalBridgeModule : public Module {
  public:
+  explicit SimulatorAtcPhysicalBridgeModule(MachineSimulator& simulator) : simulator_(simulator) {}
+
   void on_module_loaded() override {
     if (THEKERNEL != nullptr) {
-      runtime_atc::configure_physical_scene(*THEKERNEL, true);
+      runtime_atc::configure_physical_scene(*THEKERNEL, simulator_.context().physical_scene(), true);
     }
     register_for_event(ON_GCODE_RECEIVED);
   }
 
   void on_gcode_received(void*) override {
     if (THEKERNEL != nullptr) {
-      runtime_atc::configure_physical_scene(*THEKERNEL);
+      runtime_atc::configure_physical_scene(*THEKERNEL, simulator_.context().physical_scene());
     }
   }
+
+ private:
+  MachineSimulator& simulator_;
 };
 
 class SimulatorSpindleTachBridgeModule : public Module {
@@ -142,7 +151,7 @@ class SimulatorSpindleTachBridgeModule : public Module {
         max_pwm_ = 0.9F;
       }
     }
-    spindle_state::reset();
+    simulator_.context().spindle().reset();
     last_pulse_us_ = simulator_.time_us();
     register_for_event(ON_IDLE);
   }
@@ -151,8 +160,9 @@ class SimulatorSpindleTachBridgeModule : public Module {
     const auto now_us = simulator_.time_us();
     const double requested_rpm = requested_rpm_from_pwm();
     const bool enabled = requested_rpm > 0.5;
-    spindle_state::update(model_, enabled, requested_rpm, now_us);
-    const double actual_rpm = spindle_state::actual_rpm();
+    auto& spindle = simulator_.context().spindle();
+    spindle.update(model_, enabled, requested_rpm, now_us);
+    const double actual_rpm = spindle.actual_rpm();
     if (!feedback_pin_.connected() || pulses_per_rev_ <= 0.0F || actual_rpm <= 0.5) {
       last_pulse_us_ = now_us;
       return;
@@ -208,7 +218,9 @@ MachineModel machine_model_from_firmware(char model, MachineModel fallback) {
   }
 }
 
-Module* make_atc_physical_module() { return new SimulatorAtcPhysicalBridgeModule(); }
+Module* make_atc_physical_module(MachineSimulator& simulator) {
+  return new SimulatorAtcPhysicalBridgeModule(simulator);
+}
 
 Module* make_spindle_tach_module(MachineSimulator& simulator) {
   return new SimulatorSpindleTachBridgeModule(simulator);
@@ -234,9 +246,9 @@ void initialize_startup_gpio() {
 BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, MachineModel model) {
   SimpleShell::version_command("", kernel.streams);
   attach_configured_stepper_axes(kernel, model, simulator.rotary_accessory_installed());
-  runtime_motor_alarm_wiring::configure(kernel);
+  runtime_motor_alarm_wiring::configure(kernel, simulator.context().motor_alarm_wiring());
   kernel.add_module(new Player());
-  kernel.add_module(make_atc_physical_module());
+  kernel.add_module(make_atc_physical_module(simulator));
   kernel.add_module(new ATCHandler());
 
   BootModules modules;
@@ -258,7 +270,7 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, M
   SpindleMaker spindle_maker;
   spindle_maker.load_spindle();
   kernel.add_module(make_spindle_tach_module(simulator));
-  kernel.add_module(new SimulatorTimerPumpBridgeModule());
+  kernel.add_module(new SimulatorTimerPumpBridgeModule(simulator));
   if (kernel.robot != nullptr && kernel.robot->get_number_registered_motors() >= 3) {
     kernel.add_module(new ZProbe());
   }
@@ -268,7 +280,7 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, M
   kernel.add_module(new TemperatureSwitch());
   kernel.add_module(new Drillingcycles());
   load_watchdog_if_enabled(kernel);
-  replay_config_override(kernel);
+  replay_config_override(kernel, simulator);
 
   if (kernel.conveyor != nullptr && kernel.robot != nullptr) {
     kernel.conveyor->start(kernel.robot->get_number_registered_motors());
@@ -292,8 +304,8 @@ void load_watchdog_if_enabled(Kernel& kernel) {
   }
 }
 
-void replay_config_override(Kernel& kernel) {
-  const auto path = host_filesystem::translate(kernel.config_override_filename());
+void replay_config_override(Kernel& kernel, MachineSimulator& simulator) {
+  const auto path = simulator.context().host_filesystem().translate(kernel.config_override_filename());
   std::ifstream input(path);
   if (!input.is_open()) {
     return;

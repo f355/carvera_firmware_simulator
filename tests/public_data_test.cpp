@@ -22,6 +22,8 @@
 #include "libs/Kernel.h"
 #include "libs/PublicData.h"
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 void require(bool condition, const char* message) {
@@ -63,6 +65,7 @@ class DataModule : public Module {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   Kernel kernel;
   DataModule module;
 

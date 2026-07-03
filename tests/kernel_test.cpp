@@ -20,6 +20,8 @@
 
 #include "libs/Kernel.h"
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 void require(bool condition, const char* message) {
@@ -38,6 +40,7 @@ class ProbeModule : public Module {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   Kernel kernel;
   ProbeModule probe;
 

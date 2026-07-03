@@ -20,10 +20,11 @@
 #include "Conveyor.h"
 #include "libs/Kernel.h"
 #include "sim/motion_pump.hpp"
+#include "sim/machine_simulator.hpp"
 
 namespace sim {
 
-MotionRunner::MotionRunner(Kernel& kernel) : kernel_(kernel) {}
+MotionRunner::MotionRunner(MachineSimulator& simulator, Kernel& kernel) : simulator_(simulator), kernel_(kernel) {}
 
 bool MotionRunner::run_until_idle(std::size_t max_step_ticks) {
   if (kernel_.conveyor == nullptr) {
@@ -33,7 +34,7 @@ bool MotionRunner::run_until_idle(std::size_t max_step_ticks) {
   kernel_.conveyor->force_queue();
 
   for (std::size_t tick = 0; tick < max_step_ticks; ++tick) {
-    pump_motion(kernel_);
+    pump_motion(simulator_.context(), kernel_);
     kernel_.conveyor->on_idle(nullptr);
     kernel_.conveyor->force_queue();
 

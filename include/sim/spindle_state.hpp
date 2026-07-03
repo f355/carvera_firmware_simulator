@@ -59,17 +59,6 @@ class SpindleState {
   State state_{};
 };
 
-namespace spindle_state {
-
-SpindleState& active();
-void reset();
-void update(MachineModel model, bool enabled, double requested_rpm, std::uint64_t now_us);
-Snapshot snapshot(MachineModel model);
-double actual_rpm();
-double target_rpm();
-
-}  // namespace spindle_state
-
 }  // namespace sim
 
 #endif

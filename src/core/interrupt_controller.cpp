@@ -22,6 +22,7 @@
 
 #include "sim/lpc1768.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -79,7 +80,7 @@ std::vector<InterruptController::PendingInterrupt>::iterator InterruptController
 
 namespace interrupt_controller {
 
-InterruptController& active() { return simulator_context::active().interrupt_controller(); }
+InterruptController& active() { return compat::active_context().interrupt_controller(); }
 
 void reset() { active().reset(); }
 

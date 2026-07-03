@@ -18,12 +18,14 @@
 #include <filesystem>
 
 #include "sim/host_filesystem.hpp"
+#include "sim/machine_simulator.hpp"
 #include "support/assertions.hpp"
 #include "support/temp_sdcard.hpp"
 
 int main() {
   using sim::test::require;
 
+  sim::MachineSimulator simulator;
   std::filesystem::path first_path;
   std::filesystem::path second_path;
 

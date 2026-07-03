@@ -100,8 +100,8 @@ PhysicalAtcConfig read_config(Kernel& kernel, bool reconcile_persisted_tool) {
   return config;
 }
 
-void configure_physical_scene(Kernel& kernel, bool reconcile_persisted_tool) {
-  physical_scene::active().configure_atc(read_config(kernel, reconcile_persisted_tool));
+void configure_physical_scene(Kernel& kernel, PhysicalScene& scene, bool reconcile_persisted_tool) {
+  scene.configure_atc(read_config(kernel, reconcile_persisted_tool));
 }
 
 }  // namespace sim::runtime_atc

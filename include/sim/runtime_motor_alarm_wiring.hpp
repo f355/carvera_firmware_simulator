@@ -44,8 +44,7 @@ class MotorAlarmWiring {
   std::array<AlarmSignal, runtime_checksums::motor_alarm_count> alarm_signals_{};
 };
 
-void configure(Kernel& kernel);
-void drive(std::size_t axis, bool triggered);
+void configure(Kernel& kernel, MotorAlarmWiring& wiring);
 
 }  // namespace sim::runtime_motor_alarm_wiring
 

@@ -23,8 +23,6 @@
 #include "Robot.h"
 #include "libs/Kernel.h"
 #include "sim/simulator_context.hpp"
-#include "sim/stepper_axis.hpp"
-#include "sim/virtual_clock.hpp"
 
 namespace sim {
 
@@ -59,17 +57,17 @@ void MotionTelemetry::set_interval_ticks(std::size_t ticks) { interval_ticks_ = 
 
 void MotionTelemetry::set_interval_us(std::uint64_t interval_us) { interval_us_ = interval_us == 0 ? 1 : interval_us; }
 
-void MotionTelemetry::observe(Kernel& kernel, bool force) {
+void MotionTelemetry::observe(SimulatorContext& context, Kernel& kernel, bool force) {
   if (!sink_) {
     return;
   }
 
   constexpr std::size_t max_stock_axis_count = 5;
-  const auto axis_count = std::min(max_stock_axis_count, stepper_axes::count());
+  const auto axis_count = std::min(max_stock_axis_count, context.stepper_axes().count());
   std::vector<std::int64_t> steps;
   steps.reserve(axis_count);
   for (std::size_t i = 0; i < axis_count; ++i) {
-    steps.push_back(stepper_axes::position_steps(i));
+    steps.push_back(context.stepper_axes().position_steps(i));
   }
 
   if (!force && last_observed_steps_.empty() && !steps.empty()) {
@@ -80,11 +78,11 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
   if (!force) {
     ++ticks_since_emit_;
   }
-  const auto now_us = clock::active().read_us();
+  const auto now_us = context.clock().read_us();
   const auto now_wall = std::chrono::steady_clock::now();
 
   const auto model = machine_model_from_kernel(kernel);
-  const auto spindle = spindle_state::snapshot(model);
+  const auto spindle = context.spindle().snapshot(model);
   const bool changed_since_last_observation = steps != last_observed_steps_;
   const bool spindle_changed_since_last_emit =
       !last_emitted_spindle_rpm_.has_value() || std::fabs(spindle.actual_rpm - *last_emitted_spindle_rpm_) >= 10.0 ||
@@ -97,7 +95,7 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
 
   const bool tick_interval_elapsed = ticks_since_emit_ >= interval_ticks_;
   bool time_interval_elapsed = false;
-  if (clock::active().is_realtime()) {
+  if (context.clock().is_realtime()) {
     time_interval_elapsed = !last_emitted_wall_time_.has_value() ||
                             now_wall - *last_emitted_wall_time_ >= std::chrono::microseconds(interval_us_);
   } else {
@@ -127,17 +125,9 @@ void MotionTelemetry::observe(Kernel& kernel, bool force) {
   sample.time_us = now_us;
   MachineStateSnapshotOptions options;
   options.axis_count = axis_count;
-  static_cast<MachineStateSnapshot&>(sample) = assemble_machine_state(kernel, model, options);
+  static_cast<MachineStateSnapshot&>(sample) = assemble_machine_state(context, kernel, model, options);
 
   sink_(sample);
 }
-
-namespace motion_telemetry {
-
-MotionTelemetry& active() { return simulator_context::active().motion_telemetry(); }
-
-void reset() { active().reset(); }
-
-}  // namespace motion_telemetry
 
 }  // namespace sim

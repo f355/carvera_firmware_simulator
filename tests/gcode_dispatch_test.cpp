@@ -76,7 +76,7 @@ int main() {
   SerialMessage jog{&stream, "G0 X5 F1500", 2};
   kernel.gcode_dispatch->on_console_line_received(&jog);
 
-  sim::MotionRunner runner(kernel);
+  sim::MotionRunner runner(simulator, kernel);
   require(runner.run_until_idle(50'000), "simulator should execute dispatched G-code motion to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect dispatched G-code step/dir pulses");

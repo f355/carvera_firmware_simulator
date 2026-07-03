@@ -18,11 +18,13 @@
 #include "libs/Kernel.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/i2c_eeprom.hpp"
+#include "sim/machine_simulator.hpp"
 #include "support/assertions.hpp"
 
 int main() {
   using sim::test::require;
 
+  sim::MachineSimulator simulator;
   sim::host_filesystem::clear_mounts();
 
   sim::i2c_eeprom::reset();

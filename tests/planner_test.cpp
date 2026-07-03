@@ -34,6 +34,8 @@
 #include "StepperMotor.h"
 #include "libs/Kernel.h"
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 void require(bool condition, const char* message) {
@@ -46,6 +48,7 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   Kernel kernel;
 
   require(kernel.planner != nullptr, "Kernel should create a Planner");

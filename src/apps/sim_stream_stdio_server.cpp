@@ -32,6 +32,7 @@
 #include "sim/machine_state_proto.hpp"
 #include "sim/motion_telemetry.hpp"
 #include "sim/simulation_instance.hpp"
+#include "sim/simulator_context.hpp"
 
 #include <cerrno>
 #include <fcntl.h>
@@ -250,8 +251,9 @@ int main() {
         stream_ok = stream_ok && physical_io_events.emit_due(api);
       });
 
-  sim::motion_telemetry::active().set_interval_ticks(1000);
-  sim::motion_telemetry::active().set_sink([](const sim::MachineTelemetry& sample) {
+  auto& telemetry = simulation.machine().context().motion_telemetry();
+  telemetry.set_interval_ticks(1000);
+  telemetry.set_sink([](const sim::MachineTelemetry& sample) {
     carvera::sim::v1::StreamFrame frame;
     auto* event = frame.mutable_event();
     event->set_sequence(sample.sequence);

@@ -32,6 +32,8 @@ GPIO leds[4] = {
     GPIO(P1_17),
 };
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 void require(bool condition, const char* message) {
@@ -53,6 +55,7 @@ struct Probe {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::lpc1768::reset();
 
   Kernel kernel;

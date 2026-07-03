@@ -24,6 +24,7 @@
 
 #include "libs/FirmwareFileSystem.h"
 #include "sim/host_filesystem.hpp"
+#include "sim/machine_simulator.hpp"
 #include "support/temp_sdcard.hpp"
 #include "utils.h"
 
@@ -39,6 +40,7 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::test::TempDirectory temp_root("carvera_sim_sdcard_test");
   const auto& root = temp_root.path();
   std::filesystem::create_directories(root);

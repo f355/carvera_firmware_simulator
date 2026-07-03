@@ -23,6 +23,7 @@
 #include "sim/gpio_level.hpp"
 #include "sim/lpc1768.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -212,7 +213,7 @@ void StepperAxisRegistry::on_gpio_level_changed(PinAddress pin, bool high) {
 
 namespace stepper_axes {
 
-StepperAxisRegistry& active() { return simulator_context::active().stepper_axes(); }
+StepperAxisRegistry& active() { return compat::active_context().stepper_axes(); }
 
 void clear() { active().clear(); }
 

@@ -23,37 +23,40 @@
 #include "sim/motion_telemetry.hpp"
 #include "sim/physical_scene.hpp"
 #include "sim/runtime_motor_alarm_wiring.hpp"
+#include "sim/simulator_context.hpp"
 #include "sim/stepper_axis.hpp"
 #include "sim/timer_irq.hpp"
 
 namespace sim {
 namespace {
 
-void service_physical_model(Kernel& kernel) {
-  if (stepper_axes::count() >= 3) {
+void service_physical_model(SimulatorContext& context, Kernel& kernel) {
+  auto& axes = context.stepper_axes();
+  auto& scene = context.physical_scene();
+  if (axes.count() >= 3) {
     const Point3 spindle_position{
-        stepper_axes::position_mm(0),
-        stepper_axes::position_mm(1),
-        stepper_axes::position_mm(2),
+        axes.position_mm(0),
+        axes.position_mm(1),
+        axes.position_mm(2),
     };
-    physical_scene::active().update_probe_contacts(spindle_position);
-    if (stepper_axes::count() > 4) {
-      physical_scene::active().update_atc_clamp_position(spindle_position, stepper_axes::position_mm(4));
+    scene.update_probe_contacts(spindle_position);
+    if (axes.count() > 4) {
+      scene.update_atc_clamp_position(spindle_position, axes.position_mm(4));
     }
   }
-  if (const auto crash_axis = physical_scene::active().stock_probe_crash_axis(); crash_axis.has_value()) {
-    runtime_motor_alarm_wiring::drive(*crash_axis, true);
+  if (const auto crash_axis = scene.stock_probe_crash_axis(); crash_axis.has_value()) {
+    context.motor_alarm_wiring().drive(*crash_axis, true);
   }
-  motion_telemetry::active().observe(kernel);
+  context.motion_telemetry().observe(context, kernel);
 }
 
 }  // namespace
 
-void pump_motion(Kernel& kernel, std::size_t iterations) {
+void pump_motion(SimulatorContext& context, Kernel& kernel, std::size_t iterations) {
   for (std::size_t i = 0; i < iterations; ++i) {
     const bool advanced = timer_irq::advance_to_next_match();
 
-    service_physical_model(kernel);
+    service_physical_model(context, kernel);
 
     if (!advanced) {
       break;

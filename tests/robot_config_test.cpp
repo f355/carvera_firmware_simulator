@@ -91,7 +91,7 @@ int main() {
   const float delta[4] = {0.0F, 0.0F, 0.0F, 1.0F};
   require(kernel.robot->delta_move(delta, 10.0F, 4), "Robot should queue a config-created delta-axis jog");
 
-  sim::MotionRunner runner(kernel);
+  sim::MotionRunner runner(simulator, kernel);
   require(runner.run_until_idle(100'000), "simulator should execute config-created Robot motion to idle");
   require(
       simulator.axis_position_steps(3) - physical_delta_initial_steps == kernel.robot->actuators[3]->get_current_step(),

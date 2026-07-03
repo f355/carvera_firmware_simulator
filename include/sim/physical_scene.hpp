@@ -70,13 +70,6 @@ class PhysicalScene {
   ProbeContactState last_contacts_;
 };
 
-namespace physical_scene {
-
-PhysicalScene& active();
-void reset();
-
-}  // namespace physical_scene
-
 }  // namespace sim
 
 #endif

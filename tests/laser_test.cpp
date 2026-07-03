@@ -33,6 +33,8 @@
 
 extern "C" void TIMER2_IRQHandler(void);
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 using sim::test::MemoryConfigSource;
@@ -50,6 +52,7 @@ void run_slow_ticker_hook() {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::lpc1768::reset();
   mbed::PwmOut::reset_states();
   Kernel kernel;

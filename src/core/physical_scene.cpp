@@ -17,7 +17,6 @@
 
 #include "sim/physical_scene.hpp"
 
-#include "sim/simulator_context.hpp"
 
 namespace sim {
 
@@ -79,13 +78,5 @@ void PhysicalScene::update_probe_contacts(Point3 spindle_probe_position) {
 void PhysicalScene::sync_probe_install_from_spindle() {
   probe_contacts_.set_probe_tool_installed(atc_rack_.spindle_has_probe_tool());
 }
-
-namespace physical_scene {
-
-PhysicalScene& active() { return simulator_context::active().physical_scene(); }
-
-void reset() { active().clear(); }
-
-}  // namespace physical_scene
 
 }  // namespace sim

@@ -21,6 +21,7 @@
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -36,7 +37,8 @@ int main() {
   config_options.include_detector_motion_limits = false;
   sim::test::write_c1_atc_config(sd.path(), config_options);
   sim::SimulationInstance simulation(sd.persistent_config());
-  sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 57.0);
+  auto& scene = simulation.machine().context().physical_scene();
+  scene.set_atc_pocket_tool(2, 2, true, 57.0);
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
@@ -44,18 +46,18 @@ int main() {
   require(runtime.run_until_idle(100'000), "direct firmware tool-state command should run");
   (void)runtime.read_serial();
   require(kernel.eeprom_data->TOOL == 2, "M493.2 should persist the active tool in firmware EEPROM data");
-  require(!sim::physical_scene::active().atc_spindle().has_tool,
+  require(!scene.atc_spindle().has_tool,
           "M493.2 should not physically move a rack tool into the spindle");
 
   runtime.reset();
   auto& rebooted_kernel = runtime.boot();
   require(rebooted_kernel.eeprom_data->TOOL == 2, "firmware reboot should reload persisted active tool from EEPROM");
 
-  const auto spindle = sim::physical_scene::active().atc_spindle();
+  const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 2, "boot should reconcile persisted active tool into the spindle");
   require(spindle.length_mm == 57.0, "reconciled spindle tool should keep the configured physical length");
 
-  const auto pockets = sim::physical_scene::active().atc_pockets();
+  const auto pockets = scene.atc_pockets();
   require(pockets.size() == 1 && pockets.front().tool == 2 && !pockets.front().occupied,
           "boot should remove the persisted active tool from its physical rack pocket");
   return 0;

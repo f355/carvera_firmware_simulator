@@ -26,6 +26,7 @@
 #include "sim/logging.hpp"
 #include "sim/physical_scene.hpp"
 #include "sim/runtime_atc_config.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 
@@ -113,30 +114,32 @@ void fill_pin(carvera::sim::v1::PinAddress& target, PinAddress source) {
   target.set_pin(source.pin);
 }
 
-void apply_tool_setter_box(FirmwareRuntime& firmware, const carvera::sim::v1::SetToolSetterBox& command) {
+void apply_tool_setter_box(PhysicalScene& scene, FirmwareRuntime& firmware,
+                           const carvera::sim::v1::SetToolSetterBox& command) {
   if (command.enabled()) {
     firmware.set_tool_setter_box(api::box_from_proto(command.bounds()));
     logging::event("physical", "tool setter box " + box_summary(command.bounds()));
   } else {
-    physical_scene::active().clear_tool_setter_box();
+    scene.clear_tool_setter_box();
     logging::event("physical", "tool setter box disabled");
   }
 }
 
-void apply_stock_box(FirmwareRuntime& firmware, const carvera::sim::v1::SetStockBox& command) {
+void apply_stock_box(PhysicalScene& scene, FirmwareRuntime& firmware,
+                     const carvera::sim::v1::SetStockBox& command) {
   if (command.enabled()) {
     firmware.set_stock_box(api::box_from_proto(command.bounds()));
     logging::event("physical", "stock box " + box_summary(command.bounds()));
   } else {
-    physical_scene::active().clear_stock_box();
+    scene.clear_stock_box();
     logging::event("physical", "stock box disabled");
   }
 }
 
-std::optional<const char*> apply_atc_pocket_tools(FirmwareRuntime& firmware,
+std::optional<const char*> apply_atc_pocket_tools(PhysicalScene& scene, FirmwareRuntime& firmware,
                                                   const carvera::sim::v1::SetAtcPocketTools& command) {
   if (command.replace()) {
-    physical_scene::active().clear_atc_pocket_tools();
+    scene.clear_atc_pocket_tools();
   }
   for (const auto& tool : command.tools()) {
     if (tool.length_mm() < 0.0) {
@@ -145,12 +148,11 @@ std::optional<const char*> apply_atc_pocket_tools(FirmwareRuntime& firmware,
     if (tool.probe_tip_diameter_mm() < 0.0) {
       return "ATC probe tip diameter must be non-negative";
     }
-    physical_scene::active().set_atc_pocket_tool(static_cast<int>(tool.pocket()), tool.tool(), tool.occupied(),
-                                                 tool.length_mm(), api::tool_kind(tool.kind()),
-                                                 tool.probe_tip_diameter_mm());
+    scene.set_atc_pocket_tool(static_cast<int>(tool.pocket()), tool.tool(), tool.occupied(), tool.length_mm(),
+                              api::tool_kind(tool.kind()), tool.probe_tip_diameter_mm());
   }
   if (firmware.booted()) {
-    runtime_atc::configure_physical_scene(firmware.boot(), true);
+    runtime_atc::configure_physical_scene(firmware.boot(), scene, true);
   }
   std::ostringstream message;
   message << "ATC pocket table updated tools=" << command.tools_size();
@@ -161,15 +163,16 @@ std::optional<const char*> apply_atc_pocket_tools(FirmwareRuntime& firmware,
   return std::nullopt;
 }
 
-std::optional<const char*> apply_spindle_tool(const carvera::sim::v1::SetSpindleTool& command) {
+std::optional<const char*> apply_spindle_tool(PhysicalScene& scene,
+                                              const carvera::sim::v1::SetSpindleTool& command) {
   if (command.length_mm() < 0.0) {
     return "spindle tool length must be non-negative";
   }
   if (command.probe_tip_diameter_mm() < 0.0) {
     return "spindle probe tip diameter must be non-negative";
   }
-  physical_scene::active().set_spindle_tool(command.tool(), command.length_mm(), command.installed(),
-                                            api::tool_kind(command.kind()), command.probe_tip_diameter_mm());
+  scene.set_spindle_tool(command.tool(), command.length_mm(), command.installed(), api::tool_kind(command.kind()),
+                         command.probe_tip_diameter_mm());
   std::ostringstream message;
   message << std::fixed << std::setprecision(3);
   if (command.installed()) {
@@ -311,13 +314,15 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       return response;
     }
     case Request::kSetAtcPocketTools: {
-      if (const auto message = apply_atc_pocket_tools(firmware_, request.set_atc_pocket_tools())) {
+      if (const auto message = apply_atc_pocket_tools(simulator_.context().physical_scene(), firmware_,
+                                                      request.set_atc_pocket_tools())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     }
     case Request::kSetSpindleTool: {
-      if (const auto message = apply_spindle_tool(request.set_spindle_tool())) {
+      if (const auto message =
+              apply_spindle_tool(simulator_.context().physical_scene(), request.set_spindle_tool())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
@@ -328,10 +333,10 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
                      std::string("probe tool ") + bool_text(request.set_probe_tool_installed().installed()));
       return ok(request.id());
     case Request::kSetToolSetterBox:
-      apply_tool_setter_box(firmware_, request.set_tool_setter_box());
+      apply_tool_setter_box(simulator_.context().physical_scene(), firmware_, request.set_tool_setter_box());
       return ok(request.id());
     case Request::kSetStockBox:
-      apply_stock_box(firmware_, request.set_stock_box());
+      apply_stock_box(simulator_.context().physical_scene(), firmware_, request.set_stock_box());
       return ok(request.id());
     case Request::kSetTemperature: {
       if (const auto message = apply_temperature(firmware_, request.set_temperature())) {
@@ -503,20 +508,22 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_physical_comm
                                      bool_text(request.set_rotary_accessory_installed().installed()));
       return ok(request.id());
     case Request::kSetAtcPocketTools:
-      if (const auto message = apply_atc_pocket_tools(firmware_, request.set_atc_pocket_tools())) {
+      if (const auto message = apply_atc_pocket_tools(simulator_.context().physical_scene(), firmware_,
+                                                      request.set_atc_pocket_tools())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     case Request::kSetSpindleTool:
-      if (const auto message = apply_spindle_tool(request.set_spindle_tool())) {
+      if (const auto message =
+              apply_spindle_tool(simulator_.context().physical_scene(), request.set_spindle_tool())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     case Request::kSetToolSetterBox:
-      apply_tool_setter_box(firmware_, request.set_tool_setter_box());
+      apply_tool_setter_box(simulator_.context().physical_scene(), firmware_, request.set_tool_setter_box());
       return ok(request.id());
     case Request::kSetStockBox:
-      apply_stock_box(firmware_, request.set_stock_box());
+      apply_stock_box(simulator_.context().physical_scene(), firmware_, request.set_stock_box());
       return ok(request.id());
     case Request::kSetTemperature:
       if (const auto message = apply_temperature(firmware_, request.set_temperature())) {

@@ -27,6 +27,7 @@
 #include "sim/stepper_axis.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -162,7 +163,7 @@ void test_ca1_with_rotary_accessory() {
   require_near(home_angle, 1.0, 0.05, "physical A chuck should back off from the index sensor");
   require(!simulator.axis_endstop_triggered(3), "A-axis shared homing/limit switch should release after backoff");
 
-  sim::m8266_wifi::active().connect_tcp_client();
+  simulation.machine().context().m8266_wifi().connect_tcp_client();
   (void)runtime.read_wifi_tcp();
   runtime.write_wifi_tcp("G91 G0 A90 F600\n");
   for (int i = 0; i < 2'000 && sim::stepper_axes::count() >= 4 &&

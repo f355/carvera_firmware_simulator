@@ -20,7 +20,6 @@
 #include <utility>
 
 #include "sim/firmware_runtime.hpp"
-#include "sim/m8266_wifi.hpp"
 #include "sim/platform_io.hpp"
 
 #include <netinet/in.h>
@@ -199,11 +198,7 @@ std::size_t LocalhostTcpBridge::queued_output_bytes() const {
 bool LocalhostTcpBridge::service_client_io_locked(Client& client) { return client.io.service(); }
 
 void LocalhostTcpBridge::update_firmware_connection_state(bool connected) {
-  if (connected) {
-    m8266_wifi::active().connect_tcp_client();
-  } else {
-    m8266_wifi::active().disconnect_tcp_client();
-  }
+  runtime_.set_wifi_client_connected(connected);
 }
 
 void LocalhostTcpBridge::accept_pending_clients() {

@@ -20,6 +20,7 @@
 #include "support/api_snapshot_config.hpp"
 #include "support/assertions.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 int main() {
   using sim::test::require;
@@ -48,13 +49,14 @@ int main() {
     spindle_tool->set_probe_tip_diameter_mm(2.5);
   });
   require(response.ok(), "set_spindle_tool should accept a manual spindle tool");
-  require(sim::physical_scene::active().atc_spindle().has_tool, "set_spindle_tool should load the simulated spindle");
-  require(sim::physical_scene::active().atc_spindle().tool == 3, "set_spindle_tool should store the tool number");
-  require(sim::physical_scene::active().atc_spindle().length_mm == 55.5,
+  const auto spindle = api.simulator().context().physical_scene().atc_spindle();
+  require(spindle.has_tool, "set_spindle_tool should load the simulated spindle");
+  require(spindle.tool == 3, "set_spindle_tool should store the tool number");
+  require(spindle.length_mm == 55.5,
           "set_spindle_tool should store the tool length");
-  require(sim::physical_scene::active().atc_spindle().kind == sim::ToolKind::ThreeAxisProbe,
+  require(spindle.kind == sim::ToolKind::ThreeAxisProbe,
           "set_spindle_tool should store the physical tool kind");
-  require(sim::physical_scene::active().atc_spindle().probe_tip_diameter_mm == 2.5,
+  require(spindle.probe_tip_diameter_mm == 2.5,
           "set_spindle_tool should store the probe tip diameter");
 
   response = api.request([](auto& request) { request.mutable_get_machine_snapshot(); });

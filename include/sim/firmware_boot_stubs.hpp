@@ -60,7 +60,7 @@ class SDFileSystem {
 
 class SDFAT {
  public:
-  SDFAT(const char* name, SDFileSystem*) { sim::host_filesystem::ensure_mount(name); }
+  SDFAT(const char*, SDFileSystem*) {}
   int remount() {
     sim::host_filesystem::ensure_mount("sd");
     return 0;

@@ -26,6 +26,7 @@
 #include "sim/simulator_context.hpp"
 #include "sim/virtual_clock.hpp"
 #include "sim/watchdog.hpp"
+#include "compat/active_context.hpp"
 
 extern "C" void TIMER0_IRQHandler(void);
 extern "C" void TIMER1_IRQHandler(void);
@@ -205,7 +206,7 @@ bool TimerScheduler::raise_match(std::uint8_t timer_index) {
 
 namespace timer_scheduler {
 
-TimerScheduler& active() { return simulator_context::active().timer_scheduler(); }
+TimerScheduler& active() { return compat::active_context().timer_scheduler(); }
 
 void reset() { active().reset(); }
 

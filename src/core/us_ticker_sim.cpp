@@ -19,6 +19,7 @@
 
 #include "sim/simulator_context.hpp"
 #include "sim/virtual_clock.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -76,7 +77,7 @@ bool UsTickerState::due(std::uint32_t timestamp) const { return static_cast<std:
 
 namespace us_ticker {
 
-UsTickerState& active() { return simulator_context::active().us_ticker(); }
+UsTickerState& active() { return compat::active_context().us_ticker(); }
 
 void reset() { active().reset(); }
 

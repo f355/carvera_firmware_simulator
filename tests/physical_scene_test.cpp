@@ -20,6 +20,7 @@
 
 #include "sim/machine_simulator.hpp"
 #include "sim/physical_scene.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -34,7 +35,7 @@ void require(bool condition, const char* message) {
 
 int main() {
   sim::MachineSimulator simulator;
-  auto& scene = sim::physical_scene::active();
+  auto& scene = simulator.context().physical_scene();
 
   scene.set_probe_tool_installed(false);
   scene.set_stock_box(sim::Box{

@@ -25,25 +25,26 @@
 #include "libs/Kernel.h"
 #include "sim/api_conversions.hpp"
 #include "sim/i2c_eeprom.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 namespace {
 
 constexpr std::uint16_t eeprom_data_offset = 32;
 
-EEPROM_data read_persistent_data() {
+EEPROM_data read_persistent_data(const I2cEepromDevice& eeprom) {
   EEPROM_data data{};
   auto* output = reinterpret_cast<std::uint8_t*>(&data);
   for (std::size_t offset = 0; offset < sizeof(EEPROM_data); ++offset) {
-    output[offset] = i2c_eeprom::read(static_cast<std::uint16_t>(eeprom_data_offset + offset));
+    output[offset] = eeprom.peek(static_cast<std::uint16_t>(eeprom_data_offset + offset));
   }
   return data;
 }
 
-void write_persistent_data(const EEPROM_data& data) {
+void write_persistent_data(I2cEepromDevice& eeprom, const EEPROM_data& data) {
   const auto* input = reinterpret_cast<const std::uint8_t*>(&data);
   for (std::size_t offset = 0; offset < sizeof(EEPROM_data); ++offset) {
-    i2c_eeprom::write(static_cast<std::uint16_t>(eeprom_data_offset + offset), input[offset]);
+    eeprom.poke(static_cast<std::uint16_t>(eeprom_data_offset + offset), input[offset]);
   }
 }
 
@@ -145,6 +146,7 @@ bool apply_eeprom_field(EEPROM_data& data, const carvera::sim::v1::EepromField& 
 
 std::optional<ApiService::Response> ApiService::handle_harness_command(const carvera::sim::v1::Request& request) {
   using Request = carvera::sim::v1::Request;
+  auto& eeprom = simulator_.context().eeprom();
 
   switch (request.command_case()) {
     case Request::kSetGpioInput: {
@@ -242,7 +244,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       std::string bytes;
       bytes.reserve(command.length());
       for (std::uint32_t offset = 0; offset < command.length(); ++offset) {
-        bytes.push_back(static_cast<char>(i2c_eeprom::read(static_cast<std::uint16_t>(command.offset() + offset))));
+        bytes.push_back(static_cast<char>(eeprom.peek(static_cast<std::uint16_t>(command.offset() + offset))));
       }
       auto response = ok(request.id());
       auto* output = response.mutable_eeprom_bytes();
@@ -258,24 +260,24 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
         return error(request.id(), "EEPROM range is out of bounds");
       }
       for (std::size_t offset = 0; offset < command.data().size(); ++offset) {
-        i2c_eeprom::write(static_cast<std::uint16_t>(command.offset() + offset),
-                          static_cast<std::uint8_t>(command.data()[offset]));
+        eeprom.poke(static_cast<std::uint16_t>(command.offset() + offset),
+                    static_cast<std::uint8_t>(command.data()[offset]));
       }
       return ok(request.id());
     }
     case Request::kGetEepromFields: {
       auto response = ok(request.id());
-      fill_eeprom_fields(*response.mutable_eeprom_fields(), read_persistent_data());
+      fill_eeprom_fields(*response.mutable_eeprom_fields(), read_persistent_data(eeprom));
       return response;
     }
     case Request::kSetEepromFields: {
-      auto data = read_persistent_data();
+      auto data = read_persistent_data(eeprom);
       for (const auto& field : request.set_eeprom_fields().fields()) {
         if (!apply_eeprom_field(data, field)) {
           return error(request.id(), "unsupported EEPROM field");
         }
       }
-      write_persistent_data(data);
+      write_persistent_data(eeprom, data);
       return ok(request.id());
     }
     default:

@@ -27,7 +27,7 @@ namespace sim {
 namespace {
 
 bool fill_snapshot_from_kernel(carvera::sim::v1::MachineSnapshot& snapshot, FirmwareRuntime& firmware,
-                               MachineSimulator&) {
+                               MachineSimulator& simulator) {
   auto& kernel = firmware.start();
   if (kernel.robot == nullptr) {
     return false;
@@ -35,8 +35,8 @@ bool fill_snapshot_from_kernel(carvera::sim::v1::MachineSnapshot& snapshot, Firm
 
   MachineStateSnapshotOptions options;
   options.refresh_physical_scene = true;
-  api::fill_machine_snapshot_proto(snapshot,
-                                   assemble_machine_state(kernel, firmware.factory_settings().machine_model, options));
+  api::fill_machine_snapshot_proto(
+      snapshot, assemble_machine_state(simulator.context(), kernel, firmware.factory_settings().machine_model, options));
   return true;
 }
 

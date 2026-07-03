@@ -20,27 +20,32 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 class Kernel;
 
 namespace sim {
 
 class RuntimeBootSession;
+class MachineSimulator;
 
 class RuntimeIo {
  public:
   using BootCallback = std::function<Kernel&()>;
 
-  RuntimeIo(RuntimeBootSession& boot_session, BootCallback boot);
+  RuntimeIo(MachineSimulator& simulator, RuntimeBootSession& boot_session, BootCallback boot);
 
   void write_serial(const std::string& data);
   std::string read_serial();
   void write_wifi_tcp(const std::string& data);
   std::string read_wifi_tcp();
+  void set_wifi_client_connected(bool connected);
+  std::vector<std::string> take_wifi_udp_datagrams();
   void write_wireless_probe_rx(const std::string& data);
   std::string read_wireless_probe_tx();
 
  private:
+  MachineSimulator& simulator_;
   RuntimeBootSession& boot_session_;
   BootCallback boot_;
 };

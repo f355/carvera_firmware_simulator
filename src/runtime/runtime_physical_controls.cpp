@@ -34,6 +34,7 @@
 #include "sim/runtime_pin_config.hpp"
 #include "sim/runtime_pump.hpp"
 #include "sim/runtime_temperature.hpp"
+#include "sim/simulator_context.hpp"
 
 #include <iterator>
 #include <memory>
@@ -280,7 +281,7 @@ class RuntimePhysicalControls::FaultInjection {
 
   void set_motor_alarm(std::size_t axis, bool triggered) {
     controls_.boot_();
-    runtime_motor_alarm_wiring::drive(axis, triggered);
+    controls_.simulator_.context().motor_alarm_wiring().drive(axis, triggered);
   }
 
   bool motor_alarm(std::size_t axis) {
@@ -390,12 +391,14 @@ bool RuntimePhysicalControls::set_spindle_alarm(bool triggered) {
 std::optional<bool> RuntimePhysicalControls::spindle_alarm() { return fault_injection_->spindle_alarm(); }
 
 void RuntimePhysicalControls::set_probe_tool_installed(bool installed) {
-  physical_scene::active().set_probe_tool_installed(installed);
+  simulator_.context().physical_scene().set_probe_tool_installed(installed);
 }
 
-void RuntimePhysicalControls::set_tool_setter_box(const Box& box) { physical_scene::active().set_tool_setter_box(box); }
+void RuntimePhysicalControls::set_tool_setter_box(const Box& box) {
+  simulator_.context().physical_scene().set_tool_setter_box(box);
+}
 
-void RuntimePhysicalControls::set_stock_box(const Box& box) { physical_scene::active().set_stock_box(box); }
+void RuntimePhysicalControls::set_stock_box(const Box& box) { simulator_.context().physical_scene().set_stock_box(box); }
 
 void RuntimePhysicalControls::set_main_button_pressed(bool pressed) {
   physical_inputs_->set_main_button_pressed(pressed);

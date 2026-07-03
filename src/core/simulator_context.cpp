@@ -19,12 +19,6 @@
 
 namespace sim {
 
-namespace {
-
-SimulatorContext* active_context = nullptr;
-
-}  // namespace
-
 void SimulatorContext::reset(bool preserve_physical_scene) {
   clock_.reset();
   us_ticker_.reset();
@@ -46,28 +40,5 @@ void SimulatorContext::reset(bool preserve_physical_scene) {
     physical_scene_.clear();
   }
 }
-
-namespace simulator_context {
-
-SimulatorContext& fallback() {
-  static PersistentMachineState persistent_state;
-  static SimulatorContext context(persistent_state);
-  return context;
-}
-
-SimulatorContext& active() {
-  if (active_context == nullptr) {
-    active_context = &fallback();
-  }
-  return *active_context;
-}
-
-SimulatorContext* activate(SimulatorContext* context) {
-  SimulatorContext* previous = &active();
-  active_context = context == nullptr ? &fallback() : context;
-  return previous;
-}
-
-}  // namespace simulator_context
 
 }  // namespace sim

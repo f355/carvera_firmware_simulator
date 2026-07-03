@@ -20,6 +20,7 @@
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
 #include "support/runtime_wait.hpp"
+#include "sim/simulator_context.hpp"
 
 int main() {
   using sim::test::require;
@@ -30,7 +31,7 @@ int main() {
   auto& kernel = probe.kernel();
 
   require(runtime.is_homed(), "runtime should home before stock Z probe crash test");
-  sim::physical_scene::active().set_spindle_tool(0, 50.0, true, sim::ToolKind::StockZProbe, 1.6);
+  simulator.context().physical_scene().set_spindle_tool(0, 50.0, true, sim::ToolKind::StockZProbe, 1.6);
   runtime.run_main_loop(4);
 
   const double current_x = simulator.axis_position_mm(0);

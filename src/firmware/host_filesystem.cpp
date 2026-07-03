@@ -27,6 +27,7 @@
 #include "libs/FirmwareFileSystem.h"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 
 namespace {
 
@@ -111,25 +112,25 @@ bool HostFilesystem::exists(const std::string& path) const {
 
 namespace sim::host_filesystem {
 
-void clear_mounts() { simulator_context::active().host_filesystem().clear_mounts(i2c_eeprom::active()); }
+void clear_mounts() { compat::active_context().host_filesystem().clear_mounts(i2c_eeprom::active()); }
 
 std::filesystem::path default_mount_root(const std::string& name) {
   return std::filesystem::temp_directory_path() / "carvera_firmware_sim" / name;
 }
 
 void mount(const std::string& name, const std::filesystem::path& root) {
-  simulator_context::active().host_filesystem().mount(name, root, i2c_eeprom::active());
+  compat::active_context().host_filesystem().mount(name, root, i2c_eeprom::active());
 }
 
 void ensure_mount(const std::string& name) {
-  simulator_context::active().host_filesystem().ensure_mount(name, i2c_eeprom::active());
+  compat::active_context().host_filesystem().ensure_mount(name, i2c_eeprom::active());
 }
 
 std::filesystem::path translate(const char* path) {
-  return simulator_context::active().host_filesystem().translate(path);
+  return compat::active_context().host_filesystem().translate(path);
 }
 
-bool exists(const std::string& path) { return simulator_context::active().host_filesystem().exists(path); }
+bool exists(const std::string& path) { return compat::active_context().host_filesystem().exists(path); }
 
 }  // namespace sim::host_filesystem
 

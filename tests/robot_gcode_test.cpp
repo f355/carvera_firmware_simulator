@@ -61,7 +61,7 @@ int main() {
   kernel.robot->on_gcode_received(&jog);
   require(!jog.is_error, "Robot should accept a minimal G0 jog command");
 
-  sim::MotionRunner runner(kernel);
+  sim::MotionRunner runner(simulator, kernel);
   require(runner.run_until_idle(50'000), "simulator should execute G-code Robot motion to idle");
   require(simulator.axis_position_steps(x_axis) == 50,
           "physical axis position should reflect G-code-generated step/dir pulses");

@@ -26,6 +26,7 @@
 #include "sim/machine_state_snapshot.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -116,14 +117,15 @@ int main() {
   write_config(root);
   sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& firmware = simulation.firmware();
-  sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0, sim::ToolKind::CuttingTool);
-  sim::physical_scene::active().set_spindle_tool(3, 55.5, true, sim::ToolKind::ThreeAxisProbe, 2.5);
+  auto& scene = simulation.machine().context().physical_scene();
+  scene.set_atc_pocket_tool(1, 1, true, 62.0, sim::ToolKind::CuttingTool);
+  scene.set_spindle_tool(3, 55.5, true, sim::ToolKind::ThreeAxisProbe, 2.5);
 
   auto& kernel = firmware.boot();
   require(kernel.robot != nullptr, "test firmware should boot Robot");
 
-  const auto state =
-      sim::assemble_machine_state(kernel, firmware.is_homed(), firmware.factory_settings().machine_model);
+  const auto state = sim::assemble_machine_state(simulation.machine().context(), kernel, firmware.is_homed(),
+                                                 firmware.factory_settings().machine_model);
   require(state.firmware_booted, "shared machine state should report booted firmware");
   require(state.homed, "shared machine state should report boot homing completion");
   require(state.soft_endstop_enabled, "shared machine state should expose firmware soft-limit state");

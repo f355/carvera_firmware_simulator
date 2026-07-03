@@ -97,6 +97,9 @@ class SimulatorContext {
   HostFilesystem& host_filesystem() { return persistent_state_.host_filesystem(); }
   const HostFilesystem& host_filesystem() const { return persistent_state_.host_filesystem(); }
 
+  PersistentMachineState& persistent_state() { return persistent_state_; }
+  const PersistentMachineState& persistent_state() const { return persistent_state_; }
+
  private:
   VirtualClock clock_{};
   Lpc1768 mcu_{};
@@ -116,14 +119,6 @@ class SimulatorContext {
   runtime_motor_alarm_wiring::MotorAlarmWiring motor_alarm_wiring_{};
   PersistentMachineState& persistent_state_;
 };
-
-namespace simulator_context {
-
-SimulatorContext& fallback();
-SimulatorContext& active();
-SimulatorContext* activate(SimulatorContext* context);
-
-}  // namespace simulator_context
 
 }  // namespace sim
 

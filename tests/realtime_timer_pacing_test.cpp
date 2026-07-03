@@ -69,12 +69,12 @@ int main() {
 
   simulator.set_realtime_speed(1.0);
   const auto started = std::chrono::steady_clock::now();
-  sim::pump_motion(kernel, 2);
+  sim::pump_motion(simulator.context(), kernel, 2);
   const auto baseline_elapsed = std::chrono::steady_clock::now() - started;
 
   simulator.set_realtime_speed(2.0);
   const auto accelerated_started = std::chrono::steady_clock::now();
-  sim::pump_motion(kernel, 2);
+  sim::pump_motion(simulator.context(), kernel, 2);
   const auto accelerated_motion_elapsed = std::chrono::steady_clock::now() - accelerated_started;
 
   require(accelerated_motion_elapsed < baseline_elapsed,

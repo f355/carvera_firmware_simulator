@@ -15,19 +15,32 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMULATOR_SIM_MOTION_PUMP_HPP
-#define SIMULATOR_SIM_MOTION_PUMP_HPP
+#include "compat/active_context.hpp"
 
-#include <cstddef>
+#include <atomic>
+#include <stdexcept>
 
-class Kernel;
+#include "sim/simulator_context.hpp"
 
-namespace sim {
+namespace sim::compat {
+namespace {
 
-class SimulatorContext;
+std::atomic<SimulatorContext*> current_context{nullptr};
 
-void pump_motion(SimulatorContext& context, Kernel& kernel, std::size_t iterations = 1);
+}  // namespace
 
-}  // namespace sim
+SimulatorContext& active_context() {
+  auto* context = current_context.load(std::memory_order_acquire);
+  if (context == nullptr) {
+    throw std::logic_error("simulator compatibility call requires an active MachineSimulator");
+  }
+  return *context;
+}
 
-#endif
+SimulatorContext* try_active_context() noexcept { return current_context.load(std::memory_order_acquire); }
+
+SimulatorContext* set_active_context(SimulatorContext* context) {
+  return current_context.exchange(context, std::memory_order_acq_rel);
+}
+
+}  // namespace sim::compat

@@ -28,6 +28,7 @@
 #include "sim/persistent_machine_state.hpp"
 #include "sim/simulator_context.hpp"
 #include "sim/us_ticker_sim.hpp"
+#include "compat/active_context.hpp"
 
 namespace sim {
 
@@ -69,13 +70,13 @@ MachineSimulator::MachineSimulator(PersistentMachineState& persistent_state)
 }
 
 void MachineSimulator::initialize() {
-  previous_context_ = simulator_context::activate(context_.get());
+  previous_context_ = compat::set_active_context(context_.get());
   context_->reset();
   set_temperature(TemperatureSensor::Spindle, 25.0);
   set_temperature(TemperatureSensor::Power, 25.0);
 }
 
-MachineSimulator::~MachineSimulator() { simulator_context::activate(previous_context_); }
+MachineSimulator::~MachineSimulator() { compat::set_active_context(previous_context_); }
 
 void MachineSimulator::reset(bool preserve_physical_scene) {
   context_->reset(preserve_physical_scene);

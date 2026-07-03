@@ -25,7 +25,6 @@
 #include "sim/delay_hooks.hpp"
 #include "sim/firmware_runtime.hpp"
 #include "sim/logging.hpp"
-#include "sim/m8266_wifi.hpp"
 
 namespace {
 
@@ -188,7 +187,7 @@ void InteractiveTransportManager::relay_wifi_discovery() {
   }
 
   const auto tcp_port = tcp_bridges_.front()->port();
-  for (const auto& firmware_payload : m8266_wifi::active().take_udp_tx_datagrams()) {
+  for (const auto& firmware_payload : firmware_.take_wifi_udp_datagrams()) {
     discovery_beacon_.publish(localhost_discovery_payload(firmware_payload, tcp_port));
   }
 }

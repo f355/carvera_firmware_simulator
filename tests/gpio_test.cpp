@@ -22,6 +22,8 @@
 #include "lpc1768_sim.h"
 #include "lpc17xx_pinsel.h"
 
+#include "sim/machine_simulator.hpp"
+
 namespace {
 
 void require(bool condition, const char* message) {
@@ -34,6 +36,7 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
+  sim::MachineSimulator simulator;
   sim::lpc1768::reset();
 
   GPIO pin(P1_18);

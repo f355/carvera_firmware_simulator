@@ -15,19 +15,20 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMULATOR_SIM_MOTION_PUMP_HPP
-#define SIMULATOR_SIM_MOTION_PUMP_HPP
-
-#include <cstddef>
-
-class Kernel;
+#ifndef SIMULATOR_COMPAT_ACTIVE_CONTEXT_HPP
+#define SIMULATOR_COMPAT_ACTIVE_CONTEXT_HPP
 
 namespace sim {
 
 class SimulatorContext;
 
-void pump_motion(SimulatorContext& context, Kernel& kernel, std::size_t iterations = 1);
+namespace compat {
 
+SimulatorContext& active_context();
+SimulatorContext* try_active_context() noexcept;
+SimulatorContext* set_active_context(SimulatorContext* context);
+
+}  // namespace compat
 }  // namespace sim
 
 #endif

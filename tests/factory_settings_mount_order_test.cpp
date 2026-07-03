@@ -45,12 +45,11 @@ carvera::sim::v1::Response send(sim::ApiService& api, carvera::sim::v1::Request&
 void seed_sd_with_rotary_enabled_eeprom(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);
 
-  sim::i2c_eeprom::clear_persistent_file();
-  sim::i2c_eeprom::reset();
-  require(sim::i2c_eeprom::use_persistent_file(root / ".eeprom.bin") == false,
+  sim::I2cEepromDevice eeprom;
+  eeprom.reset();
+  require(eeprom.use_persistent_file(root / ".eeprom.bin") == false,
           "fresh EEPROM backing file should start empty");
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x01});
-  sim::i2c_eeprom::clear_persistent_file();
+  eeprom.configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x01});
 }
 
 }  // namespace
@@ -59,7 +58,6 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_factory_settings_mount_order_test");
   const auto& sd_root = temp_root.path();
   seed_sd_with_rotary_enabled_eeprom(sd_root);
-  sim::host_filesystem::clear_mounts();
 
   sim::SimulationInstance simulation;
   sim::ApiService api(simulation);

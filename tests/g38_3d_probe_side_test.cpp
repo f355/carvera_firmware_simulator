@@ -19,6 +19,7 @@
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
+#include "sim/simulator_context.hpp"
 
 int main() {
   using sim::test::require;
@@ -30,7 +31,7 @@ int main() {
   auto& kernel = probe.kernel();
 
   require(runtime.is_homed(), "runtime should home before side probing");
-  sim::physical_scene::active().set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
+  simulator.context().physical_scene().set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
 
   const double current_x = simulator.axis_position_mm(0);
   const double current_y = simulator.axis_position_mm(1);

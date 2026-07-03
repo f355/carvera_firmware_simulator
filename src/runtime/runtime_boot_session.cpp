@@ -22,9 +22,9 @@
 #include "Robot.h"
 #include "libs/Kernel.h"
 #include "sim/firm_config_data.hpp"
-#include "sim/m8266_wifi.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_modules.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 namespace {
@@ -35,32 +35,32 @@ class FirmConfigDataScope {
   ~FirmConfigDataScope() { firm_config_data::set_enabled(false); }
 };
 
-void initialize_eeprom_for_power_on(const FactorySettings& settings) {
-  if (i2c_eeprom::has_persistent_file() && i2c_eeprom::loaded_from_persistent_file()) {
-    i2c_eeprom::reset_transaction();
+void initialize_eeprom_for_power_on(I2cEepromDevice& eeprom, const FactorySettings& settings) {
+  if (eeprom.has_persistent_file() && eeprom.loaded_from_persistent_file()) {
+    eeprom.reset_transaction();
     return;
   }
 
-  i2c_eeprom::reset();
-  i2c_eeprom::configure_factory_settings(settings);
+  eeprom.reset();
+  eeprom.configure_factory_settings(settings);
 }
 
-void initialize_eeprom_for_reboot(const FactorySettings& settings) {
-  if (i2c_eeprom::has_persistent_file()) {
-    i2c_eeprom::reset_transaction();
+void initialize_eeprom_for_reboot(I2cEepromDevice& eeprom, const FactorySettings& settings) {
+  if (eeprom.has_persistent_file()) {
+    eeprom.reset_transaction();
     return;
   }
 
-  i2c_eeprom::reset();
-  i2c_eeprom::configure_factory_settings(settings);
+  eeprom.reset();
+  eeprom.configure_factory_settings(settings);
 }
 
 }  // namespace
 
 RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, FactorySettings factory_settings)
     : simulator_(simulator), factory_settings_(factory_settings) {
-  initialize_eeprom_for_power_on(factory_settings_);
-  m8266_wifi::active().reset();
+  initialize_eeprom_for_power_on(simulator_.context().eeprom(), factory_settings_);
+  simulator_.context().m8266_wifi().reset();
 }
 
 RuntimeBootSession::~RuntimeBootSession() = default;
@@ -93,8 +93,8 @@ void RuntimeBootSession::reset() {
   if (was_realtime) {
     simulator_.start_realtime();
   }
-  initialize_eeprom_for_reboot(factory_settings_);
-  m8266_wifi::active().reset();
+  initialize_eeprom_for_reboot(simulator_.context().eeprom(), factory_settings_);
+  simulator_.context().m8266_wifi().reset();
   homed_ = false;
 }
 
@@ -110,8 +110,8 @@ bool RuntimeBootSession::set_factory_settings(const FactorySettings& settings) {
   }
 
   factory_settings_ = settings;
-  i2c_eeprom::reset();
-  i2c_eeprom::configure_factory_settings(factory_settings_);
+  simulator_.context().eeprom().reset();
+  simulator_.context().eeprom().configure_factory_settings(factory_settings_);
   return true;
 }
 

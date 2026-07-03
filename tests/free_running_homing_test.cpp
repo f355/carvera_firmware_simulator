@@ -24,6 +24,7 @@
 #include "sim/simulation_instance.hpp"
 #include "sim/motion_telemetry.hpp"
 #include "support/temp_sdcard.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -51,14 +52,14 @@ int main() {
   auto& runtime = simulation.firmware();
   sim::MachineTelemetry last_telemetry;
   bool saw_telemetry = false;
-  sim::motion_telemetry::active().set_sink([&](const sim::MachineTelemetry& sample) {
+  simulation.machine().context().motion_telemetry().set_sink([&](const sim::MachineTelemetry& sample) {
     last_telemetry = sample;
     saw_telemetry = true;
   });
   auto& kernel = runtime.boot();
 
   require(runtime.is_homed(), "runtime should home the machine during boot");
-  sim::motion_telemetry::active().observe(kernel, true);
+  simulation.machine().context().motion_telemetry().observe(simulation.machine().context(), kernel, true);
   require(saw_telemetry, "forced motion telemetry should emit after boot homing");
   require(last_telemetry.homed, "motion telemetry should report the real firmware homed state");
   require_near(kernel.robot->get_axis_position(0), -2.0, 0.0001,
@@ -98,7 +99,7 @@ int main() {
   require(runtime.is_homed(), "CA1 runtime should home the machine during boot");
   require(ca1_kernel.robot->is_soft_endstop_enabled(), "CA1 simulator should guard controller jogs with soft limits");
   saw_telemetry = false;
-  sim::motion_telemetry::active().observe(ca1_kernel, true);
+  simulation.machine().context().motion_telemetry().observe(simulation.machine().context(), ca1_kernel, true);
   require(saw_telemetry, "forced CA1 motion telemetry should emit after boot homing");
   require(last_telemetry.physical_travel.has_value(),
           "CA1 motion telemetry should carry physical geometry before GUI movement starts");

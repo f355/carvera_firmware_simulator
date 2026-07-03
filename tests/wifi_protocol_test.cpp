@@ -21,6 +21,7 @@
 
 #include "sim/m8266_wifi.hpp"
 #include "sim/simulation_instance.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -38,7 +39,7 @@ int main() {
   auto& runtime = simulation.firmware();
   runtime.boot();
 
-  auto& wifi = sim::m8266_wifi::active();
+  auto& wifi = simulation.machine().context().m8266_wifi();
   require(wifi.tcp_server_port() == 2222, "real WifiProvider should configure the simulated M8266 TCP server");
   require(wifi.udp_listen_port() == 4444, "real WifiProvider should configure the simulated M8266 UDP listener");
 

@@ -39,7 +39,7 @@ FirmwareRuntime::FirmwareRuntime(MachineSimulator& simulator)
     : simulator_(simulator),
       boot_session_(std::make_unique<RuntimeBootSession>(simulator_, default_factory_settings)),
       pump_(std::make_unique<RuntimePump>(simulator_, *boot_session_)),
-      io_(std::make_unique<RuntimeIo>(*boot_session_, [this]() -> Kernel& { return start(); })),
+      io_(std::make_unique<RuntimeIo>(simulator_, *boot_session_, [this]() -> Kernel& { return start(); })),
       physical_controls_(std::make_unique<RuntimePhysicalControls>(simulator_, *boot_session_, *pump_,
                                                                    [this]() -> Kernel& { return start(); })) {}
 
@@ -145,6 +145,10 @@ std::string FirmwareRuntime::read_serial() { return io_->read_serial(); }
 void FirmwareRuntime::write_wifi_tcp(const std::string& data) { io_->write_wifi_tcp(data); }
 
 std::string FirmwareRuntime::read_wifi_tcp() { return io_->read_wifi_tcp(); }
+
+void FirmwareRuntime::set_wifi_client_connected(bool connected) { io_->set_wifi_client_connected(connected); }
+
+std::vector<std::string> FirmwareRuntime::take_wifi_udp_datagrams() { return io_->take_wifi_udp_datagrams(); }
 
 void FirmwareRuntime::write_wireless_probe_rx(const std::string& data) { io_->write_wireless_probe_rx(data); }
 

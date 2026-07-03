@@ -76,7 +76,7 @@ int main() {
   require(kernel.planner->append_block(target, 1, 25.0F, 5.0F, unit_vec, 100.0F, 0.0F, true, 77),
           "Planner should accept a jog-like one-axis move");
 
-  sim::MotionRunner runner(kernel);
+  sim::MotionRunner runner(simulator, kernel);
   require(runner.run_until_idle(50'000), "simulator should execute the queued jog to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect step/dir pulses from the jog");
