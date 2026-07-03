@@ -21,6 +21,7 @@
 #include "Robot.h"
 #include "StreamOutput.h"
 #include "libs/Kernel.h"
+#include "sim/event_engine.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_boot_session.hpp"
 #include "sim/runtime_io.hpp"
@@ -37,8 +38,9 @@ constexpr FactorySettings default_factory_settings{MachineModel::CarveraC1, 0x04
 
 FirmwareRuntime::FirmwareRuntime(MachineSimulator& simulator)
     : simulator_(simulator),
-      boot_session_(std::make_unique<RuntimeBootSession>(simulator_, default_factory_settings)),
-      pump_(std::make_unique<RuntimePump>(simulator_, *boot_session_)),
+      event_engine_(std::make_unique<EventEngine>(simulator_)),
+      boot_session_(std::make_unique<RuntimeBootSession>(simulator_, *event_engine_, default_factory_settings)),
+      pump_(std::make_unique<RuntimePump>(*event_engine_, *boot_session_)),
       io_(std::make_unique<RuntimeIo>(simulator_, *boot_session_, [this]() -> Kernel& { return start(); })),
       physical_controls_(std::make_unique<RuntimePhysicalControls>(simulator_, *boot_session_, *pump_,
                                                                    [this]() -> Kernel& { return start(); })) {}
@@ -51,7 +53,7 @@ Kernel& FirmwareRuntime::boot() {
   const bool already_booted = boot_session_->booted();
   auto& kernel = boot_session_->boot();
   if (!already_booted) {
-    pump_->run_until_idle(200'000);
+    pump_->run_until_motion_idle(200'000);
     boot_session_->refresh_homed();
   }
   return kernel;
@@ -158,7 +160,13 @@ RuntimePumpResult FirmwareRuntime::pump(const RuntimePumpOptions& options) { ret
 
 void FirmwareRuntime::run_main_loop(std::size_t iterations) { pump_->run_main_loop(iterations); }
 
-bool FirmwareRuntime::run_until_idle(std::size_t max_step_ticks) { return pump_->run_until_idle(max_step_ticks); }
+EventRunResult FirmwareRuntime::run_until_motion_idle(std::size_t max_timer_events) {
+  return pump_->run_until_motion_idle(max_timer_events);
+}
+
+bool FirmwareRuntime::run_until_idle(std::size_t max_step_ticks) {
+  return run_until_motion_idle(max_step_ticks).motion_idle;
+}
 
 bool FirmwareRuntime::pump_free_running(std::size_t main_loop_iterations, std::size_t max_step_ticks) {
   return pump_->pump_free_running(main_loop_iterations, max_step_ticks);

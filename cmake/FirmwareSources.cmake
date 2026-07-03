@@ -44,6 +44,7 @@ set(SIM_CORE_SOURCES
   src/core/atc_rack_model.cpp
   src/core/board_profile.cpp
   src/core/delay_hooks.cpp
+  src/core/event_engine.cpp
   src/core/interrupt_controller.cpp
   src/core/machine_geometry.cpp
   src/core/machine_state_snapshot.cpp
@@ -52,8 +53,6 @@ set(SIM_CORE_SOURCES
   src/core/logging.cpp
   src/core/machine_simulator.cpp
   src/core/mbed_peripheral_state.cpp
-  src/core/motion_pump.cpp
-  src/core/motion_runner.cpp
   src/core/motion_telemetry.cpp
   src/core/physical_scene.cpp
   src/core/physical_signal_driver.cpp

@@ -31,8 +31,8 @@
 #include "StepTicker.h"
 #include "StepperMotor.h"
 #include "libs/Kernel.h"
+#include "sim/event_engine.hpp"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_runner.hpp"
 
 namespace {
 
@@ -76,13 +76,21 @@ int main() {
   kernel.conveyor->start(1);
   queue_one_axis_move(kernel);
 
-  sim::MotionRunner runner(simulator, kernel);
-  require(!runner.run_until_idle(1000), "MotionRunner should not execute motion before timer IRQs are enabled");
+  sim::EventEngine engine(simulator);
+  const auto stalled = engine.run_until_motion_idle(kernel, 1000);
+  require(stalled.status == sim::EventRunStatus::NoProgress,
+          "event engine should report no progress before timer IRQs are enabled");
   require(simulator.axis_position_steps(axis) == 0, "physical axis should not move while Timer0 IRQ is disabled");
 
   kernel.step_ticker->start();
 
-  require(runner.run_until_idle(50'000), "MotionRunner should execute motion after StepTicker starts IRQs");
+  const auto limited = engine.run_until_motion_idle(kernel, 1);
+  require(limited.status == sim::EventRunStatus::BudgetExhausted,
+          "event engine should distinguish an exhausted budget from no progress");
+
+  const auto completed = engine.run_until_motion_idle(kernel, 50'000);
+  require(completed.status == sim::EventRunStatus::ConditionReached,
+          "event engine should reach motion idle after StepTicker starts IRQs");
   require(simulator.axis_position_steps(axis) == 10,
           "physical axis should move from Timer0/Timer1-dispatched step pulses");
 

@@ -28,10 +28,11 @@ class SerialConsole2;
 namespace sim {
 
 class MachineSimulator;
+class EventEngine;
 
 class RuntimeBootSession {
  public:
-  RuntimeBootSession(MachineSimulator& simulator, FactorySettings factory_settings);
+  RuntimeBootSession(MachineSimulator& simulator, EventEngine& event_engine, FactorySettings factory_settings);
   ~RuntimeBootSession();
 
   Kernel& boot();
@@ -50,6 +51,7 @@ class RuntimeBootSession {
 
  private:
   MachineSimulator& simulator_;
+  EventEngine& event_engine_;
   std::unique_ptr<Kernel> kernel_;
   FactorySettings factory_settings_;
   SerialConsole2* wireless_probe_serial_{nullptr};

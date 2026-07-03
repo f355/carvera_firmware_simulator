@@ -24,6 +24,10 @@ class Kernel;
 class Module;
 class SerialConsole2;
 
+namespace sim {
+class EventEngine;
+}
+
 namespace sim::runtime_modules {
 
 struct BootModules {
@@ -34,7 +38,8 @@ MachineModel machine_model_from_firmware(char model, MachineModel fallback);
 Module* make_atc_physical_module(MachineSimulator& simulator);
 Module* make_spindle_tach_module(MachineSimulator& simulator);
 void initialize_startup_gpio();
-BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, MachineModel model);
+BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, EventEngine& event_engine,
+                                  MachineModel model);
 void load_watchdog_if_enabled(Kernel& kernel);
 void replay_config_override(Kernel& kernel, MachineSimulator& simulator);
 

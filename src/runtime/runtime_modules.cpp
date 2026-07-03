@@ -46,8 +46,8 @@
 #include "modules/utils/simpleshell/SimpleShell.h"
 #include "modules/utils/wifi/WifiProvider.h"
 #include "sim/delay_hooks.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_pump.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "sim/runtime_atc_config.hpp"
 #include "sim/runtime_checksums.hpp"
@@ -88,7 +88,8 @@ std::size_t idle_motion_iterations(const MachineSimulator& simulator) {
 // side effects without teaching the firmware about the simulator.
 class SimulatorTimerPumpBridgeModule : public Module {
  public:
-  explicit SimulatorTimerPumpBridgeModule(MachineSimulator& simulator) : simulator_(simulator) {}
+  SimulatorTimerPumpBridgeModule(MachineSimulator& simulator, EventEngine& event_engine)
+      : simulator_(simulator), event_engine_(event_engine) {}
 
   void on_module_loaded() override { register_for_event(ON_IDLE); }
 
@@ -99,12 +100,18 @@ class SimulatorTimerPumpBridgeModule : public Module {
       }
       // Firmware blocking waits spin ON_IDLE; give emulated LPC timers a chance
       // to fire without shortcutting directly into firmware ticker callbacks.
-      pump_motion(simulator_.context(), *THEKERNEL, idle_motion_iterations(simulator_));
+      const auto iterations = idle_motion_iterations(simulator_);
+      for (std::size_t iteration = 0; iteration < iterations; ++iteration) {
+        if (!event_engine_.run_one_timer_event(*THEKERNEL)) {
+          break;
+        }
+      }
     }
   }
 
  private:
   MachineSimulator& simulator_;
+  EventEngine& event_engine_;
 };
 
 class SimulatorAtcPhysicalBridgeModule : public Module {
@@ -243,7 +250,8 @@ void initialize_startup_gpio() {
   beep = 0;
 }
 
-BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, MachineModel model) {
+BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, EventEngine& event_engine,
+                                  MachineModel model) {
   SimpleShell::version_command("", kernel.streams);
   attach_configured_stepper_axes(kernel, model, simulator.rotary_accessory_installed());
   runtime_motor_alarm_wiring::configure(kernel, simulator.context().motor_alarm_wiring());
@@ -270,7 +278,7 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, M
   SpindleMaker spindle_maker;
   spindle_maker.load_spindle();
   kernel.add_module(make_spindle_tach_module(simulator));
-  kernel.add_module(new SimulatorTimerPumpBridgeModule(simulator));
+  kernel.add_module(new SimulatorTimerPumpBridgeModule(simulator, event_engine));
   if (kernel.robot != nullptr && kernel.robot->get_number_registered_motors() >= 3) {
     kernel.add_module(new ZProbe());
   }

@@ -24,7 +24,7 @@
 #include "libs/Kernel.h"
 #include "sim/lpc1768.hpp"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_pump.hpp"
+#include "sim/event_engine.hpp"
 
 namespace {
 
@@ -39,6 +39,7 @@ void require(bool condition, const char* message) {
 
 int main() {
   sim::MachineSimulator simulator;
+  sim::EventEngine engine(simulator);
   simulator.start_realtime();
   simulator.set_realtime_speed(4.0);
 
@@ -69,12 +70,14 @@ int main() {
 
   simulator.set_realtime_speed(1.0);
   const auto started = std::chrono::steady_clock::now();
-  sim::pump_motion(simulator.context(), kernel, 2);
+  engine.run_one_timer_event(kernel);
+  engine.run_one_timer_event(kernel);
   const auto baseline_elapsed = std::chrono::steady_clock::now() - started;
 
   simulator.set_realtime_speed(2.0);
   const auto accelerated_started = std::chrono::steady_clock::now();
-  sim::pump_motion(simulator.context(), kernel, 2);
+  engine.run_one_timer_event(kernel);
+  engine.run_one_timer_event(kernel);
   const auto accelerated_motion_elapsed = std::chrono::steady_clock::now() - accelerated_started;
 
   require(accelerated_motion_elapsed < baseline_elapsed,

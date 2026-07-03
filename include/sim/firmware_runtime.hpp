@@ -34,6 +34,7 @@ class Kernel;
 namespace sim {
 
 class RuntimeBootSession;
+class EventEngine;
 class RuntimeIo;
 class RuntimePhysicalControls;
 
@@ -82,6 +83,7 @@ class FirmwareRuntime {
   std::string read_wireless_probe_tx();
   RuntimePumpResult pump(const RuntimePumpOptions& options);
   void run_main_loop(std::size_t iterations);
+  EventRunResult run_until_motion_idle(std::size_t max_timer_events);
   bool run_until_idle(std::size_t max_step_ticks);
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
   double realtime_speed() const;
@@ -90,6 +92,7 @@ class FirmwareRuntime {
   MachineModel machine_model() const;
 
   MachineSimulator& simulator_;
+  std::unique_ptr<EventEngine> event_engine_;
   std::unique_ptr<RuntimeBootSession> boot_session_;
   std::unique_ptr<RuntimePump> pump_;
   std::unique_ptr<RuntimeIo> io_;

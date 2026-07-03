@@ -48,8 +48,8 @@ void require_near(double actual, double expected, double tolerance, const char* 
 sim::RuntimePumpOptions button_scan_options() {
   sim::RuntimePumpOptions options;
   options.main_loop_iterations = 64;
-  options.max_step_ticks = 20'000;
-  options.timer_budget_mode = sim::TimerBudgetMode::SpendFullBudget;
+  options.max_timer_events = 20'000;
+  options.timer_budget_policy = sim::TimerBudgetMode::SpendFullBudget;
   return options;
 }
 

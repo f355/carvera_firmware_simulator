@@ -49,8 +49,8 @@ def test_physical_boundary_uses_physical_io_instead_of_firmware_interpreted_stat
         raise SystemExit("spindle tach simulation should derive RPM from PWM output, not spindle PublicData")
     if "PublicData::get_value(zprobe_checksum" in _read("src/runtime/runtime_physical_controls.cpp"):
         raise SystemExit("probe input API should read physical GPIO, not ZProbe PublicData")
-    if "kernel.config" in _read("src/core/motion_pump.cpp"):
-        raise SystemExit("motion pump should not parse firmware config while servicing the physical model")
+    if "kernel.config" in _read("src/core/event_engine.cpp"):
+        raise SystemExit("event engine should not parse firmware config while servicing the physical model")
     physical_scene = _read("src/core/physical_scene.cpp")
     if "Kernel&" in physical_scene or "kernel." in physical_scene:
         raise SystemExit("PhysicalScene should consume plain simulator config, not Kernel internals")

@@ -57,8 +57,9 @@ void initialize_eeprom_for_reboot(I2cEepromDevice& eeprom, const FactorySettings
 
 }  // namespace
 
-RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, FactorySettings factory_settings)
-    : simulator_(simulator), factory_settings_(factory_settings) {
+RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, EventEngine& event_engine,
+                                       FactorySettings factory_settings)
+    : simulator_(simulator), event_engine_(event_engine), factory_settings_(factory_settings) {
   initialize_eeprom_for_power_on(simulator_.context().eeprom(), factory_settings_);
   simulator_.context().m8266_wifi().reset();
 }
@@ -75,7 +76,8 @@ Kernel& RuntimeBootSession::boot() {
     kernel_ = std::make_unique<Kernel>();
   }
   runtime_modules::initialize_startup_gpio();
-  const auto modules = runtime_modules::load_firmware_modules(*kernel_, simulator_, factory_settings_.machine_model);
+  const auto modules =
+      runtime_modules::load_firmware_modules(*kernel_, simulator_, event_engine_, factory_settings_.machine_model);
   wireless_probe_serial_ = modules.wireless_probe_serial;
 
   return *kernel_;

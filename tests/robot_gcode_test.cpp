@@ -24,7 +24,7 @@
 #include "StepTicker.h"
 #include "libs/Kernel.h"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_runner.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/persistent_machine_state.hpp"
 #include "support/direct_robot_config.hpp"
 
@@ -61,8 +61,9 @@ int main() {
   kernel.robot->on_gcode_received(&jog);
   require(!jog.is_error, "Robot should accept a minimal G0 jog command");
 
-  sim::MotionRunner runner(simulator, kernel);
-  require(runner.run_until_idle(50'000), "simulator should execute G-code Robot motion to idle");
+  sim::EventEngine engine(simulator);
+  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute G-code Robot motion to idle");
   require(simulator.axis_position_steps(x_axis) == 50,
           "physical axis position should reflect G-code-generated step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update position from G-code jog");
@@ -71,7 +72,8 @@ int main() {
   kernel.robot->on_gcode_received(&arc);
   require(!arc.is_error, "Robot should accept a clockwise arc command");
 
-  require(runner.run_until_idle(100'000), "simulator should execute G-code Robot arc motion to idle");
+  require(engine.run_until_motion_idle(kernel, 100'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute G-code Robot arc motion to idle");
   require(simulator.axis_position_steps(x_axis) == 52,
           "physical X axis should reflect G2 arc endpoint step/dir pulses");
   require(simulator.axis_position_steps(y_axis) == 0, "physical Y axis should return to the G2 arc endpoint");
@@ -89,7 +91,8 @@ int main() {
   kernel.robot->on_gcode_received(&rotated_move);
   require(!rotated_move.is_error, "Robot should accept a move through a rotated WCS");
 
-  require(runner.run_until_idle(100'000), "simulator should execute rotated WCS motion to idle");
+  require(engine.run_until_motion_idle(kernel, 100'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute rotated WCS motion to idle");
   require(simulator.axis_position_steps(x_axis) == 0,
           "rotated WCS X target should move the machine X axis to zero at R90");
   require(simulator.axis_position_steps(y_axis) == 10, "rotated WCS X target should move the machine Y axis at R90");

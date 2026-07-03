@@ -20,41 +20,28 @@
 
 #include <cstddef>
 
+#include "sim/event_engine.hpp"
+
 namespace sim {
 
-class MachineSimulator;
+class EventEngine;
 class RuntimeBootSession;
 
-enum class TimerBudgetMode {
-  StopWhenMotionIdle,
-  SpendFullBudget,
-};
-
-struct RuntimePumpOptions {
-  std::size_t main_loop_iterations{0};
-  std::size_t max_step_ticks{0};
-  bool drain_serial_lines{false};
-  // Free-running mode must spend the whole timer budget even when no steppers
-  // are moving, otherwise firmware SlowTicker users stop seeing time pass.
-  TimerBudgetMode timer_budget_mode{TimerBudgetMode::StopWhenMotionIdle};
-};
-
-struct RuntimePumpResult {
-  bool motion_idle{true};
-  bool reset_requested{false};
-};
+using TimerBudgetMode = TimerBudgetPolicy;
+using RuntimePumpOptions = EventRunOptions;
+using RuntimePumpResult = EventRunResult;
 
 class RuntimePump {
  public:
-  RuntimePump(MachineSimulator& simulator, RuntimeBootSession& boot_session);
+  RuntimePump(EventEngine& engine, RuntimeBootSession& boot_session);
 
   RuntimePumpResult pump(const RuntimePumpOptions& options);
   void run_main_loop(std::size_t iterations);
-  bool run_until_idle(std::size_t max_step_ticks);
+  RuntimePumpResult run_until_motion_idle(std::size_t max_timer_events);
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
 
  private:
-  MachineSimulator& simulator_;
+  EventEngine& engine_;
   RuntimeBootSession& boot_session_;
 };
 

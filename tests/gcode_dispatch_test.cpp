@@ -28,7 +28,7 @@
 #include "StreamOutput.h"
 #include "libs/Kernel.h"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_runner.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
@@ -76,8 +76,9 @@ int main() {
   SerialMessage jog{&stream, "G0 X5 F1500", 2};
   kernel.gcode_dispatch->on_console_line_received(&jog);
 
-  sim::MotionRunner runner(simulator, kernel);
-  require(runner.run_until_idle(50'000), "simulator should execute dispatched G-code motion to idle");
+  sim::EventEngine engine(simulator);
+  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute dispatched G-code motion to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect dispatched G-code step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update position from dispatched G-code jog");
@@ -92,7 +93,8 @@ int main() {
   stream.output.clear();
   SerialMessage combined_line{&stream, "G91 G0 X2 F1500", 4};
   kernel.gcode_dispatch->on_console_line_received(&combined_line);
-  require(runner.run_until_idle(50'000), "simulator should execute combined-line G-code motion to idle");
+  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute combined-line G-code motion to idle");
   require(simulator.axis_position_steps(axis) == 70,
           "real GcodeDispatch should split a modal setup plus move on one line");
 
@@ -107,7 +109,8 @@ int main() {
 
   SerialMessage post_recovery_move{&stream, "G0 X1 F1500", 7};
   kernel.gcode_dispatch->on_console_line_received(&post_recovery_move);
-  require(runner.run_until_idle(50'000), "simulator should execute motion after M999 recovery");
+  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute motion after M999 recovery");
   require(simulator.axis_position_steps(axis) == 80, "M999 recovery should allow subsequent G-code motion");
   return 0;
 }

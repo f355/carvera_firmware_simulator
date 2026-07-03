@@ -34,7 +34,7 @@
 #include "libs/Kernel.h"
 #include "modules/tools/atc/ATCHandler.h"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_pump.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/persistent_machine_state.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "support/temp_sdcard.hpp"
@@ -105,13 +105,13 @@ void write_atc_config(const std::filesystem::path& root) {
 
 class TestMotionPump : public Module {
  public:
-  explicit TestMotionPump(sim::SimulatorContext& context) : context_(context) {}
+  explicit TestMotionPump(sim::EventEngine& engine) : engine_(engine) {}
 
   void on_module_loaded() override { register_for_event(ON_IDLE); }
-  void on_idle(void*) override { sim::pump_motion(context_, *THEKERNEL); }
+  void on_idle(void*) override { engine_.run_one_timer_event(*THEKERNEL); }
 
  private:
-  sim::SimulatorContext& context_;
+  sim::EventEngine& engine_;
 };
 
 class CapturingStream : public StreamOutput {
@@ -135,10 +135,11 @@ int main() {
   persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
 
   sim::MachineSimulator simulator(persistent_state);
+  sim::EventEngine engine(simulator);
   Kernel kernel;
   kernel.eeprom_data->TOOL = 0;
   sim::attach_configured_stepper_axes(kernel);
-  kernel.add_module(new TestMotionPump(simulator.context()));
+  kernel.add_module(new TestMotionPump(engine));
   kernel.add_module(new ATCHandler());
   kernel.conveyor->start(kernel.robot->get_number_registered_motors());
   kernel.step_ticker->start();

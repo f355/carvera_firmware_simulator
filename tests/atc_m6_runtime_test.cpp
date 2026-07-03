@@ -34,7 +34,7 @@ using sim::test::require;
 void pump_script(sim::FirmwareRuntime& runtime) {
   sim::RuntimePumpOptions options;
   options.main_loop_iterations = 8;
-  options.max_step_ticks = 100'000;
+  options.max_timer_events = 100'000;
   runtime.pump(options);
 }
 

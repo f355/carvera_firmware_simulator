@@ -30,7 +30,7 @@
 #include "StepperMotor.h"
 #include "libs/Kernel.h"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_runner.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "sim/stepper_axis.hpp"
 
@@ -91,8 +91,9 @@ int main() {
   const float delta[4] = {0.0F, 0.0F, 0.0F, 1.0F};
   require(kernel.robot->delta_move(delta, 10.0F, 4), "Robot should queue a config-created delta-axis jog");
 
-  sim::MotionRunner runner(simulator, kernel);
-  require(runner.run_until_idle(100'000), "simulator should execute config-created Robot motion to idle");
+  sim::EventEngine engine(simulator);
+  require(engine.run_until_motion_idle(kernel, 100'000).status == sim::EventRunStatus::ConditionReached,
+          "simulator should execute config-created Robot motion to idle");
   require(
       simulator.axis_position_steps(3) - physical_delta_initial_steps == kernel.robot->actuators[3]->get_current_step(),
       "configured inverted direction pins should make physical steps match the firmware StepperMotor");

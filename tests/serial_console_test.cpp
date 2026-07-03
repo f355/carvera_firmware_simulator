@@ -26,7 +26,7 @@
 #include "libs/Kernel.h"
 #include "modules/communication/SerialConsole.h"
 #include "sim/machine_simulator.hpp"
-#include "sim/motion_runner.hpp"
+#include "sim/event_engine.hpp"
 #include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
@@ -66,8 +66,9 @@ int main() {
   kernel.serial->serial->simulate_rx("G91\nG0 X5 F1500\n");
   run_main_loop_until_serial_drained(kernel, 8);
 
-  sim::MotionRunner runner(simulator, kernel);
-  require(runner.run_until_idle(50'000), "serial-fed G-code motion should execute to idle");
+  sim::EventEngine engine(simulator);
+  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
+          "serial-fed G-code motion should execute to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect serial-fed G-code step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update position from serial-fed G-code jog");

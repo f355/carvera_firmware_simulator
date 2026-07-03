@@ -55,8 +55,8 @@ std::string laser_config() {
 sim::RuntimePumpOptions button_scan_options() {
   sim::RuntimePumpOptions options;
   options.main_loop_iterations = 64;
-  options.max_step_ticks = 20'000;
-  options.timer_budget_mode = sim::TimerBudgetMode::SpendFullBudget;
+  options.max_timer_events = 20'000;
+  options.timer_budget_policy = sim::TimerBudgetMode::SpendFullBudget;
   return options;
 }
 
@@ -72,7 +72,7 @@ void pump_player_line(sim::FirmwareRuntime& runtime) { runtime.run_main_loop(1);
 
 void pump_timer_ticks(sim::FirmwareRuntime& runtime, std::size_t ticks) {
   sim::RuntimePumpOptions options;
-  options.max_step_ticks = ticks;
+  options.max_timer_events = ticks;
   runtime.pump(options);
 }
 
