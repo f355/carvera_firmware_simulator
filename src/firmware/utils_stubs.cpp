@@ -124,7 +124,24 @@ void ltrim(std::string& s, const char* t) {
   }
 }
 
+const char* ltrim_cstr(const char* s) {
+  while (*s != '\0' && std::isspace(static_cast<unsigned char>(*s))) {
+    ++s;
+  }
+  return s;
+}
+
 uint16_t get_checksum(const std::string& to_check) { return get_checksum(to_check.c_str()); }
+
+uint16_t get_checksum(const char* to_check) {
+  uint16_t sum1 = 0;
+  uint16_t sum2 = 0;
+  while (*to_check != '\0') {
+    sum1 = static_cast<uint16_t>((sum1 + *to_check++) % 255);
+    sum2 = static_cast<uint16_t>((sum2 + sum1) % 255);
+  }
+  return static_cast<uint16_t>((sum2 << 8) | sum1);
+}
 
 void get_checksums(uint16_t check_sums[], const std::string& key) {
   size_t begin = 0;

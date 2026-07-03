@@ -26,6 +26,7 @@
 #include "PublicData.h"
 #include "checksumm.h"
 #include "libs/Kernel.h"
+#include "libs/utils.h"
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"

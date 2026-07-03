@@ -37,6 +37,7 @@
 #include "Robot.h"
 #include "SpindlePublicAccess.h"
 #include "checksumm.h"
+#include "libs/utils.h"
 #include "lpc17xx_wdt.h"
 #include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"

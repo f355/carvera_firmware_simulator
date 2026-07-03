@@ -93,7 +93,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(HOST_PRELUDE ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/host_prelude.hpp)
-set(HOST_FILEPOS_COMPAT ${CMAKE_CURRENT_SOURCE_DIR}/include/sim/filepos_compat.h)
 if(SIM_PROTOBUF_CONFIG_MODE)
   protobuf_generate(
     LANGUAGE cpp
@@ -197,11 +196,11 @@ endfunction()
 
 sim_force_include(carvera_firmware_sim ${HOST_PRELUDE})
 sim_force_include(carvera_sim_api ${HOST_PRELUDE})
+target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
 target_compile_definitions(carvera_firmware_sim PRIVATE
   # Mirror build/build.sh -> make AXIS=5 PAXIS=3 CNC=1, plus the
   # release-profile defines emitted by src/makefile/build/common.mk.
   __GITVERSIONSTRING__="2.1.0c-simulator"
-  CHECKSUM_USE_CPP
   DEFAULT_SERIAL_BAUD_RATE=115200
   CNC
   MAX_ROBOT_ACTUATORS=5
@@ -229,10 +228,6 @@ set_property(
   SOURCE
   ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
   APPEND PROPERTY COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
-)
-set_property(
-  SOURCE ${FIRMWARE_SRC}/libs/ConfigSources/FileConfigSource.cpp
-  APPEND PROPERTY COMPILE_OPTIONS "-include;${HOST_FILEPOS_COMPAT}"
 )
 
 include(cmake/TestsAndApps.cmake)
