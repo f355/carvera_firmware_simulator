@@ -15,34 +15,31 @@
 
 from __future__ import annotations
 
+import pytest
+
 from gui.protocol.model import InteractiveTransportState, TransportEndpoint
 from gui.views.transport_panel import transport_uart_text, transport_wifi_text
 
 
-def test_transport_panel_test() -> None:
-    unsupported = InteractiveTransportState(uart_path="", uart_supported=False, tcp_endpoints=())
-    if transport_uart_text(unsupported) != "unsupported":
-        raise SystemExit("unsupported UART should be explicit")
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        (InteractiveTransportState(uart_path="", uart_supported=False, tcp_endpoints=()), "unsupported"),
+        (InteractiveTransportState(uart_path="", uart_supported=True, tcp_endpoints=()), "--"),
+        (InteractiveTransportState(uart_path="/dev/ttys123", uart_supported=True, tcp_endpoints=()), "/dev/ttys123"),
+    ],
+)
+def test_transport_uart_text(state: InteractiveTransportState, expected: str) -> None:
+    assert transport_uart_text(state) == expected
 
-    pending = InteractiveTransportState(uart_path="", uart_supported=True, tcp_endpoints=())
-    if transport_uart_text(pending) != "--":
-        raise SystemExit("supported UART without path should use placeholder")
 
-    active = InteractiveTransportState(uart_path="/dev/ttys123", uart_supported=True, tcp_endpoints=())
-    if transport_uart_text(active) != "/dev/ttys123":
-        raise SystemExit("active UART should show the PTY path")
-
+def test_transport_wifi_text_formats_tcp_endpoints() -> None:
     no_tcp = InteractiveTransportState(uart_path="", uart_supported=True, tcp_endpoints=())
-    if transport_wifi_text(no_tcp) != "--":
-        raise SystemExit("missing TCP endpoints should use placeholder")
+    assert transport_wifi_text(no_tcp) == "--"
 
-    tcp = InteractiveTransportState(
-        uart_path="",
-        uart_supported=True,
-        tcp_endpoints=(
-            TransportEndpoint(host="127.0.0.1", port=2222),
-            TransportEndpoint(host="127.0.0.1", port=2223),
-        ),
+    endpoints = (
+        TransportEndpoint(host="127.0.0.1", port=2222),
+        TransportEndpoint(host="127.0.0.1", port=2223),
     )
-    if transport_wifi_text(tcp) != "127.0.0.1:2222, 127.0.0.1:2223":
-        raise SystemExit("TCP endpoints should be formatted for display")
+    state = InteractiveTransportState(uart_path="", uart_supported=True, tcp_endpoints=endpoints)
+    assert transport_wifi_text(state) == "127.0.0.1:2222, 127.0.0.1:2223"

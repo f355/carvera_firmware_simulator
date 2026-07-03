@@ -18,7 +18,7 @@ from __future__ import annotations
 from gui.core.transport_log import TransportLogStore, parse_transport_log_line
 
 
-def test_transport_log_test() -> None:
+def test_parse_transport_log_line_supports_current_and_legacy_timestamps() -> None:
     entry = parse_transport_log_line("[sim wifi rx] M6 T1\\n")
     assert entry is not None
     assert entry.channel == "wifi"
@@ -37,6 +37,10 @@ def test_transport_log_test() -> None:
 
     assert parse_transport_log_line("NiceGUI ready") is None
 
+
+def test_transport_log_store_uses_non_consuming_cursors() -> None:
+    entry = parse_transport_log_line("[sim wifi rx] M6 T1\\n")
+    assert entry is not None
     store = TransportLogStore()
     store.append(entry)
     assert store.entries_since(0) == [entry]

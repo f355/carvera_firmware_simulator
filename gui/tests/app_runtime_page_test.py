@@ -30,7 +30,7 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def test_app_runtime_page_test() -> None:
+def test_nicegui_page_serves_simulator_controls() -> None:
     root = Path(__file__).resolve().parents[2]
     port = free_port()
     env = os.environ.copy()

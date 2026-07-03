@@ -16,13 +16,14 @@
  */
 
 #include <chrono>
-#include <cmath>
-#include <cstdlib>
 #include <iostream>
 
 #include "libs/Kernel.h"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
 
@@ -83,13 +84,6 @@ struct MeasuredMove {
   double distance_mm{};
   double speed_mm_s{};
 };
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 MeasuredMove measure_mid_move(sim::FirmwareRuntime& runtime, sim::MachineSimulator& simulator, double start_x,
                               double end_x) {

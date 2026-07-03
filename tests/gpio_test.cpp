@@ -16,24 +16,16 @@
  */
 
 #include <cstdint>
-#include <iostream>
 
 #include "gpio.h"
 #include "lpc1768_sim.h"
 #include "lpc17xx_pinsel.h"
 
 #include "sim/machine_simulator.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::MachineSimulator simulator;

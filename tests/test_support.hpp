@@ -18,8 +18,6 @@
 #ifndef CARVERA_SIMULATOR_TEST_SUPPORT_HPP
 #define CARVERA_SIMULATOR_TEST_SUPPORT_HPP
 
-#include <cstdlib>
-#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,15 +25,9 @@
 #include "ConfigCache.h"
 #include "ConfigSource.h"
 #include "checksumm.h"
+#include "support/assertions.hpp"
 
 namespace sim::test {
-
-inline void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 class MemoryConfigSource : public ConfigSource {
  public:

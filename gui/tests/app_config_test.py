@@ -16,7 +16,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
+
+import pytest
 
 from gui.core.app_config import (
     build_arg_parser,
@@ -26,129 +27,126 @@ from gui.core.app_config import (
     prepare_model_sd_root,
     prepare_sd_root,
     sd_root_for_model,
-    sd_seed_root_for_model,
     sd_root_has_payload,
+    sd_seed_root_for_model,
 )
 
 
-def require(condition: bool, message: str) -> None:
-    if not condition:
-        raise SystemExit(message)
+def write_seed_tree(root: Path) -> tuple[Path, Path, Path]:
+    seed_root = root / "default_sdcard"
+    seed_root.mkdir()
+    (seed_root / "config.txt").write_text("sd_ok true\n", encoding="utf-8")
+    (seed_root / "flex_compensation.dat").write_bytes(b"flex")
+    (seed_root / "gcodes").mkdir()
+    (seed_root / "gcodes" / "demo.nc").write_text("G0 X0\n", encoding="utf-8")
+
+    c1_seed = seed_root / "c1"
+    ca1_seed = seed_root / "ca1"
+    c1_seed.mkdir()
+    ca1_seed.mkdir()
+    (c1_seed / "config.txt").write_text("# c1 config\n", encoding="utf-8")
+    (ca1_seed / "config.txt").write_text("# ca1 config\n", encoding="utf-8")
+    (ca1_seed / "flex_compensation.dat").write_bytes(b"ca1-flex")
+    (ca1_seed / "gcodes").mkdir()
+    return seed_root, c1_seed, ca1_seed
 
 
-def test_app_config_test() -> None:
-    require(parse_vec3("1, 2.5, -3") == (1.0, 2.5, -3.0), "parse_vec3 should parse comma-separated floats")
-    try:
+def test_parse_vec3_accepts_exactly_three_numbers() -> None:
+    assert parse_vec3("1, 2.5, -3") == (1.0, 2.5, -3.0)
+    with pytest.raises(ValueError):
         parse_vec3("1,2")
-    except ValueError:
-        pass
-    else:
-        raise SystemExit("parse_vec3 should reject malformed input")
 
-    with TemporaryDirectory() as temp:
-        root = Path(temp)
-        simulator_root = root / "carvera_simulator"
-        firmware_root = root / "firmware"
-        simulator_root.mkdir()
 
-        require(
-            default_firmware_root(simulator_root, env={"CARVERA_FIRMWARE_ROOT": str(firmware_root)}) == firmware_root,
-            "CARVERA_FIRMWARE_ROOT should override firmware-root discovery",
-        )
-        require(
-            default_firmware_root(simulator_root, env={}) == simulator_root,
-            "simulator root should be the fallback firmware root",
-        )
-        (root / "src").mkdir()
-        (root / "src" / "config.default").write_text("# stock config\n", encoding="utf-8")
-        require(
-            default_firmware_root(simulator_root, env={}) == root,
-            "parent firmware checkout should be discovered when stock config exists",
-        )
+def test_default_firmware_root_honors_override_then_discovers_parent(tmp_path: Path) -> None:
+    simulator_root = tmp_path / "carvera_simulator"
+    firmware_root = tmp_path / "firmware"
+    simulator_root.mkdir()
 
-        sd_root = root / "sdcard"
-        require(sd_root_for_model(sd_root, "c1") == sd_root / "c1", "C1 SD state should live under sdcard/c1")
-        require(sd_root_for_model(sd_root, "ca1") == sd_root / "ca1", "CA1 SD state should live under sdcard/ca1")
-        prepare_sd_root(sd_root)
-        config_txt = sd_root / "config.txt"
-        require(config_txt.exists(), "prepare_sd_root should create config.txt")
-        require("sd_ok true" in config_txt.read_text(encoding="utf-8"), "fresh SD config should mark the card present")
-        config_txt.write_text("# user config\n", encoding="utf-8")
-        prepare_sd_root(sd_root)
-        require(
-            config_txt.read_text(encoding="utf-8") == "# user config\n", "prepare_sd_root should not overwrite config"
-        )
+    assert default_firmware_root(simulator_root, env={"CARVERA_FIRMWARE_ROOT": str(firmware_root)}) == firmware_root
+    assert default_firmware_root(simulator_root, env={}) == simulator_root
 
-        parser = build_arg_parser(simulator_root)
-        args = parser.parse_args([])
-        require(args.simulator == simulator_root / "build" / "carvera_sim_stream_stdio", "unexpected simulator default")
-        require(args.sd_root == simulator_root / "sdcard", "unexpected SD root default")
-        require(default_sd_seed_root(simulator_root) == simulator_root / "default_sdcard", "unexpected SD seed default")
-        require(args.wifi_port == 2222, "unexpected WiFi port default")
-        require(args.log_transport is True, "transport logging should default on")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "config.default").write_text("# stock config\n", encoding="utf-8")
+    assert default_firmware_root(simulator_root, env={}) == tmp_path
 
-        seeded_sd = root / "seeded-sd"
-        seed_root = root / "default_sdcard"
-        seed_root.mkdir()
-        (seed_root / "config.txt").write_text("sd_ok true\n", encoding="utf-8")
-        (seed_root / "flex_compensation.dat").write_bytes(b"flex")
-        (seed_root / "gcodes").mkdir()
-        (seed_root / "gcodes" / ".gitkeep").write_text("", encoding="utf-8")
-        (seed_root / "gcodes" / "demo.nc").write_text("G0 X0\n", encoding="utf-8")
-        prepare_sd_root(seeded_sd, seed_root)
-        require((seeded_sd / "config.txt").read_text(encoding="utf-8") == "sd_ok true\n", "seed config not copied")
-        require((seeded_sd / "flex_compensation.dat").read_bytes() == b"flex", "seed flex data not copied")
-        require((seeded_sd / "gcodes").is_dir(), "seed gcodes directory not copied")
-        require((seeded_sd / "gcodes" / "demo.nc").read_text(encoding="utf-8") == "G0 X0\n", "seed gcode not copied")
 
-        c1_seed_root = seed_root / "c1"
-        ca1_seed_root = seed_root / "ca1"
-        c1_seed_root.mkdir()
-        ca1_seed_root.mkdir()
-        (c1_seed_root / "config.txt").write_text("# c1 config\n", encoding="utf-8")
-        (ca1_seed_root / "config.txt").write_text("# ca1 config\n", encoding="utf-8")
-        (ca1_seed_root / "flex_compensation.dat").write_bytes(b"ca1-flex")
-        (ca1_seed_root / "gcodes").mkdir()
-        (ca1_seed_root / "gcodes" / ".gitkeep").write_text("", encoding="utf-8")
-        require(sd_seed_root_for_model(seed_root, "c1") == c1_seed_root, "C1 should use a C1-specific SD seed")
-        require(sd_seed_root_for_model(seed_root, "ca1") == ca1_seed_root, "CA1 should use a CA1-specific SD seed")
+def test_model_sd_paths_are_isolated() -> None:
+    root = Path("sdcard")
+    assert sd_root_for_model(root, "c1") == root / "c1"
+    assert sd_root_for_model(root, "ca1") == root / "ca1"
 
-        split_sd = root / "split-sd"
-        c1_split_sd = prepare_model_sd_root(split_sd, seed_root, "c1")
-        ca1_split_sd = prepare_model_sd_root(split_sd, seed_root, "ca1")
-        require(
-            (c1_split_sd / "config.txt").read_text(encoding="utf-8") == "# c1 config\n",
-            "C1 should receive only the C1 default config",
-        )
-        require(
-            (ca1_split_sd / "config.txt").read_text(encoding="utf-8") == "# ca1 config\n",
-            "CA1 should receive only the CA1 default config",
-        )
-        require(not (c1_split_sd / "flex_compensation.dat").exists(), "C1 should not inherit CA1 flex compensation")
-        require((ca1_split_sd / "flex_compensation.dat").read_bytes() == b"ca1-flex", "CA1 flex data not copied")
-        require((ca1_split_sd / "gcodes").is_dir(), "CA1 should receive its gcodes directory")
 
-        ignored_only_sd = root / "ignored-only-sd"
-        ignored_only_sd.mkdir()
-        (ignored_only_sd / ".gitignore").write_text("*\n", encoding="utf-8")
-        require(not sd_root_has_payload(ignored_only_sd), "hidden SD files should not count as payload")
-        prepare_sd_root(ignored_only_sd, seed_root)
-        require((ignored_only_sd / "config.txt").exists(), "ignored-only SD root should receive seed files")
+def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
+    sd_root = tmp_path / "sdcard"
+    prepare_sd_root(sd_root)
+    config = sd_root / "config.txt"
+    assert "sd_ok true" in config.read_text(encoding="utf-8")
 
-        root_payload_sd = root / "root-payload-sd"
-        root_payload_sd.mkdir()
-        (root_payload_sd / "config.txt").write_text("# root payload should stay ignored\n", encoding="utf-8")
-        (root_payload_sd / ".eeprom.bin").write_bytes(b"root eeprom")
-        ca1_sd = prepare_model_sd_root(root_payload_sd, seed_root, "ca1")
-        c1_sd = prepare_model_sd_root(root_payload_sd, seed_root, "c1")
-        require(ca1_sd == root_payload_sd / "ca1", "prepare_model_sd_root should return the model SD root")
-        require(
-            (ca1_sd / "config.txt").read_text(encoding="utf-8") == "# ca1 config\n",
-            "CA1 should ignore root-level SD payload and use its model seed",
-        )
-        require(
-            (c1_sd / "config.txt").read_text(encoding="utf-8") == "# c1 config\n",
-            "C1 should ignore root-level SD payload and use its model seed",
-        )
-        require(not (ca1_sd / ".eeprom.bin").exists(), "CA1 should not inherit root-level EEPROM payload")
-        require(not (c1_sd / ".eeprom.bin").exists(), "C1 should not inherit root-level EEPROM payload")
+    config.write_text("# user config\n", encoding="utf-8")
+    prepare_sd_root(sd_root)
+    assert config.read_text(encoding="utf-8") == "# user config\n"
+
+
+def test_parser_defaults_are_relative_to_simulator_root(tmp_path: Path) -> None:
+    parser = build_arg_parser(tmp_path)
+    args = parser.parse_args([])
+
+    assert args.simulator == tmp_path / "build" / "carvera_sim_stream_stdio"
+    assert args.sd_root == tmp_path / "sdcard"
+    assert default_sd_seed_root(tmp_path) == tmp_path / "default_sdcard"
+    assert args.wifi_port == 2222
+    assert args.log_transport is True
+
+
+def test_prepare_sd_root_copies_seed_payload(tmp_path: Path) -> None:
+    seed_root, _, _ = write_seed_tree(tmp_path)
+    sd_root = tmp_path / "seeded-sd"
+    prepare_sd_root(sd_root, seed_root)
+
+    assert (sd_root / "config.txt").read_text(encoding="utf-8") == "sd_ok true\n"
+    assert (sd_root / "flex_compensation.dat").read_bytes() == b"flex"
+    assert (sd_root / "gcodes" / "demo.nc").read_text(encoding="utf-8") == "G0 X0\n"
+
+
+def test_prepare_model_sd_root_uses_only_its_model_seed(tmp_path: Path) -> None:
+    seed_root, c1_seed, ca1_seed = write_seed_tree(tmp_path)
+    assert sd_seed_root_for_model(seed_root, "c1") == c1_seed
+    assert sd_seed_root_for_model(seed_root, "ca1") == ca1_seed
+
+    split_root = tmp_path / "split-sd"
+    c1_sd = prepare_model_sd_root(split_root, seed_root, "c1")
+    ca1_sd = prepare_model_sd_root(split_root, seed_root, "ca1")
+
+    assert (c1_sd / "config.txt").read_text(encoding="utf-8") == "# c1 config\n"
+    assert (ca1_sd / "config.txt").read_text(encoding="utf-8") == "# ca1 config\n"
+    assert not (c1_sd / "flex_compensation.dat").exists()
+    assert (ca1_sd / "flex_compensation.dat").read_bytes() == b"ca1-flex"
+    assert (ca1_sd / "gcodes").is_dir()
+
+
+def test_hidden_files_do_not_make_an_sd_root_initialized(tmp_path: Path) -> None:
+    seed_root, _, _ = write_seed_tree(tmp_path)
+    sd_root = tmp_path / "ignored-only-sd"
+    sd_root.mkdir()
+    (sd_root / ".gitignore").write_text("*\n", encoding="utf-8")
+
+    assert not sd_root_has_payload(sd_root)
+    prepare_sd_root(sd_root, seed_root)
+    assert (sd_root / "config.txt").exists()
+
+
+def test_model_sd_roots_ignore_legacy_root_payload(tmp_path: Path) -> None:
+    seed_root, _, _ = write_seed_tree(tmp_path)
+    sd_root = tmp_path / "root-payload-sd"
+    sd_root.mkdir()
+    (sd_root / "config.txt").write_text("# legacy config\n", encoding="utf-8")
+    (sd_root / ".eeprom.bin").write_bytes(b"legacy eeprom")
+
+    ca1_sd = prepare_model_sd_root(sd_root, seed_root, "ca1")
+    c1_sd = prepare_model_sd_root(sd_root, seed_root, "c1")
+
+    assert ca1_sd == sd_root / "ca1"
+    assert (ca1_sd / "config.txt").read_text(encoding="utf-8") == "# ca1 config\n"
+    assert (c1_sd / "config.txt").read_text(encoding="utf-8") == "# c1 config\n"
+    assert not (ca1_sd / ".eeprom.bin").exists()
+    assert not (c1_sd / ".eeprom.bin").exists()

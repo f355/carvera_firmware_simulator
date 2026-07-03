@@ -15,29 +15,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-#include <iostream>
 #include <string>
 
 #include "support/booted_runtime.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
+using sim::test::require_contains;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_contains(const std::string& haystack, const std::string& needle, const char* message) {
-  if (haystack.find(needle) == std::string::npos) {
-    std::cerr << message << "\nmissing: " << needle << "\noutput:\n" << haystack << '\n';
-    std::exit(1);
-  }
-}
 
 void pump_temperature(sim::FirmwareRuntime& runtime) {
   for (int i = 0; i < 120; ++i) {

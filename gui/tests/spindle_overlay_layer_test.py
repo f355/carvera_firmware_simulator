@@ -17,44 +17,7 @@ from __future__ import annotations
 
 from gui.protocol.model import SpindleSnapshot
 from gui.scene.spindle_overlay_layer import SPINDLE_OVERLAY_RADIUS_MM, SpindleOverlayLayer
-
-
-class FakeObject:
-    def __init__(self) -> None:
-        self.last_move: tuple[float, float, float] | None = None
-        self.materials: list[object] = []
-        self.visibility: list[bool] = []
-        self.deleted = False
-
-    def move(self, x: float, y: float, z: float) -> "FakeObject":
-        self.last_move = (x, y, z)
-        return self
-
-    def rotate(self, *_values: float) -> "FakeObject":
-        return self
-
-    def material(self, *values: object) -> "FakeObject":
-        self.materials.append(values[0] if len(values) == 1 else values)
-        return self
-
-    def visible(self, value: bool) -> "FakeObject":
-        self.visibility.append(value)
-        return self
-
-    def delete(self) -> None:
-        self.deleted = True
-
-
-class FakeScene:
-    def __init__(self) -> None:
-        self.cylinders: list[FakeObject] = []
-        self.cylinder_kwargs: list[dict[str, object]] = []
-
-    def cylinder(self, **kwargs: object) -> FakeObject:
-        obj = FakeObject()
-        self.cylinders.append(obj)
-        self.cylinder_kwargs.append(kwargs)
-        return obj
+from gui.tests.fakes import FakeScene
 
 
 def test_spindle_overlay_layer_tints_and_moves_independently() -> None:

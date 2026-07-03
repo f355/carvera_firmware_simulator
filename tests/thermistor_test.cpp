@@ -16,10 +16,8 @@
  */
 
 #include <cmath>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 
 #include "Config.h"
 #include "Thermistor.h"
@@ -28,22 +26,12 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
+using sim::test::require_near;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_near(float actual, float expected, float tolerance, const char* message) {
-  if (std::fabs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
 
 void write_temperature_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);

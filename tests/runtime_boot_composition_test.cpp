@@ -16,7 +16,6 @@
  */
 
 #include <cmath>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -41,22 +40,12 @@
 #include "lpc17xx_wdt.h"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
+using sim::test::require_contains;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_contains(const std::string& haystack, const char* needle, const char* message) {
-  if (haystack.find(needle) == std::string::npos) {
-    std::cerr << message << "\nmissing: " << needle << "\nactual:\n" << haystack << '\n';
-    std::exit(1);
-  }
-}
 
 void write_sd_config(const std::filesystem::path& root, const std::string& text) {
   std::filesystem::create_directories(root / "gcodes");

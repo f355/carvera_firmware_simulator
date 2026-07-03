@@ -15,26 +15,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
-#include <iostream>
 
 #include "mbed.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::MachineSimulator simulator;

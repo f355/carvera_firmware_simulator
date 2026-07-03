@@ -15,34 +15,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cmath>
-#include <cstdlib>
-#include <iostream>
-
 #include "Robot.h"
 #include "libs/Kernel.h"
 #include "sim/simulation_instance.hpp"
 #include "sim/motion_telemetry.hpp"
 #include "support/temp_sdcard.hpp"
 #include "sim/simulator_context.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
+using sim::test::require_near;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_near(double actual, double expected, double tolerance, const char* message) {
-  if (std::abs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_free_running_homing_test");

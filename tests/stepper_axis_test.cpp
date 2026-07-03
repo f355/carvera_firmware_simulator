@@ -15,24 +15,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-#include <iostream>
-
 #include "LPC17xx.h"
 #include "Pin.h"
 #include "StepperMotor.h"
 #include "libs/Kernel.h"
 #include "sim/machine_simulator.hpp"
 #include "sim/stepper_axis.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 void pulse_step() {
   LPC_GPIO1->FIOSET = 1u << 18;

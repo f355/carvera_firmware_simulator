@@ -17,76 +17,52 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
+from gui.tests.fakes import FakeControl, FakeLabel
 from gui.views.ui_helpers import event_bool, event_value, set_badge, set_control_locked, set_status_badge
 
 
-class FakeLabel:
-    def __init__(self) -> None:
-        self.text = ""
-        self.classes_text = ""
-
-    def classes(self, *, add: str | None = None, remove: str | None = None) -> None:
-        if remove is not None:
-            removed = set(remove.split())
-            self.classes_text = " ".join(part for part in self.classes_text.split() if part not in removed)
-        if add is not None:
-            existing = self.classes_text.split()
-            for part in add.split():
-                if part not in existing:
-                    existing.append(part)
-            self.classes_text = " ".join(existing)
-
-
-class FakeControl:
-    def __init__(self) -> None:
-        self.disabled = False
-
-    def disable(self) -> None:
-        self.disabled = True
-
-    def enable(self) -> None:
-        self.disabled = False
-
-
-def test_ui_helpers_test() -> None:
+def test_badge_helpers_replace_text_and_status_classes() -> None:
     label = FakeLabel()
     set_badge(label, True, "HIT", "clear", warn=True)
-    if label.text != "HIT" or "badge-warn" not in label.classes_text:
-        raise SystemExit("warn badge should use warning class when active")
+    assert label.text == "HIT"
+    assert label.classes_text == "badge-warn"
 
     set_badge(label, False, "HIT", "clear", warn=True)
-    if label.text != "clear" or label.classes_text != "badge-off":
-        raise SystemExit("inactive badge should use off class")
+    assert label.text == "clear"
+    assert label.classes_text == "badge-off"
 
     set_status_badge(label, True, "booted", "off")
-    if label.text != "booted" or label.classes_text != "badge-on":
-        raise SystemExit("good status should use on class")
+    assert label.text == "booted"
+    assert label.classes_text == "badge-on"
 
     set_status_badge(label, False, "booted", "off")
-    if label.text != "off" or label.classes_text != "badge-warn":
-        raise SystemExit("bad status should use warning class")
+    assert label.text == "off"
+    assert label.classes_text == "badge-warn"
 
+
+def test_control_locking_toggles_disabled_state() -> None:
     control = FakeControl()
     set_control_locked(control, True)
-    if not control.disabled:
-        raise SystemExit("locked control should be disabled")
+    assert control.disabled
 
     set_control_locked(control, False)
-    if control.disabled:
-        raise SystemExit("unlocked control should be enabled")
+    assert not control.disabled
 
-    if event_bool(SimpleNamespace(value="false")):
-        raise SystemExit("string false event values should be false")
-    if not event_bool(SimpleNamespace(value="true")):
-        raise SystemExit("string true event values should be true")
-    if event_bool(SimpleNamespace(value=0)):
-        raise SystemExit("zero event values should be false")
-    if not event_bool(SimpleNamespace(value=1)):
-        raise SystemExit("nonzero event values should be true")
 
-    if event_value(SimpleNamespace(value=6.0)) != 6.0:
-        raise SystemExit("value-change events should expose their value")
-    if event_value(SimpleNamespace(args=[7.0])) != 7.0:
-        raise SystemExit("generic single-argument events should expose their argument")
-    if event_value(SimpleNamespace(args=8.0)) != 8.0:
-        raise SystemExit("generic scalar events should expose their argument")
+@pytest.mark.parametrize(("value", "expected"), [("false", False), ("true", True), (0, False), (1, True)])
+def test_event_bool_coerces_control_values(value: object, expected: bool) -> None:
+    assert event_bool(SimpleNamespace(value=value)) is expected
+
+
+@pytest.mark.parametrize(
+    ("event", "expected"),
+    [
+        (SimpleNamespace(value=6.0), 6.0),
+        (SimpleNamespace(args=[7.0]), 7.0),
+        (SimpleNamespace(args=8.0), 8.0),
+    ],
+)
+def test_event_value_accepts_nicegui_event_shapes(event: SimpleNamespace, expected: float) -> None:
+    assert event_value(event) == expected

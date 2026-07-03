@@ -19,35 +19,7 @@ from gui.protocol.model import Box3D
 from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import SceneTransform, c1_spindle_face_point
 from gui.scene.work_envelope_layer import WorkEnvelopeLayer
-
-
-class FakeLine:
-    def __init__(self, start: list[float], end: list[float]) -> None:
-        self.start = start
-        self.end = end
-        self.color = ""
-        self.last_move: tuple[float, float, float] | None = None
-        self.deleted = False
-
-    def material(self, color: str) -> "FakeLine":
-        self.color = color
-        return self
-
-    def move(self, x: float, y: float, z: float) -> None:
-        self.last_move = (x, y, z)
-
-    def delete(self) -> None:
-        self.deleted = True
-
-
-class FakeScene:
-    def __init__(self) -> None:
-        self.lines: list[FakeLine] = []
-
-    def line(self, start: list[float], end: list[float]) -> FakeLine:
-        line = FakeLine(start, end)
-        self.lines.append(line)
-        return line
+from gui.tests.fakes import FakeScene
 
 
 def test_work_envelope_layer_draws_and_moves_physical_and_soft_boxes() -> None:

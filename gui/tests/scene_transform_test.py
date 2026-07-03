@@ -33,7 +33,7 @@ from gui.scene.scene_transform import (
 from gui.scene.scene_geometry import MachineSceneGeometry
 
 
-def test_scene_transform_test() -> None:
+def test_scene_transform_centers_xy_and_places_z_on_bed() -> None:
     work_area = Box3D(min_x=-371.0, min_y=-250.0, min_z=-135.0, max_x=-1.0, max_y=-1.0, max_z=-1.0)
     transform = SceneTransform.from_work_area(work_area)
 
@@ -41,6 +41,8 @@ def test_scene_transform_test() -> None:
     assert transform.point(-371.0, -250.0, -135.0) == [-185.0, -124.5, 0.0]
     assert transform.point(-1.0, -1.0, -1.0) == [185.0, 124.5, 134.0]
 
+
+def test_ca1_landmarks_align_with_physical_travel() -> None:
     ca1_physical_travel = Box3D(min_x=-303.0, min_y=-213.0, min_z=-122.0, max_x=-1.0, max_y=-1.0, max_z=-1.0)
     ca1_transform = SceneTransform.from_work_area(ca1_physical_travel)
     ca1_ets = ca1_bed_scene_point(ca1_transform, -11.0, -7.0, ca1_transform.bed_z)
@@ -56,6 +58,8 @@ def test_scene_transform_test() -> None:
     assert ca1_envelope_scene_point(ca1_transform, -2.0, -2.0, -2.0)[2] - CA1_BED_SURFACE_SCENE_Z == 135.0
     assert ca1_envelope_scene_point(ca1_transform, -302.0, -212.0, -121.0)[2] - CA1_BED_SURFACE_SCENE_Z == 16.0
 
+
+def test_c1_landmarks_align_with_machine_model() -> None:
     c1_physical_travel = Box3D(min_x=-372.0, min_y=-251.0, min_z=-136.0, max_x=1.0, max_y=1.0, max_z=1.0)
     rack_pickup_x = -4.158
     front_pocket_y = -234.568

@@ -91,7 +91,7 @@ if len(header) == 4:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
-def test_sim_client_stream_reader_test() -> None:
+def test_stream_client_dispatches_events_while_servicing_requests() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     events: list[pb.Event] = []
     event_received = threading.Event()

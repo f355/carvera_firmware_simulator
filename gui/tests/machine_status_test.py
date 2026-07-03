@@ -16,23 +16,11 @@
 from __future__ import annotations
 
 from gui.protocol.model import AxisSnapshot, AtcPocketSnapshot, AtcSnapshot, MachineState, ToolKind, ToolSnapshot
+from gui.tests.fakes import FakeLabel
 from gui.views.machine_status import AtcPanelView, AxisPanelView
 
 
-class FakeLabel:
-    def __init__(self, text: str = "") -> None:
-        self.text = text
-        self.added_classes: list[str] = []
-        self.removed_classes: list[str] = []
-
-    def classes(self, *, add: str | None = None, remove: str | None = None) -> None:
-        if add is not None:
-            self.added_classes.append(add)
-        if remove is not None:
-            self.removed_classes.append(remove)
-
-
-def test_machine_status_test() -> None:
+def test_axis_panel_formats_linear_rotary_and_missing_axes() -> None:
     axis_labels = {"X": FakeLabel(), "Y": FakeLabel(), "A": FakeLabel()}
     axis_details = {
         "X": {"physical": FakeLabel(), "machine": FakeLabel()},
@@ -60,21 +48,16 @@ def test_machine_status_test() -> None:
             tool_setter=None,
         )
     )
-    if axis_labels["X"].text != "  -2.000 mm":
-        raise SystemExit("axis strip should show physical position")
-    if axis_details["X"]["machine"].text != "-1.000":
-        raise SystemExit("axis detail should show firmware position")
-    if axis_badges["X"].text != "HIT":
-        raise SystemExit("axis limit badge should show active endstop")
-    if axis_labels["Y"].text != "--":
-        raise SystemExit("missing axes should be cleared")
-    if axis_labels["A"].text != "  42.000 deg":
-        raise SystemExit("rotary axis strip should show physical angle")
-    if axis_details["B"]["physical"].text != "1.500":
-        raise SystemExit("ATC axis detail should show physical position")
-    if axis_badges["B"].text != "HIT":
-        raise SystemExit("ATC axis limit badge should show active endstop")
+    assert axis_labels["X"].text == "  -2.000 mm"
+    assert axis_details["X"]["machine"].text == "-1.000"
+    assert axis_badges["X"].text == "HIT"
+    assert axis_labels["Y"].text == "--"
+    assert axis_labels["A"].text == "  42.000 deg"
+    assert axis_details["B"]["physical"].text == "1.500"
+    assert axis_badges["B"].text == "HIT"
 
+
+def test_atc_panel_formats_spindle_and_pocket_state() -> None:
     atc_rows = {1: {"rack_state": FakeLabel()}}
     atc_view = AtcPanelView(
         available_badge=FakeLabel(),
@@ -113,9 +96,6 @@ def test_machine_status_test() -> None:
             ),
         )
     )
-    if atc_view.available_badge.text != "C1 ATC":
-        raise SystemExit("ATC availability badge should be updated")
-    if atc_view.tlo_label.text != "-12.346 mm":
-        raise SystemExit("ATC TLO label should be formatted")
-    if atc_rows[1]["rack_state"].text != "occupied":
-        raise SystemExit("ATC pocket presence should be updated")
+    assert atc_view.available_badge.text == "C1 ATC"
+    assert atc_view.tlo_label.text == "-12.346 mm"
+    assert atc_rows[1]["rack_state"].text == "occupied"

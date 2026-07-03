@@ -30,15 +30,11 @@
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 bool player_is_playing() {
   void* value = nullptr;

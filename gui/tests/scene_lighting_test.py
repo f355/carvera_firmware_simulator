@@ -19,7 +19,7 @@ from gui.scene.lighting import ModelMaterialSettings, SceneLightingSettings
 from gui.scene.lighting import scene_lighting_patch_javascript, scene_material_patch_javascript
 
 
-def test_scene_lighting_test() -> None:
+def test_scene_lighting_defaults_are_tuned_for_machine_models() -> None:
     defaults = SceneLightingSettings()
     expected_defaults = {
         "ambient": 0.2,
@@ -35,14 +35,14 @@ def test_scene_lighting_test() -> None:
         "fill_z": 160.0,
     }
     for name, expected_value in expected_defaults.items():
-        actual = getattr(defaults, name)
-        if actual != expected_value:
-            raise SystemExit(f"lighting default {name} should be {expected_value}, got {actual}")
+        assert getattr(defaults, name) == expected_value
 
     material_defaults = ModelMaterialSettings()
-    if material_defaults.roughness != 0.45 or material_defaults.metalness != 0.1:
-        raise SystemExit("material defaults should match the tuned machine model appearance")
+    assert material_defaults.roughness == 0.45
+    assert material_defaults.metalness == 0.1
 
+
+def test_lighting_patch_configures_managed_three_js_lights() -> None:
     script = scene_lighting_patch_javascript(
         42,
         SceneLightingSettings(
@@ -81,9 +81,10 @@ def test_scene_lighting_test() -> None:
         'root.dataset.carveraLighting = "patched"',
     )
     for text in expected_script_fragments:
-        if text not in script:
-            raise SystemExit(f"lighting patch script is missing {text!r}")
+        assert text in script
 
+
+def test_material_patch_updates_selected_scene_objects() -> None:
     material_script = scene_material_patch_javascript(
         42,
         [10, 11],
@@ -100,5 +101,4 @@ def test_scene_lighting_test() -> None:
         "window.setTimeout",
     )
     for text in material_expected:
-        if text not in material_script:
-            raise SystemExit(f"material patch script is missing {text!r}")
+        assert text in material_script

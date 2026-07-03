@@ -15,8 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-#include <iostream>
 #include <string>
 
 #include "ATCHandlerPublicAccess.h"
@@ -25,17 +23,10 @@
 #include "PublicData.h"
 #include "StreamOutput.h"
 #include "sim/simulation_instance.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::SimulationInstance simulation;

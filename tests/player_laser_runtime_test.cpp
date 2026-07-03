@@ -15,7 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -27,15 +26,11 @@
 #include "sim/simulator_context.hpp"
 
 extern "C" void TIMER2_IRQHandler(void);
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 std::string laser_config() {
   sim::test::CartesianConfigOptions options;

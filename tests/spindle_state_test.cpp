@@ -15,25 +15,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cmath>
-#include <cstdlib>
-#include <iostream>
-
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/simulator_context.hpp"
 #include "sim/spindle_state.hpp"
+#include "support/assertions.hpp"
 
-namespace {
-
-void require_near(double actual, double expected, double tolerance, const char* message) {
-  if (std::fabs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
+using sim::test::require_near;
 
 int main() {
   sim::MachineSimulator simulator;
@@ -45,8 +33,7 @@ int main() {
   require_near(spindle.actual_rpm(), 5'000.0, 0.001, "CA1 spindle should ramp up at 4000 RPM/s");
 
   spindle.update(sim::MachineModel::CarveraAirCA1, true, 10'000.0, 2'500'000);
-  require_near(spindle.actual_rpm(), 10'000.0, 0.001,
-               "CA1 spindle should reach a 10000 RPM target in 2.5 seconds");
+  require_near(spindle.actual_rpm(), 10'000.0, 0.001, "CA1 spindle should reach a 10000 RPM target in 2.5 seconds");
 
   spindle.update(sim::MachineModel::CarveraAirCA1, true, 30'000.0, 10'000'000);
   require_near(spindle.actual_rpm(), 10'000.0, 0.001,

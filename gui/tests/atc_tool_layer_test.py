@@ -22,40 +22,7 @@ from gui.protocol.model import AtcPocketSnapshot, AtcSnapshot, Box3D, ToolKind, 
 from gui.scene.atc_tool_layer import AtcToolLayer
 from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import C1_ATC_RACK_TOP_SCENE_Z, SceneTransform
-
-
-class FakeObject:
-    def __init__(self) -> None:
-        self.last_move: tuple[float, float, float] | None = None
-        self.visibility: list[bool] = []
-        self.deleted = False
-
-    def move(self, x: float, y: float, z: float) -> "FakeObject":
-        self.last_move = (x, y, z)
-        return self
-
-    def rotate(self, *_values: float) -> "FakeObject":
-        return self
-
-    def material(self, *_values: object) -> "FakeObject":
-        return self
-
-    def visible(self, value: bool) -> "FakeObject":
-        self.visibility.append(value)
-        return self
-
-    def delete(self) -> None:
-        self.deleted = True
-
-
-class FakeScene:
-    def __init__(self) -> None:
-        self.cylinders: list[FakeObject] = []
-
-    def cylinder(self, **_kwargs: object) -> FakeObject:
-        obj = FakeObject()
-        self.cylinders.append(obj)
-        return obj
+from gui.tests.fakes import FakeScene
 
 
 def _tool() -> ToolSnapshot:

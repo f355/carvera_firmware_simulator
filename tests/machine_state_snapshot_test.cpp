@@ -15,10 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 
 #include "Robot.h"
 #include "libs/Kernel.h"
@@ -27,15 +25,11 @@
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
 #include "sim/simulator_context.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 void write_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);

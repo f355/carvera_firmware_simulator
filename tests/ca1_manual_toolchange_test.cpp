@@ -15,8 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cmath>
-#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -28,22 +26,12 @@
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
 #include "sim/simulator_context.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
+using sim::test::require_near;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_near(double actual, double expected, double tolerance, const char* message) {
-  if (std::abs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
 
 sim::RuntimePumpOptions button_scan_options() {
   sim::RuntimePumpOptions options;

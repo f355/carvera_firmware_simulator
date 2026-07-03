@@ -27,7 +27,7 @@ TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
 pytestmark = pytest.mark.integration
 
 
-def test_simulator_integration_test() -> None:
+def test_stdio_client_controls_simulator_lifecycle() -> None:
     root = Path(__file__).resolve().parents[2]
     simulator_binary = root / "build" / "carvera_sim_stdio"
     if not simulator_binary.exists():

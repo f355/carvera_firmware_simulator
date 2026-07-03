@@ -16,8 +16,6 @@
  */
 
 #include <cstdint>
-#include <cstdlib>
-#include <iostream>
 
 #define private public
 #define protected public
@@ -33,15 +31,11 @@
 #include "libs/Kernel.h"
 #include "sim/event_engine.hpp"
 #include "sim/machine_simulator.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 void queue_one_axis_move(Kernel& kernel) {
   ActuatorCoordinates target{};

@@ -28,6 +28,7 @@ from gui.presenters.service import ServicePresenter
 from gui.presenters.state import StatePresenter
 from gui.presenters.tooling import ToolingPresenter
 from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, TransportEndpoint
+from gui.tests.fakes import FakeControl, FakeLabel
 from gui.views.environment_tab import GUI_REALTIME_SPEED_MAX
 from gui.views.machine_tab import FirmwareStateView
 
@@ -64,35 +65,6 @@ class FakeMachineScene:
 
     def restore_backplot(self) -> None:
         self.backplot_restored = True
-
-
-class FakeLabel:
-    def __init__(self) -> None:
-        self.text = ""
-        self.classes_text = ""
-
-    def classes(self, *, add: str | None = None, remove: str | None = None) -> None:
-        if remove is not None:
-            removed = set(remove.split())
-            self.classes_text = " ".join(part for part in self.classes_text.split() if part not in removed)
-        if add is not None:
-            existing = self.classes_text.split()
-            for part in add.split():
-                if part not in existing:
-                    existing.append(part)
-            self.classes_text = " ".join(existing)
-
-
-class FakeControl:
-    def __init__(self, value: object = None) -> None:
-        self.value = value
-        self.disabled = False
-
-    def disable(self) -> None:
-        self.disabled = True
-
-    def enable(self) -> None:
-        self.disabled = False
 
 
 class FakeTransportPanel:

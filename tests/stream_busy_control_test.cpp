@@ -20,20 +20,15 @@
 #include <iostream>
 
 #include "carvera_sim.pb.h"
+#include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
 #include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 
-namespace {
+using sim::test::expect;
 
-bool expect(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    return false;
-  }
-  return true;
-}
+namespace {
 
 constexpr auto kBusyProbeDeadline = std::chrono::seconds(5);
 constexpr auto kBusyResponseDeadline = std::chrono::seconds(2);
@@ -198,9 +193,9 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  if (!expect(simulator.wait_frame([](const auto& frame) { return telemetry_z_below(frame, -20.0); },
-                                   kBusyProbeDeadline),
-              "probing move should continue after realtime speed change")) {
+  if (!expect(
+          simulator.wait_frame([](const auto& frame) { return telemetry_z_below(frame, -20.0); }, kBusyProbeDeadline),
+          "probing move should continue after realtime speed change")) {
     return 1;
   }
 

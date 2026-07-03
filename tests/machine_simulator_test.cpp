@@ -16,8 +16,6 @@
  */
 
 #include <chrono>
-#include <cstdlib>
-#include <iostream>
 #include <stdexcept>
 #include <thread>
 
@@ -26,6 +24,9 @@
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "us_ticker_api.h"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
 
@@ -38,13 +39,6 @@ struct EdgeProbe {
 
   int rises{0};
 };
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 template <typename Predicate>
 bool eventually(Predicate&& predicate, std::chrono::milliseconds timeout) {

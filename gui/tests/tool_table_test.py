@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from gui.protocol.model import ToolConfig, ToolKind
+from gui.tests.fakes import FakeControl
 from gui.views.tool_table import (
     clear_tool_occupancy,
     collect_box_values,
@@ -28,25 +29,18 @@ from gui.views.tool_table import (
 )
 
 
-class FakeControl:
-    def __init__(self, value: object = None) -> None:
-        self.value = value
-
-
-def test_tool_table_test() -> None:
+def test_default_tool_map_contains_rack_and_probe_tools() -> None:
     defaults = default_tool_map()
-    if set(defaults) != {0, 1, 2, 3, 4, 5, 6, 999999}:
-        raise SystemExit("default tool table should expose the C1 rack plus loose probe tools")
-    if defaults[0]["tool"] != 0 or not defaults[0]["locked"]:
-        raise SystemExit("default tool table should include a locked stock wireless/Z probe")
-    if defaults[999999]["tool"] != 999999 or not defaults[999999]["locked"]:
-        raise SystemExit("default tool table should include a locked 3D probe")
-    if defaults[2]["tool"] != 2 or not defaults[2]["occupied"]:
-        raise SystemExit("default C1 tool table should preserve tool numbers and occupancy")
-    if inferred_tool_kind(0) != ToolKind.STOCK_Z_PROBE or inferred_tool_kind(999999) != ToolKind.THREE_AXIS_PROBE:
-        raise SystemExit("probe tool kinds should be inferred from firmware tool numbers")
+    assert set(defaults) == {0, 1, 2, 3, 4, 5, 6, 999999}
+    assert (defaults[0]["tool"], defaults[0]["locked"]) == (0, True)
+    assert (defaults[999999]["tool"], defaults[999999]["locked"]) == (999999, True)
+    assert (defaults[2]["tool"], defaults[2]["occupied"]) == (2, True)
+    assert inferred_tool_kind(0) == ToolKind.STOCK_Z_PROBE
+    assert inferred_tool_kind(999999) == ToolKind.THREE_AXIS_PROBE
 
-    rows = {
+
+def tool_rows() -> dict[int, dict[str, FakeControl]]:
+    return {
         1: {
             "occupied": FakeControl(False),
             "tool": FakeControl(999999),
@@ -60,25 +54,28 @@ def test_tool_table_test() -> None:
             "probe_tip": FakeControl(""),
         },
     }
+
+
+def test_collect_tool_table_reads_controls_and_fills_missing_pockets() -> None:
+    defaults = default_tool_map()
+    rows = tool_rows()
     table = collect_tool_table(rows, pockets=range(1, 4))
-    if table[0] != ToolConfig(
+    assert table[0] == ToolConfig(
         pocket=1,
         tool=999999,
         length_mm=physical_length_from_stickout(42.5),
         occupied=False,
         kind=ToolKind.THREE_AXIS_PROBE,
         probe_tip_diameter_mm=2.0,
-    ):
-        raise SystemExit("collect_tool_table should read edited row controls")
-    if table[1] != ToolConfig(
+    )
+    assert table[1] == ToolConfig(
         pocket=2,
         tool=0,
         length_mm=physical_length_from_stickout(0.0),
         occupied=True,
         kind=ToolKind.STOCK_Z_PROBE,
         probe_tip_diameter_mm=0.0,
-    ):
-        raise SystemExit("collect_tool_table should coerce empty control values")
+    )
     default_three = ToolConfig(
         pocket=3,
         tool=int(defaults[3]["tool"]),
@@ -87,26 +84,26 @@ def test_tool_table_test() -> None:
         kind=ToolKind.CUTTING_TOOL,
         probe_tip_diameter_mm=float(defaults[3]["probe_tip_diameter_mm"]),
     )
-    if table[2] != default_three:
-        raise SystemExit("collect_tool_table should fill missing rows from defaults with inferred kind")
+    assert table[2] == default_three
     rack_table = collect_tool_table(rows, rack_only=True)
-    if any(entry.pocket == 999999 for entry in rack_table):
-        raise SystemExit("rack-only collection should not send loose probes to the firmware ATC rack")
+    assert all(entry.pocket != 999999 for entry in rack_table)
 
+
+def test_tool_table_mutations_update_controls() -> None:
+    defaults = default_tool_map()
+    rows = tool_rows()
     load_default_tools(rows)
-    if rows[1]["tool"].value != defaults[1]["tool"] or rows[1]["stickout"].value != stickout_from_physical_length(
-        defaults[1]["length_mm"]
-    ):
-        raise SystemExit("load_default_tools should write default tool and stickout controls")
-    if rows[1]["probe_tip"].value != defaults[1]["probe_tip_diameter_mm"]:
-        raise SystemExit("load_default_tools should write default probe tip controls")
-    if rows[1]["occupied"].value is not True:
-        raise SystemExit("load_default_tools should mark rows occupied")
+    assert rows[1]["tool"].value == defaults[1]["tool"]
+    assert rows[1]["stickout"].value == stickout_from_physical_length(defaults[1]["length_mm"])
+    assert rows[1]["probe_tip"].value == defaults[1]["probe_tip_diameter_mm"]
+    assert rows[1]["occupied"].value is True
 
     clear_tool_occupancy(rows)
-    if rows[1]["occupied"].value is not False or rows[2]["occupied"].value is not False:
-        raise SystemExit("clear_tool_occupancy should mark all rows empty")
+    assert rows[1]["occupied"].value is False
+    assert rows[2]["occupied"].value is False
 
+
+def test_collect_box_values_coerces_empty_and_numeric_controls() -> None:
     box_controls = {
         "min_x": FakeControl("1.5"),
         "min_y": FakeControl(None),
@@ -115,5 +112,4 @@ def test_tool_table_test() -> None:
         "max_y": FakeControl(""),
         "max_z": FakeControl(6.25),
     }
-    if collect_box_values(box_controls) != (1.5, 0.0, -3.0, 4.0, 0.0, 6.25):
-        raise SystemExit("collect_box_values should coerce physical box control values")
+    assert collect_box_values(box_controls) == (1.5, 0.0, -3.0, 4.0, 0.0, 6.25)

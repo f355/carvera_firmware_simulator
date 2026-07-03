@@ -15,32 +15,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
-#include <iostream>
 #include <regex>
 
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
+using sim::test::require_contains;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_contains(const std::string& text, const char* needle, const char* message) {
-  if (text.find(needle) == std::string::npos) {
-    std::cerr << message << "\nExpected to find: " << needle << "\nActual output:\n" << text << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::test::TempDirectory temp_root("carvera_sim_simpleshell_configurator_test");

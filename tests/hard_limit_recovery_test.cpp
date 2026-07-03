@@ -15,9 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
-#include <iostream>
 #include <string>
 
 #include "libs/Kernel.h"
@@ -25,15 +23,11 @@
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/runtime_wait.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 bool pump_until_reset(sim::FirmwareRuntime& runtime) {
   sim::RuntimePumpOptions options;

@@ -15,9 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
-#include <iostream>
 #include <string>
 
 #include "Conveyor.h"
@@ -30,15 +28,11 @@
 #include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 void run_main_loop_until_serial_drained(Kernel& kernel, int max_iterations) {
   for (int i = 0; i < max_iterations && kernel.serial->has_char('\n'); ++i) {

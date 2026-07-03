@@ -16,8 +16,6 @@
  */
 
 #include <chrono>
-#include <cstdlib>
-#include <iostream>
 #include <thread>
 
 #include "StepTicker.h"
@@ -25,17 +23,10 @@
 #include "sim/lpc1768.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/event_engine.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::MachineSimulator simulator;

@@ -15,9 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-#include <iostream>
-
 #include "gpio.h"
 #include "libs/Kernel.h"
 #include "libs/SlowTicker.h"
@@ -33,15 +30,11 @@ GPIO leds[4] = {
 };
 
 #include "sim/machine_simulator.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 struct Probe {
   uint32_t calls{0};

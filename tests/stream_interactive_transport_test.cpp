@@ -33,21 +33,16 @@
 #include <vector>
 
 #include "carvera_sim.pb.h"
+#include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
 #include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/xmodem.hpp"
 
-namespace {
+using sim::test::expect;
 
-bool expect(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    return false;
-  }
-  return true;
-}
+namespace {
 
 bool timestamp_has_iso8601_shape(std::string_view output, std::size_t timestamp) {
   return output.size() >= timestamp + 24 && std::isdigit(static_cast<unsigned char>(output[timestamp + 0])) != 0 &&

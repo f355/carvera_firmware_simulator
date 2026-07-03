@@ -19,21 +19,13 @@
 #include <iostream>
 
 #include "carvera_sim.pb.h"
+#include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 
-namespace {
+using sim::test::expect;
 
-bool expect(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    return false;
-  }
-  return true;
-}
-
-}  // namespace
 
 int main(int argc, char** argv) {
   if (argc != 2) {

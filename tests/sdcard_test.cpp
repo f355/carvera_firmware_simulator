@@ -17,27 +17,18 @@
 
 #include <dirent.h>
 
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 
 #include "libs/FirmwareFileSystem.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "support/temp_sdcard.hpp"
 #include "utils.h"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::MachineSimulator simulator;

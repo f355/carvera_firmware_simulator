@@ -15,9 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
-#include <iostream>
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
@@ -25,15 +23,11 @@
 #include "sim/i2c_eeprom.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 carvera::sim::v1::Response send(sim::ApiService& api, carvera::sim::v1::Request& request) {
   auto response = api.handle(request);
@@ -47,8 +41,7 @@ void seed_sd_with_rotary_enabled_eeprom(const std::filesystem::path& root) {
 
   sim::I2cEepromDevice eeprom;
   eeprom.reset();
-  require(eeprom.use_persistent_file(root / ".eeprom.bin") == false,
-          "fresh EEPROM backing file should start empty");
+  require(eeprom.use_persistent_file(root / ".eeprom.bin") == false, "fresh EEPROM backing file should start empty");
   eeprom.configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x01});
 }
 

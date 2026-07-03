@@ -30,39 +30,50 @@ class FakeEvent:
         return self._event_name
 
 
-def test_telemetry_test() -> None:
-    buffer = TelemetryBuffer(lambda telemetry: {"seq": telemetry.seq})
-    if buffer.take_latest() is not None:
-        raise SystemExit("empty telemetry buffer should return None")
+def make_buffer() -> TelemetryBuffer[dict[str, int]]:
+    return TelemetryBuffer(lambda telemetry: {"seq": telemetry.seq})
+
+
+def emit(buffer: TelemetryBuffer[dict[str, int]], sequence: int) -> None:
+    buffer.handle_stream_event(FakeEvent("machine_telemetry", SimpleNamespace(seq=sequence)))
+
+
+def test_telemetry_buffer_ignores_unrelated_events() -> None:
+    buffer = make_buffer()
+    assert buffer.take_latest() is None
 
     buffer.handle_stream_event(FakeEvent("log", SimpleNamespace(seq=1)))
-    if buffer.take_latest() is not None:
-        raise SystemExit("non-telemetry stream events should be ignored")
+    assert buffer.take_latest() is None
 
-    buffer.handle_stream_event(FakeEvent("machine_telemetry", SimpleNamespace(seq=1)))
-    buffer.handle_stream_event(FakeEvent("machine_telemetry", SimpleNamespace(seq=2)))
-    latest = buffer.take_latest()
-    if latest != {"seq": 2}:
-        raise SystemExit("telemetry buffer should drain to the latest event")
-    if buffer.take_latest() is not None:
-        raise SystemExit("take_latest should drain buffered telemetry")
 
-    buffer.handle_stream_event(FakeEvent("machine_telemetry", SimpleNamespace(seq=3)))
-    if buffer.latest() != {"seq": 3}:
-        raise SystemExit("latest should expose telemetry without consuming it")
-    if buffer.latest() != {"seq": 3}:
-        raise SystemExit("latest should be reusable by multiple GUI clients")
+def test_take_latest_returns_and_consumes_only_the_newest_telemetry() -> None:
+    buffer = make_buffer()
+    emit(buffer, 1)
+    emit(buffer, 2)
 
-    cursor = 0
-    cursor, latest = buffer.latest_since(cursor)
-    if latest != {"seq": 3}:
-        raise SystemExit("latest_since should return the newest telemetry for a fresh cursor")
+    assert buffer.take_latest() == {"seq": 2}
+    assert buffer.take_latest() is None
+
+
+def test_latest_is_non_consuming() -> None:
+    buffer = make_buffer()
+    emit(buffer, 3)
+
+    assert buffer.latest() == {"seq": 3}
+    assert buffer.latest() == {"seq": 3}
+
+
+def test_latest_since_advances_each_consumer_cursor() -> None:
+    buffer = make_buffer()
+    emit(buffer, 3)
+
+    cursor, latest = buffer.latest_since(0)
+    assert latest == {"seq": 3}
+
     same_cursor = cursor
     cursor, latest = buffer.latest_since(cursor)
-    if cursor != same_cursor or latest is not None:
-        raise SystemExit("latest_since should not replay stale telemetry to one GUI view")
+    assert (cursor, latest) == (same_cursor, None)
 
-    buffer.handle_stream_event(FakeEvent("machine_telemetry", SimpleNamespace(seq=4)))
+    emit(buffer, 4)
     cursor, latest = buffer.latest_since(cursor)
-    if latest != {"seq": 4}:
-        raise SystemExit("latest_since should return newly arrived telemetry")
+    assert latest == {"seq": 4}

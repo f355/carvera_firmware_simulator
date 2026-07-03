@@ -43,7 +43,7 @@ def recorded_function_setting(model: str) -> int:
     return client.requests[-1].set_machine_model.function_setting
 
 
-def test_sim_client_machine_model_test() -> None:
+def test_client_maps_machine_models_and_rotary_accessory_to_protocol_requests() -> None:
     assert recorded_function_setting("ca1") == 0x02
     assert recorded_function_setting("c1") == 0x02
 

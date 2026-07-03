@@ -15,29 +15,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
-#include <iostream>
-
 #include "sim/i2c_eeprom.hpp"
 #include "sim/machine_geometry.hpp"
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
+using sim::test::require_equal;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_equal(double actual, double expected, const char* message) {
-  if (actual != expected) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   const auto c1 = sim::geometry_for(sim::MachineModel::CarveraC1);

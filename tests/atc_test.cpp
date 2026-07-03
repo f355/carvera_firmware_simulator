@@ -15,10 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <string>
 
 #include "ATCHandlerPublicAccess.h"
@@ -38,15 +36,11 @@
 #include "sim/persistent_machine_state.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 void write_atc_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);

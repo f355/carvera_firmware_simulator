@@ -42,12 +42,23 @@ inline bool expect(bool condition, std::string_view message) {
 }
 
 inline void require_contains(std::string_view haystack, std::string_view needle, std::string_view message) {
-  require(haystack.find(needle) != std::string_view::npos, message);
+  if (haystack.find(needle) == std::string_view::npos) {
+    std::cerr << message << "\nexpected to find: " << needle << "\nactual:\n" << haystack << '\n';
+    std::exit(1);
+  }
 }
 
 inline void require_near(double actual, double expected, double tolerance, std::string_view message) {
   if (std::abs(actual - expected) > tolerance) {
     std::cerr << message << ": expected " << expected << " +/- " << tolerance << ", got " << actual << '\n';
+    std::exit(1);
+  }
+}
+
+template <typename Actual, typename Expected>
+inline void require_equal(const Actual& actual, const Expected& expected, std::string_view message) {
+  if (actual != expected) {
+    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
     std::exit(1);
   }
 }

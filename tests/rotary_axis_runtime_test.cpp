@@ -16,8 +16,6 @@
  */
 
 #include <cmath>
-#include <cstdlib>
-#include <iostream>
 #include <string>
 
 #include "Robot.h"
@@ -28,22 +26,12 @@
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 #include "sim/simulator_context.hpp"
+#include "support/assertions.hpp"
+
+using sim::test::require;
+using sim::test::require_near;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-void require_near(double actual, double expected, double tolerance, const char* message) {
-  if (std::fabs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
 
 std::string ca1_rotary_config() {
   sim::test::CartesianConfigOptions options;

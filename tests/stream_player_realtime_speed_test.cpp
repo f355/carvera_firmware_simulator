@@ -27,20 +27,15 @@
 #include <utility>
 
 #include "carvera_sim.pb.h"
+#include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
 #include "support/stream_stdio_harness.hpp"
 #include "support/temp_sdcard.hpp"
 
-namespace {
+using sim::test::expect;
 
-bool expect(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    return false;
-  }
-  return true;
-}
+namespace {
 
 bool telemetry_x_below(const carvera::sim::v1::StreamFrame& frame, double threshold) {
   if (frame.payload_case() != carvera::sim::v1::StreamFrame::kEvent || !frame.event().has_machine_telemetry()) {

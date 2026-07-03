@@ -37,97 +37,7 @@ from gui.scene.scene_transform import (
     c1_model_point,
     c1_spindle_face_point,
 )
-
-
-class FakeObject:
-    def __init__(self) -> None:
-        self.last_move: tuple[float, float, float] | None = None
-        self.visibility: list[bool] = []
-        self.materials: list[object] = []
-        self.deleted = False
-
-    def move(self, x: float, y: float, z: float) -> "FakeObject":
-        self.last_move = (x, y, z)
-        return self
-
-    def scale(self, _value: float) -> "FakeObject":
-        return self
-
-    def rotate(self, *_values: float) -> "FakeObject":
-        return self
-
-    def material(self, *values: object) -> "FakeObject":
-        self.materials.append(values[0] if len(values) == 1 else values)
-        return self
-
-    def visible(self, value: bool) -> "FakeObject":
-        self.visibility.append(value)
-        return self
-
-    def delete(self) -> None:
-        self.deleted = True
-
-
-class FakeLine:
-    def __init__(self, start: list[float], end: list[float]) -> None:
-        self.start = start
-        self.end = end
-        self.last_move: tuple[float, float, float] | None = None
-        self.color = ""
-        self.deleted = False
-
-    def material(self, color: str) -> "FakeLine":
-        self.color = color
-        return self
-
-    def move(self, x: float, y: float, z: float) -> None:
-        self.last_move = (x, y, z)
-
-    def delete(self) -> None:
-        self.deleted = True
-
-
-class FakeScene:
-    def __init__(self) -> None:
-        self.lines: list[FakeLine] = []
-        self.objects: list[FakeObject] = []
-        self.cylinders: list[FakeObject] = []
-        self.cylinder_kwargs: list[dict[str, object]] = []
-        self.boxes: list[FakeObject] = []
-
-    def line(self, start: list[float], end: list[float]) -> FakeLine:
-        line = FakeLine(start, end)
-        self.lines.append(line)
-        return line
-
-    def gltf(self, _url: str) -> FakeObject:
-        model = FakeObject()
-        self.objects.append(model)
-        return model
-
-    def cylinder(self, **kwargs: object) -> FakeObject:
-        model = FakeObject()
-        self.cylinders.append(model)
-        self.cylinder_kwargs.append(kwargs)
-        return model
-
-    def box(self, **_kwargs: object) -> FakeObject:
-        model = FakeObject()
-        self.boxes.append(model)
-        return model
-
-
-class FakeLabel:
-    def __init__(self) -> None:
-        self.text = ""
-
-    def classes(self, **_kwargs: object) -> None:
-        pass
-
-
-class FakeAxisMode:
-    def __init__(self, value: object = "3") -> None:
-        self.value = value
+from gui.tests.fakes import FakeControl, FakeLabel, FakeObject, FakeScene
 
 
 def box(
@@ -247,7 +157,7 @@ def make_view(
         scene=scene,
         model_asset_for=lambda _model: asset,
         machine_model_label=FakeLabel(),
-        axis_mode_select=FakeAxisMode(axis_mode),
+        axis_mode_select=FakeControl(axis_mode),
         front_panel_badges={},
         axis_readouts={},
         axis_detail_rows={},
@@ -478,8 +388,7 @@ def test_c1_axis_components_keep_spindle_y_fixed_and_move_bed() -> None:
     scene_position = view.scene_transform.point(*raw_position)
     bed_y_delta = view._move_machine_axis_components(raw_position, scene_position)
     z_move = view.machine_shell_objects["z"].last_move
-    if z_move is None:
-        raise SystemExit("C1 Z component should move")
+    assert z_move is not None
     spindle_face = (
         z_move[0] + C1_SPINDLE_FACE_LOCAL[0],
         z_move[1] + C1_SPINDLE_FACE_LOCAL[1],
@@ -499,8 +408,7 @@ def test_c1_axis_components_keep_spindle_y_fixed_and_move_bed() -> None:
     ]
     assert round(bed_y_delta, 3) == round(fixed_spindle_y - expected_face[1], 3)
     bed_move = view.machine_shell_objects["y3"].last_move
-    if bed_move is None:
-        raise SystemExit("C1 bed component should move")
+    assert bed_move is not None
     assert round(bed_move[1], 3) == round(asset.offset[1] + bed_y_delta + C1_BED_MESH_Y_ALIGNMENT_MM, 3)
 
     pocket_position = view._geometry().atc_rack_tool_position(-4.158, -234.568, -112.5, bed_y_delta)

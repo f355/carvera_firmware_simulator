@@ -17,10 +17,8 @@
 
 #include <chrono>
 #include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <string>
 
 #include "sim/interactive_io.hpp"
@@ -30,15 +28,11 @@
 #include "support/posix_io.hpp"
 
 #include <unistd.h>
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 template <typename Predicate, typename Pump>
 bool wait_pumping(Predicate&& predicate, Pump&& pump, std::chrono::milliseconds timeout = std::chrono::seconds(5)) {

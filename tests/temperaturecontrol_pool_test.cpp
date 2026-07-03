@@ -17,8 +17,6 @@
 
 #include "test_support.hpp"
 
-#include <cmath>
-
 #include "Config.h"
 #include "Gcode.h"
 #include "PublicData.h"
@@ -34,13 +32,7 @@ namespace {
 
 using sim::test::MemoryConfigSource;
 using sim::test::require;
-
-void require_near(float actual, float expected, float tolerance, const char* message) {
-  if (std::fabs(actual - expected) > tolerance) {
-    std::cerr << message << ": expected " << expected << ", got " << actual << '\n';
-    std::exit(1);
-  }
-}
+using sim::test::require_near;
 
 }  // namespace
 

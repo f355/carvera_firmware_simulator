@@ -66,7 +66,7 @@ def _wait_for_stream_startup(
     )
 
 
-def test_stream_integration_test() -> None:
+def test_stream_client_receives_live_simulator_state() -> None:
     root = Path(__file__).resolve().parents[2]
     simulator_binary = root / "build" / "carvera_sim_stream_stdio"
     if not simulator_binary.exists():

@@ -16,8 +16,6 @@
  */
 
 #include <cstdint>
-#include <cstdlib>
-#include <iostream>
 
 #define private public
 #define protected public
@@ -35,15 +33,11 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/timer_irq.hpp"
 #include "us_ticker_api.h"
+#include "support/assertions.hpp"
+
+using sim::test::require;
 
 namespace {
-
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
 
 int prepare_motor(Kernel& kernel, Pin& step_pin, Pin& dir_pin, Pin& enable_pin) {
   require(step_pin.from_string("1.18") != nullptr, "step pin should parse");

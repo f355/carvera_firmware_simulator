@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from gui.core.client_errors import is_request_timeout, should_disconnect_client_error, should_notify_client_error
 
 
@@ -26,3 +28,15 @@ def test_periodic_request_timeouts_are_not_fatal_client_errors() -> None:
 
     assert should_notify_client_error(timeout, machine_online=True, periodic=False)
     assert should_disconnect_client_error("short simulator response", machine_online=True, periodic=True)
+
+
+@pytest.mark.parametrize(
+    ("message", "machine_online", "expected"),
+    [
+        ("simulator closed stdout", False, False),
+        ("simulator closed stdout", True, True),
+        ("boom", False, True),
+    ],
+)
+def test_shutdown_errors_are_reported_only_when_unexpected(message: str, machine_online: bool, expected: bool) -> None:
+    assert should_notify_client_error(message, machine_online=machine_online) is expected

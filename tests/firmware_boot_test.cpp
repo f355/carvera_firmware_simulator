@@ -17,8 +17,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
-#include <iostream>
 
 #define private public
 #define protected public
@@ -33,17 +31,10 @@
 #include "sim/machine_simulator.hpp"
 
 void init();
+#include "support/assertions.hpp"
 
-namespace {
+using sim::test::require;
 
-void require(bool condition, const char* message) {
-  if (!condition) {
-    std::cerr << message << '\n';
-    std::exit(1);
-  }
-}
-
-}  // namespace
 
 int main() {
   sim::MachineSimulator simulator;
