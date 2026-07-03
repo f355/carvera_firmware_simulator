@@ -52,9 +52,6 @@ class RuntimePhysicalControls {
   bool motor_alarm(std::size_t axis);
   bool set_spindle_alarm(bool triggered);
   std::optional<bool> spindle_alarm();
-  void set_probe_tool_installed(bool installed);
-  void set_tool_setter_box(const Box& box);
-  void set_stock_box(const Box& box);
   void set_main_button_pressed(bool pressed);
   void set_e_stop_pressed(bool pressed);
   FrontPanelState front_panel_state();

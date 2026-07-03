@@ -61,19 +61,19 @@ sim::RuntimePumpOptions button_scan_options() {
 }
 
 void select_and_start(sim::FirmwareRuntime& runtime, const std::string& name) {
-  runtime.write_serial("M23 " + name + "\n");
-  runtime.run_main_loop(1);
-  runtime.write_serial("M24\n");
-  runtime.run_main_loop(1);
-  (void)runtime.read_serial();
+  runtime.io().write_serial("M23 " + name + "\n");
+  runtime.runner().run_main_loop(1);
+  runtime.io().write_serial("M24\n");
+  runtime.runner().run_main_loop(1);
+  (void)runtime.io().read_serial();
 }
 
-void pump_player_line(sim::FirmwareRuntime& runtime) { runtime.run_main_loop(1); }
+void pump_player_line(sim::FirmwareRuntime& runtime) { runtime.runner().run_main_loop(1); }
 
 void pump_timer_ticks(sim::FirmwareRuntime& runtime, std::size_t ticks) {
   sim::RuntimePumpOptions options;
   options.max_timer_events = ticks;
-  runtime.pump(options);
+  runtime.runner().pump(options);
 }
 
 void run_slow_ticker() {
@@ -83,34 +83,34 @@ void run_slow_ticker() {
 
 void press_front_button(sim::FirmwareRuntime& runtime) {
   const auto options = button_scan_options();
-  runtime.set_main_button_pressed(true);
-  runtime.pump(options);
-  runtime.set_main_button_pressed(false);
-  runtime.pump(options);
+  runtime.inputs().set_main_button_pressed(true);
+  runtime.runner().pump(options);
+  runtime.inputs().set_main_button_pressed(false);
+  runtime.runner().pump(options);
 }
 
 void test_player_laser_test_mode(sim::FirmwareRuntime& runtime) {
   select_and_start(runtime, "laser_test");
 
   pump_player_line(runtime);
-  auto laser = runtime.laser_state();
+  auto laser = runtime.inputs().laser_state();
   require(laser.available, "runtime should expose real Laser state");
   require(laser.mode, "Player file should switch firmware Laser into laser mode");
   require(laser.testing, "Player file M323 should enable Laser test mode through firmware");
   run_slow_ticker();
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(laser.power_percent > 0.0F, "Player file M323 should drive test PWM through firmware");
 
   pump_player_line(runtime);
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(laser.mode, "M324 should stop testing without leaving laser mode");
   require(!laser.testing, "Player file M324 should turn Laser test mode off");
   run_slow_ticker();
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(laser.power_percent == 0.0F, "M324 should settle Laser test PWM off on the next slow tick");
 
   pump_player_line(runtime);
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(!laser.mode, "Player file should return firmware Laser to CNC mode");
   require(!laser.firing, "Laser should remain off after returning to CNC mode");
 }
@@ -119,12 +119,12 @@ void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineS
   select_and_start(runtime, "laser_cut");
 
   pump_player_line(runtime);
-  auto laser = runtime.laser_state();
+  auto laser = runtime.inputs().laser_state();
   require(laser.mode, "Player cutting file should enter firmware Laser mode");
 
   pump_player_line(runtime);
   pump_player_line(runtime);
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(laser.firing, "M3 in Player cutting file should arm Laser firing");
   require(laser.power_percent == 0.0F, "armed Laser should remain at zero PWM before a cutting block runs");
 
@@ -134,7 +134,7 @@ void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineS
   for (int i = 0; i < 20; ++i) {
     pump_timer_ticks(runtime, 100);
     run_slow_ticker();
-    laser = runtime.laser_state();
+    laser = runtime.inputs().laser_state();
     if (laser.power_percent > 0.0F) {
       saw_motion_power = true;
       break;
@@ -144,11 +144,11 @@ void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineS
   require(simulator.axis_position_mm(0) < start_x, "Player cutting move should move the physical X axis");
   require(saw_motion_power, "Player cutting move should drive Laser PWM from the active motion block");
 
-  runtime.run_until_idle(200'000);
+  runtime.runner().run_until_motion_idle(200'000);
   pump_player_line(runtime);
   pump_player_line(runtime);
   pump_timer_ticks(runtime, 4);
-  laser = runtime.laser_state();
+  laser = runtime.inputs().laser_state();
   require(!laser.firing, "M5 in Player cutting file should stop Laser firing");
   require(!laser.mode, "Player cutting file should return to CNC mode");
 }
@@ -162,19 +162,19 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
           "CA1 factory settings should apply before boot");
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "CA1 runtime should boot before plain M321 laser test");
-  (void)runtime.read_serial();
+  (void)runtime.io().read_serial();
 
-  runtime.write_serial("M321\n");
+  runtime.io().write_serial("M321\n");
   std::string serial;
   for (int i = 0; i < 120 && !kernel.is_tool_waiting(); ++i) {
-    runtime.pump_free_running(8, 100'000);
-    serial += runtime.read_serial();
+    runtime.runner().pump_free_running(8, 100'000);
+    serial += runtime.io().read_serial();
   }
   if (!kernel.is_tool_waiting()) {
     std::cerr << serial << '\n';
   }
   require(kernel.is_tool_waiting(), "plain M321 on CA1 should request the firmware laser tool through real ATCHandler");
-  require(runtime.laser_state().mode, "plain M321 should enter laser mode while waiting for the laser tool");
+  require(runtime.inputs().laser_state().mode, "plain M321 should enter laser mode while waiting for the laser tool");
 
   auto& scene = simulation.machine().context().physical_scene();
   scene.set_spindle_tool(8888, 45.0, true);
@@ -182,8 +182,8 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   require(!kernel.is_tool_waiting(), "front button should confirm the CA1 laser tool change");
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
-    runtime.pump_free_running(8, 100'000);
-    serial += runtime.read_serial();
+    runtime.runner().pump_free_running(8, 100'000);
+    serial += runtime.io().read_serial();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -191,13 +191,13 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   require(serial.find("Done ATC") != std::string::npos,
           "confirmed CA1 laser tool change should finish through the real ATC/TLO script");
   require(serial.find("ERROR:") == std::string::npos, "plain M321 CA1 laser tool change should not hit probe errors");
-  require(runtime.laser_state().mode, "laser mode should remain active after installing the CA1 laser tool");
+  require(runtime.inputs().laser_state().mode, "laser mode should remain active after installing the CA1 laser tool");
   const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 8888, "virtual CA1 laser tool should remain in the spindle");
 
-  runtime.write_serial("M322\n");
-  require(runtime.run_until_idle(100'000), "M322 should settle after CA1 laser tool test");
-  require(!runtime.laser_state().mode, "M322 should return the CA1 runtime to CNC mode");
+  runtime.io().write_serial("M322\n");
+  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "M322 should settle after CA1 laser tool test");
+  require(!runtime.inputs().laser_state().mode, "M322 should return the CA1 runtime to CNC mode");
 }
 
 }  // namespace
@@ -222,7 +222,7 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "runtime should boot before Player laser playback");
-  (void)runtime.read_serial();
+  (void)runtime.io().read_serial();
 
   test_player_laser_test_mode(runtime);
   test_player_laser_cutting_move(runtime, simulator);

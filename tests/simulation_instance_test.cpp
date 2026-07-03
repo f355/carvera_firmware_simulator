@@ -35,7 +35,7 @@ int main() {
   sim::test::require(&simulation.runner() == &simulation.firmware().runner(),
                      "runner capability should expose the runtime event runner");
   sim::test::require(simulation.machine().set_realtime_speed(3.0), "simulation machine should accept realtime speed");
-  sim::test::require(simulation.firmware().realtime_speed() == 3.0,
+  sim::test::require(simulation.machine().realtime_speed() == 3.0,
                      "simulation firmware should be bound to the instance machine");
   const auto& const_simulation = simulation;
   sim::test::require(&const_simulation.machine() == &simulation.machine(),

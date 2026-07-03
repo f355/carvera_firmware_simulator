@@ -33,7 +33,7 @@ ApiService::ApiService(SimulationInstance& simulation)
       runner_(simulation.runner()),
       machine_(simulation.machine()),
       persistent_state_(simulation.persistent_state()),
-      interactive_transport_(firmware_) {}
+      interactive_transport_(io_, runner_, machine_, [this]() { return firmware_.is_uploading(); }) {}
 
 carvera::sim::v1::Response ApiService::handle(const carvera::sim::v1::Request& request) {
   if (auto response = handle_lifecycle_command(request)) {

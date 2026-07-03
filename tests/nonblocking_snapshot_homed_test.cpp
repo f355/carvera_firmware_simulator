@@ -33,7 +33,7 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.start();
   require(kernel.robot != nullptr, "firmware start should create Robot");
-  require(runtime.run_until_idle(200'000), "firmware should finish startup homing");
+  require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "firmware should finish startup homing");
   require(kernel.robot->is_homed_all_axes(), "Robot should know that startup homing completed");
 
   carvera::sim::v1::MachineSnapshot snapshot;

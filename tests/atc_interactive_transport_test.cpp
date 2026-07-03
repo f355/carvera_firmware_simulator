@@ -47,14 +47,14 @@ int main() {
   simulation.machine().context().physical_scene().set_atc_pocket_tool(2, 2, true, 62.0);
   auto& runtime = simulation.firmware();
   runtime.boot();
-  sim::LocalhostTcpBridge bridge(runtime);
+  sim::LocalhostTcpBridge bridge(runtime.io(), [&runtime]() { return runtime.is_uploading(); });
   require(bridge.start(0), "localhost WiFi bridge should start");
 
   auto pump_once = [&] {
     bridge.poll();
     {
       sim::delay_hooks::ScopedCallback blocking_wait_io_pump([&] { bridge.poll(); });
-      runtime.pump_free_running(8, 100'000);
+      runtime.runner().pump_free_running(8, 100'000);
     }
     bridge.poll();
   };

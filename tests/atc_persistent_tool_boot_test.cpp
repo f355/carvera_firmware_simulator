@@ -42,12 +42,11 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
-  runtime.write_serial("M493.2 T2\n");
-  require(runtime.run_until_idle(100'000), "direct firmware tool-state command should run");
-  (void)runtime.read_serial();
+  runtime.io().write_serial("M493.2 T2\n");
+  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
+  (void)runtime.io().read_serial();
   require(kernel.eeprom_data->TOOL == 2, "M493.2 should persist the active tool in firmware EEPROM data");
-  require(!scene.atc_spindle().has_tool,
-          "M493.2 should not physically move a rack tool into the spindle");
+  require(!scene.atc_spindle().has_tool, "M493.2 should not physically move a rack tool into the spindle");
 
   runtime.reset();
   auto& rebooted_kernel = runtime.boot();

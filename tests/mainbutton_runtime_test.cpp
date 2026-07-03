@@ -49,12 +49,12 @@ sim::RuntimePumpOptions button_scan_options() {
 bool press_front_button(sim::FirmwareRuntime& runtime, int held_pumps = 1) {
   const auto options = button_scan_options();
   bool reset_requested = false;
-  runtime.set_main_button_pressed(true);
+  runtime.inputs().set_main_button_pressed(true);
   for (int i = 0; i < held_pumps; ++i) {
-    reset_requested = runtime.pump(options).reset_requested || reset_requested;
+    reset_requested = runtime.runner().pump(options).reset_requested || reset_requested;
   }
-  runtime.set_main_button_pressed(false);
-  reset_requested = runtime.pump(options).reset_requested || reset_requested;
+  runtime.inputs().set_main_button_pressed(false);
+  reset_requested = runtime.runner().pump(options).reset_requested || reset_requested;
   return reset_requested;
 }
 
@@ -101,17 +101,18 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
-  auto panel = runtime.front_panel_state();
+  auto panel = runtime.inputs().front_panel_state();
   require(!panel.main_button_pressed, "runtime MainButton should start with the front button released");
   require(!panel.e_stop_pressed, "runtime MainButton should start with e-stop released");
   require(panel.power_rails.v12, "runtime MainButton should turn on the 12V rail");
   require(panel.power_rails.v24, "runtime MainButton should turn on the 24V rail");
   require(panel.direct_rgb.available, "C1 direct RGB LED pins should be readable through front-panel state");
 
-  runtime.set_main_button_pressed(true);
-  require(runtime.front_panel_state().main_button_pressed, "front button API should drive the configured firmware pin");
-  runtime.set_main_button_pressed(false);
-  require(!runtime.front_panel_state().main_button_pressed,
+  runtime.inputs().set_main_button_pressed(true);
+  require(runtime.inputs().front_panel_state().main_button_pressed,
+          "front button API should drive the configured firmware pin");
+  runtime.inputs().set_main_button_pressed(false);
+  require(!runtime.inputs().front_panel_state().main_button_pressed,
           "front button API should release the configured firmware pin");
 
   press_front_button(runtime);
@@ -124,18 +125,18 @@ int main() {
   press_front_button(runtime);
   require(!kernel.get_feed_hold(), "short front-button press should resume firmware feed hold");
 
-  runtime.set_e_stop_pressed(true);
-  require(runtime.front_panel_state().e_stop_pressed, "e-stop API should drive the configured firmware pin");
-  runtime.run_main_loop(1);
+  runtime.inputs().set_e_stop_pressed(true);
+  require(runtime.inputs().front_panel_state().e_stop_pressed, "e-stop API should drive the configured firmware pin");
+  runtime.runner().run_main_loop(1);
   require(kernel.is_halted(), "real runtime MainButton should halt firmware when e-stop is pressed");
   require(kernel.get_halt_reason() == E_STOP, "runtime MainButton should report E_STOP as the halt reason");
 
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.io().write_serial("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "M999 should not clear the alarm while the physical e-stop remains pressed");
-  runtime.set_e_stop_pressed(false);
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.inputs().set_e_stop_pressed(false);
+  runtime.io().write_serial("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear the e-stop alarm after the physical switch is released");
 
   sim::test::TempDirectory ca1_led_dir("carvera_sim_ca1_led_strip_test");
@@ -162,7 +163,7 @@ int main() {
   led_rgb colors{12, 34, 56};
   require(PublicData::set_value(main_button_checksum, set_led_bar_checksum, &colors),
           "MainButton should accept LED bar PublicData writes");
-  const auto ca1_led_panel = ca1_led_runtime.front_panel_state();
+  const auto ca1_led_panel = ca1_led_runtime.inputs().front_panel_state();
   require(ca1_led_panel.led_strip.available, "CA1 LED strip should be decoded into front-panel state");
   for (const auto& segment : ca1_led_panel.led_strip.segments) {
     require(segment.red == 12 && segment.green == 34 && segment.blue == 56,
@@ -183,8 +184,8 @@ int main() {
   require(!alarm_kernel.is_halted(),
           "long front-button press should unlock a manual halt through real MainButton logic");
 
-  alarm_runtime.set_motor_alarm(0, true);
-  alarm_runtime.run_main_loop(1);
+  alarm_runtime.inputs().set_motor_alarm(0, true);
+  alarm_runtime.runner().run_main_loop(1);
   require(alarm_kernel.is_halted(), "configured motor alarm should halt before front-button reset");
   require(alarm_kernel.get_halt_reason() == MOTOR_ERROR_X, "configured motor alarm should report a device alarm");
   const bool reset_requested = press_front_button(alarm_runtime, 2);
@@ -205,11 +206,11 @@ int main() {
   sim::SimulationInstance repeat_simulation(sim::test::persistent_sd_config(repeat_root));
   auto& repeat_runtime = repeat_simulation.firmware();
   auto& repeat_kernel = repeat_runtime.boot();
-  repeat_runtime.write_serial("play /sd/gcodes/repeat.cnc\n");
-  repeat_runtime.run_main_loop(8);
+  repeat_runtime.io().write_serial("play /sd/gcodes/repeat.cnc\n");
+  repeat_runtime.runner().run_main_loop(8);
   require(player_is_playing(), "test job should be playing before aborting");
-  repeat_runtime.write_serial("abort\n");
-  repeat_runtime.run_until_idle(20'000);
+  repeat_runtime.io().write_serial("abort\n");
+  repeat_runtime.runner().run_until_motion_idle(20'000);
   require(!player_is_playing(), "test job should be stopped before front-button repeat");
   press_front_button(repeat_runtime, 2);
   require(!repeat_kernel.is_halted(), "front-button repeat should not halt an idle machine");
@@ -223,7 +224,7 @@ int main() {
   auto& sleep_kernel = sleep_runtime.boot();
 
   press_front_button(sleep_runtime, 2);
-  const auto sleep_panel = sleep_runtime.front_panel_state();
+  const auto sleep_panel = sleep_runtime.inputs().front_panel_state();
   require(sleep_kernel.is_sleeping(), "long front-button press should put firmware into Sleep state");
   require(sleep_kernel.is_halted(), "long front-button sleep should halt the firmware");
   require(!sleep_panel.power_rails.v12, "long front-button sleep should turn off the 12V rail");

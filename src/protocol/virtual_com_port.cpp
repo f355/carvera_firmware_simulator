@@ -17,15 +17,15 @@
 
 #include "sim/interactive_io.hpp"
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/platform_io.hpp"
+#include "sim/runtime_io.hpp"
 
 #include <fcntl.h>
 #include <stdlib.h>
 
 namespace sim {
 
-VirtualComPort::VirtualComPort(FirmwareRuntime& runtime) : runtime_(runtime) {}
+VirtualComPort::VirtualComPort(RuntimeIo& io) : runtime_io_(io) {}
 
 VirtualComPort::~VirtualComPort() { stop(); }
 
@@ -74,7 +74,7 @@ void VirtualComPort::stop() {
 
 void VirtualComPort::poll() {
   poll_input();
-  write_output(runtime_.read_serial());
+  write_output(runtime_io_.read_serial());
 }
 
 std::string VirtualComPort::poll_input() {
@@ -89,7 +89,7 @@ std::string VirtualComPort::poll_input() {
     input = io_.take_input();
   }
   if (!input.empty()) {
-    runtime_.write_serial(input);
+    runtime_io_.write_serial(input);
   }
   return input;
 }

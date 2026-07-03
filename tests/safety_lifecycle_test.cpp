@@ -48,7 +48,7 @@ bool player_is_playing() {
 
 void require_state(bool condition, const char* message, sim::FirmwareRuntime& runtime, Kernel& kernel) {
   if (!condition) {
-    std::cerr << message << ": cover_open=" << runtime.cover_open() << ", playing=" << player_is_playing()
+    std::cerr << message << ": cover_open=" << runtime.inputs().cover_open() << ", playing=" << player_is_playing()
               << ", state=" << static_cast<int>(kernel.get_state())
               << ", halt_reason=" << static_cast<int>(kernel.get_halt_reason()) << '\n';
     std::exit(1);
@@ -89,14 +89,14 @@ int main() {
   require(kernel.config->value(get_checksum("stop_on_cover_open"))->as_bool(false),
           "test config should enable stop_on_cover_open");
 
-  runtime.write_serial("M23 cover\n");
-  runtime.write_serial("M24\n");
-  runtime.run_until_idle(20'000);
+  runtime.io().write_serial("M23 cover\n");
+  runtime.io().write_serial("M24\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(player_is_playing(), "test job should be playing before cover is opened");
 
-  runtime.set_cover_open(true);
+  runtime.inputs().set_cover_open(true);
   for (int i = 0; i < 20 && !kernel.is_halted(); ++i) {
-    runtime.pump_free_running(8, 20'000);
+    runtime.runner().pump_free_running(8, 20'000);
   }
 
   require_state(kernel.is_halted(), "opening the cover during Player playback should halt the firmware", runtime,
@@ -104,29 +104,29 @@ int main() {
   require(kernel.get_halt_reason() == COVER_OPEN, "cover-open policy should report COVER_OPEN");
   require(!player_is_playing(), "Player should abort the active job when cover-open halt fires");
 
-  runtime.set_cover_open(false);
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.inputs().set_cover_open(false);
+  runtime.io().write_serial("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear the cover-open alarm after the cover is closed");
   require(!player_is_playing(), "M999 recovery should not restart an aborted Player job");
 
-  runtime.set_e_stop_pressed(true);
-  runtime.run_main_loop(1);
+  runtime.inputs().set_e_stop_pressed(true);
+  runtime.runner().run_main_loop(1);
   require(kernel.is_halted(), "pressing e-stop should halt the firmware");
   require(kernel.get_halt_reason() == E_STOP, "e-stop policy should report E_STOP");
 
-  runtime.write_wifi_tcp("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.io().write_wifi_tcp("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "WiFi M999 should not clear alarm while e-stop remains pressed");
   require(kernel.get_halt_reason() == E_STOP, "still-pressed e-stop should reassert E_STOP");
 
-  runtime.set_e_stop_pressed(false);
-  runtime.write_wifi_tcp("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.inputs().set_e_stop_pressed(false);
+  runtime.io().write_wifi_tcp("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "WiFi M999 should clear e-stop alarm after the physical switch is released");
 
-  runtime.set_motor_alarm(1, true);
-  runtime.run_main_loop(1);
+  runtime.inputs().set_motor_alarm(1, true);
+  runtime.runner().run_main_loop(1);
   require(kernel.is_halted(), "triggering Y motor alarm should halt the firmware");
   require(kernel.get_halt_reason() == MOTOR_ERROR_Y, "Y motor alarm should report MOTOR_ERROR_Y");
   const auto motor_alarm_status = kernel.get_query_string();
@@ -134,14 +134,14 @@ int main() {
       motor_alarm_status.find("<Alarm") != std::string::npos && motor_alarm_status.find("|H:23") != std::string::npos,
       "controller status should expose the motor alarm halt reason");
 
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.io().write_serial("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "M999 should not clear a still-active motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_Y, "still-active Y motor alarm should reassert MOTOR_ERROR_Y");
 
-  runtime.set_motor_alarm(1, false);
-  runtime.write_serial("M999\n");
-  runtime.run_until_idle(20'000);
+  runtime.inputs().set_motor_alarm(1, false);
+  runtime.io().write_serial("M999\n");
+  runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear motor alarm after the physical alarm input is released");
   return 0;
 }

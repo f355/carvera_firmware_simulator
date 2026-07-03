@@ -41,7 +41,7 @@ void require_contains(const std::string& haystack, const std::string& needle, co
 
 void pump_temperature(sim::FirmwareRuntime& runtime) {
   for (int i = 0; i < 120; ++i) {
-    runtime.pump_free_running(8, 1'000);
+    runtime.runner().pump_free_running(8, 1'000);
   }
 }
 
@@ -68,13 +68,13 @@ int main() {
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature reporting");
-    (void)runtime.read_serial();
+    (void)runtime.io().read_serial();
 
-    runtime.set_temperature(sim::TemperatureSensor::Spindle, 42.0);
+    runtime.inputs().set_temperature(sim::TemperatureSensor::Spindle, 42.0);
     pump_temperature(runtime);
-    runtime.write_serial("M105\n");
-    require(runtime.run_until_idle(20'000), "M105 should be handled without queued motion");
-    require_contains(runtime.read_serial(), "M:42.", "M105 should report the spindle thermistor through firmware");
+    runtime.io().write_serial("M105\n");
+    require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M105 should be handled without queued motion");
+    require_contains(runtime.io().read_serial(), "M:42.", "M105 should report the spindle thermistor through firmware");
   }
 
   {
@@ -87,18 +87,18 @@ int main() {
                            "temperature_control.power.max_temp 90\n"
                            "temperature_control.power.get_m_code 106\n"
                            "temperature_control.power.designator P\n"));
-    sim::test::BootedRuntime booted(sd.persistent_config(),
-                                    sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0});
+    sim::test::BootedRuntime booted(sd.persistent_config(), sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0});
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before power temperature reporting");
-    (void)runtime.read_serial();
+    (void)runtime.io().read_serial();
 
-    runtime.set_temperature(sim::TemperatureSensor::Power, 45.0);
+    runtime.inputs().set_temperature(sim::TemperatureSensor::Power, 45.0);
     pump_temperature(runtime);
-    runtime.write_serial("M106\n");
-    require(runtime.run_until_idle(20'000), "M106 should be handled without queued motion");
-    require_contains(runtime.read_serial(), "P:45.", "M106 should report the CA1 power thermistor through firmware");
+    runtime.io().write_serial("M106\n");
+    require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M106 should be handled without queued motion");
+    require_contains(runtime.io().read_serial(), "P:45.",
+                     "M106 should report the CA1 power thermistor through firmware");
   }
 
   return 0;

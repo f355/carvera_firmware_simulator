@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "libs/Kernel.h"
+#include "sim/physical_scene.hpp"
 #include "sim/simulation_instance.hpp"
 
 #include "cartesian_config.hpp"
@@ -41,6 +42,7 @@ class ProbeRuntime {
   }
 
   MachineSimulator& simulator() { return simulation_.machine(); }
+  PhysicalScene& world() { return simulation_.world(); }
   FirmwareRuntime& runtime() { return simulation_.firmware(); }
   Kernel& kernel() { return *kernel_; }
 

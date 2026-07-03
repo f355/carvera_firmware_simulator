@@ -88,7 +88,7 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
-  const auto boot_output = runtime.read_serial();
+  const auto boot_output = runtime.io().read_serial();
   require_contains(boot_output, "version =", "runtime boot should mirror the firmware startup version print");
   require(kernel.is_grbl_mode(), "simulator firmware target should follow the CNC firmware build's GRBL mode default");
   require(MAX_ROBOT_ACTUATORS == 5, "simulator firmware target should follow build/build.sh AXIS=5");
@@ -99,8 +99,8 @@ int main() {
   require(kernel.config->value(get_checksum("sd_ok"))->as_bool(false),
           "runtime config should represent a present simulator SD card through sd_ok");
 
-  runtime.write_serial("M23 runtime-player\nM24\n");
-  runtime.run_main_loop(8);
+  runtime.io().write_serial("M23 runtime-player\nM24\n");
+  runtime.runner().run_main_loop(8);
   void* progress_storage = nullptr;
   require(PublicData::get_value(player_checksum, get_progress_checksum, &progress_storage),
           "free-running runtime should load real Player");
@@ -109,9 +109,9 @@ int main() {
   require(PublicData::get_value(laser_checksum, get_laser_status_checksum, &laser),
           "free-running runtime should load real Laser");
 
-  runtime.write_serial("M321.2\nM323\n");
-  runtime.run_until_idle(50'000);
-  auto laser_output = runtime.read_serial();
+  runtime.io().write_serial("M321.2\nM323\n");
+  runtime.runner().run_until_motion_idle(50'000);
+  auto laser_output = runtime.io().read_serial();
   laser = {};
   require(PublicData::get_value(laser_checksum, get_laser_status_checksum, &laser),
           "runtime Laser status should remain available after mode commands");
@@ -120,9 +120,9 @@ int main() {
     return 1;
   }
 
-  runtime.write_serial("M322.2\n");
-  runtime.run_until_idle(50'000);
-  laser_output = runtime.read_serial();
+  runtime.io().write_serial("M322.2\n");
+  runtime.runner().run_until_motion_idle(50'000);
+  laser_output = runtime.io().read_serial();
   laser = {};
   require(PublicData::get_value(laser_checksum, get_laser_status_checksum, &laser),
           "runtime Laser status should remain available after returning to CNC mode");
@@ -131,9 +131,9 @@ int main() {
     return 1;
   }
 
-  runtime.write_serial("M3 S6000\n");
-  runtime.run_until_idle(50'000);
-  const auto spindle_output = runtime.read_serial();
+  runtime.io().write_serial("M3 S6000\n");
+  runtime.runner().run_until_motion_idle(50'000);
+  const auto spindle_output = runtime.io().read_serial();
   spindle_status spindle{};
   require(PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &spindle),
           "free-running runtime should load the real PWM spindle");
@@ -144,7 +144,7 @@ int main() {
 
   for (int i = 0; i < 5'000; ++i) {
     simulator.advance_us(1'000);
-    runtime.pump_free_running(1, 100);
+    runtime.runner().pump_free_running(1, 100);
   }
   spindle = {};
   require(PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &spindle),

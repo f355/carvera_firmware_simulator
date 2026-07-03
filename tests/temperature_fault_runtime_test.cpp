@@ -35,7 +35,7 @@ void require(bool condition, const char* message) {
 
 void pump_temperature_ticks(sim::FirmwareRuntime& runtime) {
   for (int i = 0; i < 120 && !runtime.boot().is_halted(); ++i) {
-    runtime.pump_free_running(8, 1'000);
+    runtime.runner().pump_free_running(8, 1'000);
   }
 }
 
@@ -76,13 +76,13 @@ int main() {
     auto& kernel = runtime.boot();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature fault injection");
 
-    runtime.set_temperature(sim::TemperatureSensor::Spindle, 80.0);
+    runtime.inputs().set_temperature(sim::TemperatureSensor::Spindle, 80.0);
     pump_temperature_ticks(runtime);
 
     require(kernel.is_halted(), "spindle over-temperature should halt through real TemperatureControl");
     require(kernel.get_halt_reason() == SPINDLE_OVERHEATED,
             "spindle over-temperature should report the firmware spindle fault reason");
-    require(runtime.read_serial().find("Spindle overheated") != std::string::npos,
+    require(runtime.io().read_serial().find("Spindle overheated") != std::string::npos,
             "spindle over-temperature should print the firmware error");
   }
 
@@ -96,13 +96,13 @@ int main() {
     auto& kernel = runtime.boot();
     require(!kernel.is_halted(), "runtime should boot before power temperature fault injection");
 
-    runtime.set_temperature(sim::TemperatureSensor::Power, 80.0);
+    runtime.inputs().set_temperature(sim::TemperatureSensor::Power, 80.0);
     pump_temperature_ticks(runtime);
 
     require(kernel.is_halted(), "power-cabinet over-temperature should halt through real TemperatureControl");
     require(kernel.get_halt_reason() == POWER_OVERHEATED,
             "power-cabinet over-temperature should report the firmware power fault reason");
-    require(runtime.read_serial().find("Power cabinet overheated") != std::string::npos,
+    require(runtime.io().read_serial().find("Power cabinet overheated") != std::string::npos,
             "power-cabinet over-temperature should print the firmware error");
   }
 

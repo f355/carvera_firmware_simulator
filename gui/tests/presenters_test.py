@@ -19,9 +19,9 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
-from gui.app_actions import AppActions
 from gui.app_view import AppView
 from gui.core.gui_state import GuiStateStore
+from gui.presenters.app import AppPresenters
 from gui.presenters.appearance import AppearancePresenter
 from gui.presenters.physical import PhysicalPresenter
 from gui.presenters.service import ServicePresenter
@@ -116,8 +116,8 @@ class FakeClient:
         _ = multiplier
 
 
-def test_app_actions_is_composed_from_feature_presenters() -> None:
-    actions = AppActions(SimpleNamespace())  # type: ignore[arg-type]
+def test_app_presenters_is_composed_from_features() -> None:
+    actions = AppPresenters(SimpleNamespace())  # type: ignore[arg-type]
     assert isinstance(actions.state, StatePresenter)
     assert isinstance(actions.tooling, ToolingPresenter)
     assert isinstance(actions.physical, PhysicalPresenter)
@@ -148,7 +148,7 @@ def test_drain_telemetry_updates_scene_while_powering_on() -> None:
         tool_setter=None,
     )
     session = SimpleNamespace(state_store=store, telemetry_buffer=FakeStateBuffer(telemetry))
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     axis_panel = FakeAxisPanel()
     machine_scene = FakeMachineScene()
     view = AppView()
@@ -178,7 +178,7 @@ def test_drain_snapshot_updates_full_firmware_state_and_scene() -> None:
         tool_setter=None,
     )
     session = SimpleNamespace(state_store=store, snapshot_buffer=FakeStateBuffer(snapshot))
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     firmware_view = make_firmware_state_view()
     machine_scene = FakeMachineScene()
     view = AppView()
@@ -212,7 +212,7 @@ def test_drain_snapshot_updates_during_power_transition() -> None:
         tool_setter=None,
     )
     session = SimpleNamespace(state_store=store, snapshot_buffer=FakeStateBuffer(snapshot))
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     view = AppView()
     view.firmware_state_view = cast(Any, make_firmware_state_view())
     view.machine_scene_view = cast(Any, FakeMachineScene())
@@ -237,7 +237,7 @@ def test_drain_snapshot_does_not_advance_cursor_while_offline() -> None:
     )
     buffer = FakeStateBuffer(snapshot)
     session = SimpleNamespace(state_store=store, snapshot_buffer=buffer)
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     view = AppView()
     view.firmware_state_view = cast(Any, make_firmware_state_view())
 
@@ -269,7 +269,7 @@ def test_restore_view_applies_running_machine_state_to_new_page() -> None:
     store.set_online(transport=transport, machine_model="ca1")
     store.set_machine_state(state)
     session = SimpleNamespace(state_store=store)
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     firmware_view = make_firmware_state_view()
     axis_panel = FakeAxisPanel()
     machine_scene = FakeMachineScene()
@@ -309,7 +309,7 @@ def test_realtime_speed_changed_sends_selected_multiplier() -> None:
         process_controller=process_controller,
         client=client,
     )
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(5.0))  # type: ignore[assignment]
 
@@ -324,7 +324,7 @@ def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> 
     process_controller = FakeProcessController()
     client = FakeClient()
     session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(1.0))  # type: ignore[assignment]
 
@@ -339,7 +339,7 @@ def test_realtime_speed_changed_clamps_to_gui_cap() -> None:
     process_controller = FakeProcessController()
     client = FakeClient()
     session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
-    actions = AppActions(session)  # type: ignore[arg-type]
+    actions = AppPresenters(session)  # type: ignore[arg-type]
     speed_control = FakeControl(1.0)
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=speed_control)  # type: ignore[assignment]

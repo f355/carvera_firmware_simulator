@@ -55,10 +55,10 @@ sim::RuntimePumpOptions button_scan_options() {
 
 void press_front_button(sim::FirmwareRuntime& runtime) {
   const auto options = button_scan_options();
-  runtime.set_main_button_pressed(true);
-  runtime.pump(options);
-  runtime.set_main_button_pressed(false);
-  runtime.pump(options);
+  runtime.inputs().set_main_button_pressed(true);
+  runtime.runner().pump(options);
+  runtime.inputs().set_main_button_pressed(false);
+  runtime.runner().pump(options);
 }
 
 }  // namespace
@@ -75,13 +75,13 @@ int main() {
   (void)runtime.boot();
   require(runtime.is_homed(), "CA1 manual tool-change test should start from a homed machine");
 
-  runtime.write_serial("M6 T2\n");
+  runtime.io().write_serial("M6 T2\n");
   std::string serial;
   for (int i = 0; i < 120 && (serial.find("Please change the tool to: T2") == std::string::npos ||
                               !runtime.boot().is_tool_waiting());
        ++i) {
-    runtime.pump_free_running(8, 100'000);
-    serial += runtime.read_serial();
+    runtime.runner().pump_free_running(8, 100'000);
+    serial += runtime.io().read_serial();
   }
   if (serial.find("Please change the tool to: T2") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -98,8 +98,8 @@ int main() {
   require(!runtime.boot().is_tool_waiting(), "front button should confirm CA1 manual tool change waiting state");
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
-    runtime.pump_free_running(8, 100'000);
-    serial += runtime.read_serial();
+    runtime.runner().pump_free_running(8, 100'000);
+    serial += runtime.io().read_serial();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';

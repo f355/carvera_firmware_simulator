@@ -94,13 +94,13 @@ void require(bool condition, const char* message) {
 MeasuredMove measure_mid_move(sim::FirmwareRuntime& runtime, sim::MachineSimulator& simulator, double start_x,
                               double end_x) {
   while (simulator.axis_position_mm(0) > start_x) {
-    runtime.pump_free_running(4, 1'000);
+    runtime.runner().pump_free_running(4, 1'000);
   }
   const auto started = std::chrono::steady_clock::now();
   const double measured_start_x = simulator.axis_position_mm(0);
   const double measured_start_y = simulator.axis_position_mm(1);
   while (simulator.axis_position_mm(0) > end_x) {
-    runtime.pump_free_running(4, 1'000);
+    runtime.runner().pump_free_running(4, 1'000);
   }
   const auto ended = std::chrono::steady_clock::now();
   const double measured_end_x = simulator.axis_position_mm(0);
@@ -125,10 +125,10 @@ MeasuredMove run_long_diagonal(double realtime_speed) {
 
   simulator.start_realtime();
   require(simulator.set_realtime_speed(realtime_speed), "test realtime speed should be accepted");
-  runtime.write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
+  runtime.io().write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
 
   auto result = measure_mid_move(runtime, simulator, -52.0, -152.0);
-  runtime.run_until_idle(400'000);
+  runtime.runner().run_until_motion_idle(400'000);
   return result;
 }
 
@@ -146,14 +146,14 @@ MeasuredMove run_long_diagonal_after_mid_move_speed_change() {
 
   simulator.start_realtime();
   require(simulator.set_realtime_speed(1.0), "1x realtime speed should be accepted");
-  runtime.write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
+  runtime.io().write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
   while (simulator.axis_position_mm(0) > -52.0) {
-    runtime.pump_free_running(4, 1'000);
+    runtime.runner().pump_free_running(4, 1'000);
   }
   require(simulator.set_realtime_speed(4.0), "mid-move realtime speed should be accepted");
 
   auto result = measure_mid_move(runtime, simulator, -62.0, -162.0);
-  runtime.run_until_idle(400'000);
+  runtime.runner().run_until_motion_idle(400'000);
   return result;
 }
 

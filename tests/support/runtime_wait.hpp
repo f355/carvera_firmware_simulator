@@ -21,8 +21,8 @@
 #include <cmath>
 #include <cstddef>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/runtime_pump.hpp"
 
 #include "libs/Kernel.h"
 
@@ -35,25 +35,25 @@ struct RuntimeWaitBudget {
 };
 
 template <typename Predicate>
-bool pump_until(FirmwareRuntime& runtime, Predicate predicate, RuntimeWaitBudget budget = {}) {
+bool pump_until(RuntimePump& runner, Predicate predicate, RuntimeWaitBudget budget = {}) {
   for (int i = 0; i < budget.attempts; ++i) {
     if (predicate()) {
       return true;
     }
-    runtime.pump_free_running(budget.main_loop_iterations, budget.max_step_ticks);
+    runner.pump_free_running(budget.main_loop_iterations, budget.max_step_ticks);
   }
   return predicate();
 }
 
-inline bool pump_until_halted(FirmwareRuntime& runtime, Kernel& kernel, RuntimeWaitBudget budget = {}) {
-  return pump_until(runtime, [&kernel] { return kernel.is_halted(); }, budget);
+inline bool pump_until_halted(RuntimePump& runner, Kernel& kernel, RuntimeWaitBudget budget = {}) {
+  return pump_until(runner, [&kernel] { return kernel.is_halted(); }, budget);
 }
 
-inline bool pump_until_axis_moves_by(FirmwareRuntime& runtime, MachineSimulator& simulator, Kernel& kernel,
-                                     std::size_t axis, double delta_mm, RuntimeWaitBudget budget = {}) {
+inline bool pump_until_axis_moves_by(RuntimePump& runner, MachineSimulator& simulator, Kernel& kernel, std::size_t axis,
+                                     double delta_mm, RuntimeWaitBudget budget = {}) {
   const double start_position = simulator.axis_position_mm(axis);
   return pump_until(
-             runtime,
+             runner,
              [&simulator, &kernel, axis, start_position, delta_mm] {
                return kernel.is_halted() || std::abs(simulator.axis_position_mm(axis) - start_position) >= delta_mm;
              },

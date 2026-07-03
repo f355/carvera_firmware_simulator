@@ -21,6 +21,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -31,11 +32,11 @@
 
 namespace sim {
 
-class FirmwareRuntime;
+class RuntimeIo;
 
 class VirtualComPort {
  public:
-  explicit VirtualComPort(FirmwareRuntime& runtime);
+  explicit VirtualComPort(RuntimeIo& io);
   ~VirtualComPort();
 
   bool start();
@@ -50,7 +51,7 @@ class VirtualComPort {
  private:
   void service_io_locked();
 
-  FirmwareRuntime& runtime_;
+  RuntimeIo& runtime_io_;
   std::string device_path_;
   NonblockingFdPump io_;
   BackgroundPoller worker_;
@@ -59,7 +60,9 @@ class VirtualComPort {
 
 class LocalhostTcpBridge {
  public:
-  explicit LocalhostTcpBridge(FirmwareRuntime& runtime);
+  using UploadingQuery = std::function<bool()>;
+
+  LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading);
   ~LocalhostTcpBridge();
 
   bool start(std::uint16_t requested_port);
@@ -83,7 +86,8 @@ class LocalhostTcpBridge {
   void update_firmware_connection_state(bool connected);
   std::string take_pending_firmware_input(Client& client, bool firmware_uploading) const;
 
-  FirmwareRuntime& runtime_;
+  RuntimeIo& runtime_io_;
+  UploadingQuery uploading_;
   platform_io::IoHandle listen_fd_{platform_io::kInvalidHandle};
   std::vector<Client> clients_;
   std::uint16_t port_{0};

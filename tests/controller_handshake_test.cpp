@@ -69,7 +69,7 @@ int main() {
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   runtime.boot();
-  sim::LocalhostTcpBridge bridge(runtime);
+  sim::LocalhostTcpBridge bridge(runtime.io(), [&runtime]() { return runtime.is_uploading(); });
   require(bridge.start(0), "localhost WiFi bridge should start");
 
   std::atomic_bool running{true};
@@ -78,7 +78,7 @@ int main() {
       bridge.poll();
       {
         sim::delay_hooks::ScopedCallback delay_io_pump([&] { bridge.poll(); });
-        runtime.pump_free_running();
+        runtime.runner().pump_free_running();
       }
       bridge.poll();
       std::this_thread::sleep_for(std::chrono::milliseconds(1));

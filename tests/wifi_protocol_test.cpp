@@ -44,11 +44,11 @@ int main() {
   require(wifi.udp_listen_port() == 4444, "real WifiProvider should configure the simulated M8266 UDP listener");
 
   wifi.connect_tcp_client();
-  runtime.write_wifi_tcp("?\n");
+  runtime.io().write_wifi_tcp("?\n");
   std::string response;
   for (int i = 0; i < 20 && response.empty(); ++i) {
-    runtime.pump_free_running();
-    response += runtime.read_wifi_tcp();
+    runtime.runner().pump_free_running();
+    response += runtime.io().read_wifi_tcp();
   }
 
   require(response.find("<") != std::string::npos, "WiFi TCP should return firmware status through M8266 send APIs");

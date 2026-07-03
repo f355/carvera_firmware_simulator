@@ -22,9 +22,7 @@ from gui.presenters.state import StatePresenter
 from gui.presenters.tooling import ToolingPresenter
 
 
-class AppActions:
-    """Feature presenter bundle shared by all GUI pages."""
-
+class AppPresenters:
     def __init__(self, session: SimulatorSession) -> None:
         self.state = StatePresenter(session)
         self.tooling = ToolingPresenter(session)

@@ -21,10 +21,13 @@
 #include <cmath>
 #include <sstream>
 #include <string_view>
+#include <utility>
 
 #include "sim/delay_hooks.hpp"
-#include "sim/firmware_runtime.hpp"
 #include "sim/logging.hpp"
+#include "sim/machine_simulator.hpp"
+#include "sim/runtime_io.hpp"
+#include "sim/runtime_pump.hpp"
 
 namespace {
 
@@ -72,14 +75,16 @@ std::size_t free_running_batches(double realtime_speed) {
 
 namespace sim {
 
-InteractiveTransportManager::InteractiveTransportManager(FirmwareRuntime& firmware) : firmware_(firmware) {}
+InteractiveTransportManager::InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine,
+                                                         UploadingQuery uploading)
+    : runtime_io_(io), runner_(runner), machine_(machine), uploading_(std::move(uploading)) {}
 
 InteractiveTransportStartResult InteractiveTransportManager::start(
     const carvera::sim::v1::StartInteractiveTransport& command) {
   traffic_logging_ = command.log_traffic();
 
   if (command.enable_uart() && !uart_) {
-    auto uart = std::make_unique<VirtualComPort>(firmware_);
+    auto uart = std::make_unique<VirtualComPort>(runtime_io_);
     if (uart->supported() && !uart->start()) {
       return start_error("failed to start virtual COM port");
     }
@@ -93,7 +98,7 @@ InteractiveTransportStartResult InteractiveTransportManager::start(
       if (requested_port > 0xffff) {
         return start_error("TCP port must fit in uint16");
       }
-      auto bridge = std::make_unique<LocalhostTcpBridge>(firmware_);
+      auto bridge = std::make_unique<LocalhostTcpBridge>(runtime_io_, uploading_);
       if (!bridge->start(static_cast<std::uint16_t>(requested_port))) {
         return start_error("failed to start localhost TCP bridge");
       }
@@ -145,12 +150,12 @@ void InteractiveTransportManager::pump() {
       log_traffic("wifi", "rx", bridge->poll_input());
     }
 
-    const auto uart_output = firmware_.read_serial();
+    const auto uart_output = runtime_io_.read_serial();
     if (uart_) {
       log_traffic("uart", "tx", uart_output);
       uart_->write_output(uart_output);
     }
-    const auto wifi_output = firmware_.read_wifi_tcp();
+    const auto wifi_output = runtime_io_.read_wifi_tcp();
     for (auto& bridge : tcp_bridges_) {
       log_traffic("wifi", "tx", wifi_output);
       bridge->write_output(wifi_output);
@@ -167,9 +172,9 @@ void InteractiveTransportManager::pump() {
 
   {
     delay_hooks::ScopedCallback delay_io_pump(pump_transport_io);
-    const auto batches = free_running_batches(firmware_.realtime_speed());
+    const auto batches = free_running_batches(machine_.realtime_speed());
     for (std::size_t batch = 0; batch < batches; ++batch) {
-      firmware_.pump_free_running(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
+      runner_.pump_free_running(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
       pump_transport_io();
       relay_wifi_discovery();
       discovery_beacon_.poll();
@@ -187,13 +192,13 @@ void InteractiveTransportManager::relay_wifi_discovery() {
   }
 
   const auto tcp_port = tcp_bridges_.front()->port();
-  for (const auto& firmware_payload : firmware_.take_wifi_udp_datagrams()) {
+  for (const auto& firmware_payload : runtime_io_.take_wifi_udp_datagrams()) {
     discovery_beacon_.publish(localhost_discovery_payload(firmware_payload, tcp_port));
   }
 }
 
 void InteractiveTransportManager::fill(carvera::sim::v1::InteractiveTransport& transport) const {
-  VirtualComPort support_probe(firmware_);
+  VirtualComPort support_probe(runtime_io_);
   transport.set_uart_supported(support_probe.supported());
   if (uart_) {
     transport.set_uart_path(uart_->device_path());

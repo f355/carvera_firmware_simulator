@@ -32,28 +32,28 @@ int main() {
 
   require(runtime.is_homed(), "runtime should home before stock Z probe crash test");
   simulator.context().physical_scene().set_spindle_tool(0, 50.0, true, sim::ToolKind::StockZProbe, 1.6);
-  runtime.run_main_loop(4);
+  runtime.runner().run_main_loop(4);
 
   const double current_x = simulator.axis_position_mm(0);
   const double current_y = simulator.axis_position_mm(1);
   const double tip_z = simulator.axis_position_mm(2) - 30.0;
-  runtime.set_stock_box(
+  probe.world().set_stock_box(
       sim::Box{current_x - 14.0, current_y - 5.0, tip_z - 5.0, current_x - 4.0, current_y + 5.0, tip_z + 5.0});
 
-  runtime.write_serial("G91\nG0 X-10 F60\n");
+  runtime.io().write_serial("G91\nG0 X-10 F60\n");
   std::string serial;
-  const bool halted = sim::test::pump_until(runtime, [&] {
-    serial += runtime.read_serial();
+  const bool halted = sim::test::pump_until(runtime.runner(), [&] {
+    serial += runtime.io().read_serial();
     return kernel.is_halted();
   });
-  serial += runtime.read_serial();
+  serial += runtime.io().read_serial();
 
   require(halted, "stock Z probe side contact should halt through a simulated motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_X, "stock Z probe side contact in X should report MOTOR_ERROR_X");
-  require(runtime.motor_alarm(0), "stock Z probe side contact should drive the X motor alarm input");
+  require(runtime.inputs().motor_alarm(0), "stock Z probe side contact should drive the X motor alarm input");
   require(serial.find("3D Probe crash detected") == std::string::npos,
           "stock Z probe side contact should not masquerade as a 3-axis probe signal");
-  require(!runtime.probe_inputs().first, "stock Z probe side contact should not assert the probe input");
+  require(!runtime.inputs().probe_inputs().first, "stock Z probe side contact should not assert the probe input");
 
   return 0;
 }

@@ -28,7 +28,9 @@
 
 namespace sim {
 
-class FirmwareRuntime;
+class MachineSimulator;
+class RuntimeIo;
+class RuntimePump;
 
 struct InteractiveTransportStartResult {
   bool ok{true};
@@ -39,8 +41,9 @@ struct InteractiveTransportStartResult {
 class InteractiveTransportManager {
  public:
   using AuxiliaryPump = std::function<void()>;
+  using UploadingQuery = std::function<bool()>;
 
-  explicit InteractiveTransportManager(FirmwareRuntime& firmware);
+  InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine, UploadingQuery uploading);
 
   InteractiveTransportStartResult start(const carvera::sim::v1::StartInteractiveTransport& command);
   void stop();
@@ -53,7 +56,10 @@ class InteractiveTransportManager {
   void relay_wifi_discovery();
   void log_traffic(const char* channel, const char* direction, const std::string& bytes) const;
 
-  FirmwareRuntime& firmware_;
+  RuntimeIo& runtime_io_;
+  RuntimePump& runner_;
+  MachineSimulator& machine_;
+  UploadingQuery uploading_;
   std::unique_ptr<VirtualComPort> uart_;
   std::vector<std::unique_ptr<LocalhostTcpBridge>> tcp_bridges_;
   LocalhostDiscoveryBeacon discovery_beacon_;

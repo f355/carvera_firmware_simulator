@@ -63,7 +63,7 @@ int main() {
   auto& runtime = simulation.firmware();
   runtime.boot();
 
-  sim::VirtualComPort uart(runtime);
+  sim::VirtualComPort uart(runtime.io());
   require(uart.start(), "virtual COM port should start on POSIX");
   require(!uart.device_path().empty(), "virtual COM port should expose a device path");
   const auto initial_serial_x_steps = simulator.axis_position_steps(0);
@@ -77,7 +77,7 @@ int main() {
   std::string serial_output;
   auto pump_serial = [&] {
     uart.poll();
-    runtime.pump_free_running();
+    runtime.runner().pump_free_running();
     uart.poll();
     serial_output += sim::test::read_available(serial_fd, 256);
   };
@@ -96,7 +96,7 @@ int main() {
   auto& tcp_simulator = tcp_simulation.machine();
   auto& tcp_runtime = tcp_simulation.firmware();
   tcp_runtime.boot();
-  sim::LocalhostTcpBridge wifi(tcp_runtime);
+  sim::LocalhostTcpBridge wifi(tcp_runtime.io(), [&tcp_runtime]() { return tcp_runtime.is_uploading(); });
   require(wifi.start(0), "localhost WiFi bridge should start on an ephemeral port");
   require(wifi.port() != 0, "localhost WiFi bridge should report the bound port");
   const auto initial_tcp_x_steps = tcp_simulator.axis_position_steps(0);
@@ -111,7 +111,7 @@ int main() {
   std::string tcp_output;
   auto pump_tcp = [&] {
     wifi.poll();
-    tcp_runtime.pump_free_running();
+    tcp_runtime.runner().pump_free_running();
     wifi.poll();
     tcp_output += sim::test::read_available(client, 256);
   };
@@ -129,7 +129,8 @@ int main() {
   sim::SimulationInstance backlog_simulation;
   auto& backlog_runtime = backlog_simulation.firmware();
   backlog_runtime.boot();
-  sim::LocalhostTcpBridge backlog_wifi(backlog_runtime);
+  sim::LocalhostTcpBridge backlog_wifi(backlog_runtime.io(),
+                                       [&backlog_runtime]() { return backlog_runtime.is_uploading(); });
   require(backlog_wifi.start(0), "backlog WiFi bridge should start");
 
   int backlog_client = -1;

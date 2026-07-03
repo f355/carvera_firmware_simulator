@@ -19,8 +19,8 @@
 
 #include <utility>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/platform_io.hpp"
+#include "sim/runtime_io.hpp"
 
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -74,7 +74,8 @@ std::string LocalhostTcpBridge::take_pending_firmware_input(Client& client, bool
   return bytes;
 }
 
-LocalhostTcpBridge::LocalhostTcpBridge(FirmwareRuntime& runtime) : runtime_(runtime) {}
+LocalhostTcpBridge::LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading)
+    : runtime_io_(io), uploading_(std::move(uploading)) {}
 
 LocalhostTcpBridge::~LocalhostTcpBridge() { stop(); }
 
@@ -138,7 +139,7 @@ void LocalhostTcpBridge::stop() {
 
 void LocalhostTcpBridge::poll() {
   poll_input();
-  write_output(runtime_.read_wifi_tcp());
+  write_output(runtime_io_.read_wifi_tcp());
 }
 
 std::string LocalhostTcpBridge::poll_input() {
@@ -149,7 +150,7 @@ std::string LocalhostTcpBridge::poll_input() {
   std::string combined;
   std::string firmware_input;
   bool connected = false;
-  const bool firmware_uploading = runtime_.is_uploading();
+  const bool firmware_uploading = uploading_();
   {
     std::lock_guard<std::mutex> lock(mutex_);
     service_clients_locked();
@@ -165,7 +166,7 @@ std::string LocalhostTcpBridge::poll_input() {
   }
   update_firmware_connection_state(connected);
   if (!firmware_input.empty()) {
-    runtime_.write_wifi_tcp(firmware_input);
+    runtime_io_.write_wifi_tcp(firmware_input);
   }
   return combined;
 }
@@ -198,7 +199,7 @@ std::size_t LocalhostTcpBridge::queued_output_bytes() const {
 bool LocalhostTcpBridge::service_client_io_locked(Client& client) { return client.io.service(); }
 
 void LocalhostTcpBridge::update_firmware_connection_state(bool connected) {
-  runtime_.set_wifi_client_connected(connected);
+  runtime_io_.set_wifi_client_connected(connected);
 }
 
 void LocalhostTcpBridge::accept_pending_clients() {

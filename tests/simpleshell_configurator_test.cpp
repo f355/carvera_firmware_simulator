@@ -52,50 +52,50 @@ int main() {
   auto& runtime = simulation.firmware();
   runtime.boot();
 
-  runtime.write_serial("version\nmodel\ntime 1234567890\ntime\n");
-  runtime.run_main_loop(16);
-  auto serial = runtime.read_serial();
+  runtime.io().write_serial("version\nmodel\ntime 1234567890\ntime\n");
+  runtime.runner().run_main_loop(16);
+  auto serial = runtime.io().read_serial();
   require(std::regex_search(serial, std::regex(R"(version = [0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9\-_]*)")),
           "SimpleShell version should satisfy the controller's semantic-version parser");
   require_contains(serial, "model = C1", "SimpleShell model should keep the controller-visible model format");
   require_contains(serial, "time = 1234567890",
                    "SimpleShell time sync should persist through the simulator clock stub");
 
-  runtime.write_serial("config-get alpha_steps_per_mm\n");
-  runtime.run_main_loop(8);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("config-get alpha_steps_per_mm\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial();
   require_contains(serial, "cached: alpha_steps_per_mm is set to 200",
                    "real SimpleShell/Configurator should answer config-get through the serial console");
 
-  runtime.write_serial("config-set sd simulator.test_value 20\n");
-  runtime.run_main_loop(8);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("config-set sd simulator.test_value 20\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial();
   require_contains(serial, "sd: simulator.test_value has been set to 20",
                    "real Configurator should persist config-set to the host-backed SD config");
 
-  runtime.write_serial("config-get sd simulator.test_value\n");
-  runtime.run_main_loop(8);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("config-get sd simulator.test_value\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial();
   require_contains(serial, "sd: simulator.test_value is set to 20",
                    "real Configurator should read the updated value from the sd source");
 
-  runtime.write_serial("config-delete sd simulator.test_value\n");
-  runtime.run_main_loop(8);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("config-delete sd simulator.test_value\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial();
   require_contains(serial, "sd: simulator.test_value has been removed",
                    "real Configurator should remove values from the host-backed SD config");
 
-  runtime.write_serial("config-get sd simulator.test_value\n");
-  runtime.run_main_loop(8);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("config-get sd simulator.test_value\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial();
   require_contains(serial, "sd: simulator.test_value is not in config",
                    "real Configurator should report a deleted source value as missing");
 
   require((runtime.factory_settings().function_setting & 0x01) == 0,
           "test should start with the optional rotary A-axis factory flag disabled");
-  runtime.write_serial("enable_4th_hd\n");
-  runtime.run_main_loop(16);
-  serial = runtime.read_serial();
+  runtime.io().write_serial("enable_4th_hd\n");
+  runtime.runner().run_main_loop(16);
+  serial = runtime.io().read_serial();
   require_contains(serial, "successed! enalbe Harmonic Drive 4th Axis ok!",
                    "real SimpleShell should run the C1 harmonic-drive enable path");
   require((runtime.factory_settings().function_setting & 0x01) != 0,

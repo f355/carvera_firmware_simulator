@@ -26,13 +26,13 @@ SIMULATOR_ROOT = Path(__file__).resolve().parents[1]
 if str(SIMULATOR_ROOT) not in sys.path:
     sys.path.insert(0, str(SIMULATOR_ROOT))
 
-from gui.app_actions import AppActions  # noqa: E402
 from gui.app_page import build_ui_page  # noqa: E402
 from gui.core.session import SimulatorSession  # noqa: E402
+from gui.presenters.app import AppPresenters  # noqa: E402
 
 
 session = SimulatorSession.create(SIMULATOR_ROOT, app)
-actions = AppActions(session)
+actions = AppPresenters(session)
 
 
 @app.get("/healthz")

@@ -19,10 +19,10 @@ from typing import Any
 
 from nicegui import ui
 
-from gui.app_actions import AppActions
 from gui.app_view import AppView
 from gui.core.defaults import PWM_WATCHES, SWITCH_WATCHES
 from gui.core.session import SimulatorSession
+from gui.presenters.app import AppPresenters
 from gui.scene.lighting import configure_scene_lighting
 from gui.scene.machine_scene_view import MachineSceneView
 from gui.views.atc_tab import build_atc_tab
@@ -42,7 +42,7 @@ from gui.views.ui_helpers import event_value
 ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
 
 
-def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
+def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
     view = AppView()
     gui_state = session.state_store.snapshot()
     selected_model = gui_state.machine_model or session.args.model

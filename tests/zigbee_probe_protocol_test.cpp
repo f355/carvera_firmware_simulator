@@ -42,11 +42,12 @@ int main() {
   auto& runtime = simulation.firmware();
   runtime.boot();
 
-  runtime.run_main_loop(1);
-  require(runtime.read_wireless_probe_tx() == "Q", "SerialConsole2 should query the wireless probe over UART on boot");
+  runtime.runner().run_main_loop(1);
+  require(runtime.io().read_wireless_probe_tx() == "Q",
+          "SerialConsole2 should query the wireless probe over UART on boot");
 
-  runtime.write_wireless_probe_rx("V3.55\n");
-  runtime.run_main_loop(2);
+  runtime.io().write_wireless_probe_rx("V3.55\n");
+  runtime.runner().run_main_loop(2);
   float voltage = 0.0F;
   require(PublicData::get_value(atc_handler_checksum, get_wp_voltage_checksum, &voltage),
           "SerialConsole2 should publish wireless probe voltage through PublicData");
@@ -54,7 +55,7 @@ int main() {
 
   Gcode pair("M471", &StreamOutput::NullStream);
   Kernel::instance->call_event(ON_GCODE_RECEIVED, &pair);
-  require(runtime.read_wireless_probe_tx().find('P') != std::string::npos,
+  require(runtime.io().read_wireless_probe_tx().find('P') != std::string::npos,
           "M471 should send the wireless probe pairing command over the second UART");
 
   return 0;

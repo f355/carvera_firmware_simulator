@@ -35,27 +35,27 @@ int main() {
   auto& kernel = probe.kernel();
 
   require(runtime.is_homed(), "runtime should home before crash-detection motion");
-  runtime.write_serial("M493.2 T999999\n");
-  require(runtime.run_until_idle(100'000), "direct firmware tool-state command should run");
-  (void)runtime.read_serial();
+  runtime.io().write_serial("M493.2 T999999\n");
+  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
+  (void)runtime.io().read_serial();
   simulator.context().physical_scene().set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
-  runtime.run_main_loop(4);
+  runtime.runner().run_main_loop(4);
 
   const double current_x = simulator.axis_position_mm(0);
   const double current_y = simulator.axis_position_mm(1);
   const double spindle_face_z = simulator.axis_position_mm(2);
   const double tip_z = spindle_face_z - 30.0;
   const double stock_min_x = current_x + 4.0;
-  runtime.set_stock_box(
+  probe.world().set_stock_box(
       sim::Box{stock_min_x, current_y - 5.0, tip_z - 5.0, stock_min_x + 10.0, current_y + 5.0, tip_z + 5.0});
 
-  runtime.write_serial("G91\nG0 X10 F60\n");
+  runtime.io().write_serial("G91\nG0 X10 F60\n");
   std::string serial;
-  const bool halted = sim::test::pump_until(runtime, [&] {
-    serial += runtime.read_serial();
+  const bool halted = sim::test::pump_until(runtime.runner(), [&] {
+    serial += runtime.io().read_serial();
     return kernel.is_halted();
   });
-  serial += runtime.read_serial();
+  serial += runtime.io().read_serial();
 
   require(halted, "real ZProbe should halt firmware when a 3D probe contacts stock during normal motion");
   require(kernel.get_halt_reason() == CRASH_DETECTED,

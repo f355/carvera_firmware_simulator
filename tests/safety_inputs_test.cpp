@@ -44,10 +44,10 @@ void verify_cover_input(const char* test_name, sim::MachineModel model, const ch
   require(runtime.set_factory_settings({model, 2}), "test should configure requested factory model");
   runtime.boot();
 
-  runtime.set_cover_open(false);
-  require(!runtime.cover_open(), "configured cover input should report closed");
-  runtime.set_cover_open(true);
-  require(runtime.cover_open(), "configured cover input should report open");
+  runtime.inputs().set_cover_open(false);
+  require(!runtime.inputs().cover_open(), "configured cover input should report closed");
+  runtime.inputs().set_cover_open(true);
+  require(runtime.inputs().cover_open(), "configured cover input should report open");
 }
 
 }  // namespace
@@ -71,21 +71,21 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
-  runtime.set_cover_open(false);
-  require(!runtime.cover_open(), "configured inverted cover input should report closed");
-  runtime.set_cover_open(true);
-  require(runtime.cover_open(), "configured inverted cover input should report open");
+  runtime.inputs().set_cover_open(false);
+  require(!runtime.inputs().cover_open(), "configured inverted cover input should report closed");
+  runtime.inputs().set_cover_open(true);
+  require(runtime.inputs().cover_open(), "configured inverted cover input should report open");
 
-  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, false);
-  require(!runtime.limit_switch(0, sim::LimitSwitchSide::Max), "configured X max limit should start released");
-  runtime.set_limit_switch(0, sim::LimitSwitchSide::Max, true);
-  require(runtime.limit_switch(0, sim::LimitSwitchSide::Max),
+  runtime.inputs().set_limit_switch(0, sim::LimitSwitchSide::Max, false);
+  require(!runtime.inputs().limit_switch(0, sim::LimitSwitchSide::Max), "configured X max limit should start released");
+  runtime.inputs().set_limit_switch(0, sim::LimitSwitchSide::Max, true);
+  require(runtime.inputs().limit_switch(0, sim::LimitSwitchSide::Max),
           "configured X max limit should read through the real endstop pin polarity");
 
-  require(!runtime.motor_alarm(0), "configured inverted X motor alarm should start inactive");
-  runtime.set_motor_alarm(0, true);
-  require(runtime.motor_alarm(0), "configured inverted X motor alarm should report triggered");
-  runtime.run_main_loop(1);
+  require(!runtime.inputs().motor_alarm(0), "configured inverted X motor alarm should start inactive");
+  runtime.inputs().set_motor_alarm(0, true);
+  require(runtime.inputs().motor_alarm(0), "configured inverted X motor alarm should report triggered");
+  runtime.runner().run_main_loop(1);
   require(kernel.is_halted(), "real Endstops should halt firmware on a triggered motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_X, "motor alarm should set the X motor error halt reason");
   return 0;

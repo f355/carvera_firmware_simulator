@@ -29,16 +29,16 @@ int main() {
   auto& kernel = probe.kernel();
 
   require(runtime.is_homed(), "runtime should home before probing");
-  runtime.set_probe_tool_installed(true);
+  probe.world().set_probe_tool_installed(true);
   const double current_x = simulator.axis_position_mm(0);
   const double current_y = simulator.axis_position_mm(1);
   const double target_z = simulator.axis_position_mm(2) - 1.0;
-  runtime.set_stock_box(
+  probe.world().set_stock_box(
       sim::Box{current_x - 5.0, current_y - 5.0, target_z - 0.25, current_x + 5.0, current_y + 5.0, target_z});
 
-  runtime.write_serial("G91\nG38.2 Z-10 F60\n");
-  require(runtime.run_until_idle(200'000), "G38.2 probe move should stop and reach idle");
-  const auto serial = runtime.read_serial();
+  runtime.io().write_serial("G91\nG38.2 Z-10 F60\n");
+  require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "G38.2 probe move should stop and reach idle");
+  const auto serial = runtime.io().read_serial();
   require(serial.find("[PRB:") != std::string::npos, "G38.2 should report a probed position");
   require(serial.find(":1]") != std::string::npos, "G38.2 should report probe success");
   require_near(simulator.axis_position_mm(2), target_z, 0.08,
