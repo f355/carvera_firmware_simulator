@@ -44,6 +44,7 @@ function(sim_add_test name link_target)
   add_executable(${name} tests/${name}.cpp)
   sim_force_include(${name} ${HOST_PRELUDE})
   target_link_libraries(${name} PRIVATE ${link_target})
+  sim_enable_test_diagnostics(${name})
   add_test(NAME ${name} COMMAND ${name})
   set(register_args)
   if(ARG_TIMEOUT)
@@ -136,18 +137,22 @@ target_compile_definitions(free_running_homing_test PRIVATE CARVERA_FIRMWARE_ROO
 add_executable(carvera_sim_stdio src/apps/sim_stdio_server.cpp)
 sim_force_include(carvera_sim_stdio ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_stdio PRIVATE carvera_sim_api)
+sim_enable_project_diagnostics(carvera_sim_stdio)
 
 add_executable(carvera_sim_stream_stdio src/apps/sim_stream_stdio_server.cpp)
 sim_force_include(carvera_sim_stream_stdio ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_stream_stdio PRIVATE carvera_sim_api)
+sim_enable_project_diagnostics(carvera_sim_stream_stdio)
 
 add_executable(carvera_sim_interactive src/apps/sim_interactive.cpp)
 sim_force_include(carvera_sim_interactive ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_interactive PRIVATE carvera_sim_api)
+sim_enable_project_diagnostics(carvera_sim_interactive)
 
 add_executable(stdio_api_test tests/stdio_api_test.cpp)
 sim_force_include(stdio_api_test ${HOST_PRELUDE})
 target_link_libraries(stdio_api_test PRIVATE carvera_sim_api)
+sim_enable_test_diagnostics(stdio_api_test)
 add_dependencies(stdio_api_test carvera_sim_stdio)
 add_test(NAME stdio_api_test COMMAND stdio_api_test $<TARGET_FILE:carvera_sim_stdio>)
 sim_register_test(stdio_api_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
@@ -155,6 +160,7 @@ sim_register_test(stdio_api_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS
 add_executable(stream_interactive_transport_test tests/stream_interactive_transport_test.cpp)
 sim_force_include(stream_interactive_transport_test ${HOST_PRELUDE})
 target_link_libraries(stream_interactive_transport_test PRIVATE carvera_sim_api)
+sim_enable_test_diagnostics(stream_interactive_transport_test)
 add_dependencies(stream_interactive_transport_test carvera_sim_stream_stdio)
 add_test(NAME stream_interactive_transport_test
   COMMAND stream_interactive_transport_test $<TARGET_FILE:carvera_sim_stream_stdio>)
@@ -163,6 +169,7 @@ sim_register_test(stream_interactive_transport_test TIMEOUT ${SIM_LONG_TEST_TIME
 add_executable(stream_startup_telemetry_test tests/stream_startup_telemetry_test.cpp)
 sim_force_include(stream_startup_telemetry_test ${HOST_PRELUDE})
 target_link_libraries(stream_startup_telemetry_test PRIVATE carvera_sim_api)
+sim_enable_test_diagnostics(stream_startup_telemetry_test)
 add_dependencies(stream_startup_telemetry_test carvera_sim_stream_stdio)
 add_test(NAME stream_startup_telemetry_test
   COMMAND stream_startup_telemetry_test $<TARGET_FILE:carvera_sim_stream_stdio>)
@@ -171,6 +178,7 @@ sim_register_test(stream_startup_telemetry_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_
 add_executable(stream_busy_control_test tests/stream_busy_control_test.cpp)
 sim_force_include(stream_busy_control_test ${HOST_PRELUDE})
 target_link_libraries(stream_busy_control_test PRIVATE carvera_sim_api)
+sim_enable_test_diagnostics(stream_busy_control_test)
 add_dependencies(stream_busy_control_test carvera_sim_stream_stdio)
 add_test(NAME stream_busy_control_test
   COMMAND stream_busy_control_test $<TARGET_FILE:carvera_sim_stream_stdio>)
@@ -179,31 +187,34 @@ sim_register_test(stream_busy_control_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECON
 add_executable(stream_player_realtime_speed_test tests/stream_player_realtime_speed_test.cpp)
 sim_force_include(stream_player_realtime_speed_test ${HOST_PRELUDE})
 target_link_libraries(stream_player_realtime_speed_test PRIVATE carvera_sim_api)
+sim_enable_test_diagnostics(stream_player_realtime_speed_test)
 add_dependencies(stream_player_realtime_speed_test carvera_sim_stream_stdio)
 add_test(NAME stream_player_realtime_speed_test
   COMMAND stream_player_realtime_speed_test $<TARGET_FILE:carvera_sim_stream_stdio>)
 sim_register_test(stream_player_realtime_speed_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
 set_tests_properties(stream_player_realtime_speed_test PROPERTIES RUN_SERIAL TRUE)
-configure_file(
-  ${FIRMWARE_SRC}/main.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/main.cpp
-  COPYONLY
+add_library(carvera_firmware_boot_main OBJECT tests/support/firmware_main_entry.cpp)
+target_include_directories(carvera_firmware_boot_main PRIVATE include)
+target_include_directories(carvera_firmware_boot_main SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_compile_definitions(carvera_firmware_boot_main PRIVATE
+  CHECKSUM_USE_CPP
+  CARVERA_FIRMWARE_MAIN="${FIRMWARE_SRC}/main.cpp"
+  main=firmware_main
+  NO_TOOLS_SCARACAL=1
+  NO_TOOLS_ROTARYDELTACALIBRATION=1
 )
-
-set(FIRMWARE_BOOT_MAIN ${CMAKE_CURRENT_BINARY_DIR}/generated/main.cpp)
+sim_force_include(carvera_firmware_boot_main ${HOST_PRELUDE})
+sim_enable_sanitizers(carvera_firmware_boot_main)
 
 add_executable(firmware_boot_test
   tests/firmware_boot_test.cpp
-  ${FIRMWARE_BOOT_MAIN}
+  $<TARGET_OBJECTS:carvera_firmware_boot_main>
 )
 sim_force_include(firmware_boot_test ${HOST_PRELUDE})
 target_link_libraries(firmware_boot_test PRIVATE carvera_firmware_sim)
+sim_enable_test_diagnostics(firmware_boot_test)
 add_test(NAME firmware_boot_test COMMAND firmware_boot_test)
 sim_register_test(firmware_boot_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
-set_source_files_properties(
-  ${FIRMWARE_BOOT_MAIN}
-  PROPERTIES COMPILE_DEFINITIONS "main=firmware_main;NO_TOOLS_SCARACAL=1;NO_TOOLS_ROTARYDELTACALIBRATION=1"
-)
 
 ProcessorCount(SIM_TEST_JOBS)
 if(SIM_TEST_JOBS EQUAL 0)

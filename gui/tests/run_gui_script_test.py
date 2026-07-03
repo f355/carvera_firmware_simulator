@@ -53,12 +53,14 @@ def test_cmake_uses_cxx20_and_cmake_protobuf_target() -> None:
         raise SystemExit("CMake should prefer the CMake Protobuf imported target")
 
 
-def test_firmware_sources_are_auto_detected_by_cmake() -> None:
+def test_firmware_sources_use_an_explicit_validated_manifest() -> None:
     sources = (ROOT / "cmake" / "FirmwareSources.cmake").read_text(encoding="utf-8")
-    if "file(GLOB _matches CONFIGURE_DEPENDS" not in sources:
-        raise SystemExit("firmware source inventory should auto-detect additions with CONFIGURE_DEPENDS globs")
-    if "sim_glob_firmware_sources(FIRMWARE_MODULE_SOURCES" not in sources:
-        raise SystemExit("firmware module source selection should live in one obvious CMake inventory")
+    if "set(CARVERA_FIRMWARE_SOURCES" not in sources:
+        raise SystemExit("firmware source selection should live in one explicit CMake manifest")
+    if "foreach(_firmware_source IN LISTS CARVERA_FIRMWARE_SOURCES)" not in sources:
+        raise SystemExit("CMake should validate every source in the pinned firmware manifest")
+    if "file(GLOB" in sources or "COPYONLY" in sources:
+        raise SystemExit("pinned firmware sources should be compiled directly, without globs or copied source files")
 
 
 def test_ci_runs_python_and_cpp_checks() -> None:

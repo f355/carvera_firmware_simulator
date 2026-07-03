@@ -27,45 +27,6 @@ configure_file(
   @ONLY
 )
 
-function(sim_copy_firmware_source source_relpath output_name)
-  configure_file(
-    ${FIRMWARE_SRC}/${source_relpath}
-    ${CMAKE_CURRENT_BINARY_DIR}/generated/${output_name}
-    COPYONLY
-  )
-endfunction()
-
-function(sim_glob_firmware_sources output_var)
-  set(_sources)
-  foreach(_pattern ${ARGN})
-    file(GLOB _matches CONFIGURE_DEPENDS "${FIRMWARE_SRC}/${_pattern}")
-    list(APPEND _sources ${_matches})
-  endforeach()
-  list(REMOVE_DUPLICATES _sources)
-  set(${output_var} ${_sources} PARENT_SCOPE)
-endfunction()
-
-set(SIM_COPIED_FIRMWARE_SOURCES
-  libs/Kernel.cpp:Kernel.cpp
-  modules/robot/Block.cpp:Block.cpp
-  modules/robot/Conveyor.cpp:Conveyor.cpp
-  modules/robot/Planner.cpp:Planner.cpp
-  modules/utils/player/Player.cpp:Player.cpp
-  modules/tools/atc/ATCHandler.cpp:ATCHandler.cpp
-  modules/tools/laser/Laser.cpp:Laser.cpp
-  modules/utils/mainbutton/MainButton.cpp:MainButton.cpp
-  modules/utils/simpleshell/SimpleShell.cpp:SimpleShell.cpp
-  modules/utils/wifi/WifiProvider.cpp:WifiProvider.cpp
-  modules/communication/SerialConsole2.cpp:SerialConsole2.cpp
-)
-
-foreach(_copy_spec ${SIM_COPIED_FIRMWARE_SOURCES})
-  string(REPLACE ":" ";" _copy_parts "${_copy_spec}")
-  list(GET _copy_parts 0 _copy_source)
-  list(GET _copy_parts 1 _copy_output)
-  sim_copy_firmware_source(${_copy_source} ${_copy_output})
-endforeach()
-
 set(SIM_FIRMWARE_FACADE_SOURCES
   src/firmware/firmware_boot_stubs.cpp
   src/firmware/firm_config_source.cpp
@@ -121,48 +82,73 @@ set(SIM_RUNTIME_SUPPORT_SOURCES
   src/runtime/runtime_temperature.cpp
 )
 
-set(SIM_GENERATED_FIRMWARE_SOURCES
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Kernel.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Block.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Conveyor.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Planner.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/MainButton.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Player.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/Laser.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/ATCHandler.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/WifiProvider.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/SerialConsole2.cpp
+# This manifest is intentionally explicit. The simulator is pinned to one
+# compatible firmware commit, so additions to the supported firmware surface
+# should be reviewed instead of silently entering the host build through a glob.
+set(CARVERA_FIRMWARE_SOURCES
+  ${FIRMWARE_SRC}/version.cpp
+  ${FIRMWARE_SRC}/libs/Adc.cpp
+  ${FIRMWARE_SRC}/libs/AppendFileStream.cpp
+  ${FIRMWARE_SRC}/libs/Config.cpp
+  ${FIRMWARE_SRC}/libs/ConfigCache.cpp
+  ${FIRMWARE_SRC}/libs/ConfigSource.cpp
+  ${FIRMWARE_SRC}/libs/ConfigValue.cpp
+  ${FIRMWARE_SRC}/libs/Hook.cpp
+  ${FIRMWARE_SRC}/libs/Kernel.cpp
+  ${FIRMWARE_SRC}/libs/Module.cpp
+  ${FIRMWARE_SRC}/libs/Pin.cpp
+  ${FIRMWARE_SRC}/libs/PublicData.cpp
+  ${FIRMWARE_SRC}/libs/Pwm.cpp
+  ${FIRMWARE_SRC}/libs/SlowTicker.cpp
+  ${FIRMWARE_SRC}/libs/SoftPWM.cpp
+  ${FIRMWARE_SRC}/libs/StepTicker.cpp
+  ${FIRMWARE_SRC}/libs/StepperMotor.cpp
+  ${FIRMWARE_SRC}/libs/StreamOutput.cpp
+  ${FIRMWARE_SRC}/libs/Watchdog.cpp
+  ${FIRMWARE_SRC}/libs/gpio.cpp
+  ${FIRMWARE_SRC}/libs/md5.cpp
+  ${FIRMWARE_SRC}/libs/ConfigSources/FileConfigSource.cpp
+  ${FIRMWARE_SRC}/modules/communication/GcodeDispatch.cpp
+  ${FIRMWARE_SRC}/modules/communication/SerialConsole.cpp
+  ${FIRMWARE_SRC}/modules/communication/SerialConsole2.cpp
+  ${FIRMWARE_SRC}/modules/communication/utils/Gcode.cpp
+  ${FIRMWARE_SRC}/modules/utils/configurator/Configurator.cpp
+  ${FIRMWARE_SRC}/modules/utils/mainbutton/MainButton.cpp
+  ${FIRMWARE_SRC}/modules/utils/player/OCodeHandler.cpp
+  ${FIRMWARE_SRC}/modules/utils/player/Player.cpp
+  ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
+  ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
+  ${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp
+  ${FIRMWARE_SRC}/modules/robot/Block.cpp
+  ${FIRMWARE_SRC}/modules/robot/BlockQueue.cpp
+  ${FIRMWARE_SRC}/modules/robot/Conveyor.cpp
+  ${FIRMWARE_SRC}/modules/robot/Planner.cpp
+  ${FIRMWARE_SRC}/modules/robot/Robot.cpp
+  ${FIRMWARE_SRC}/modules/robot/arm_solutions/CartesianSolution.cpp
+  ${FIRMWARE_SRC}/modules/tools/atc/ATCHandler.cpp
+  ${FIRMWARE_SRC}/modules/tools/endstops/Endstops.cpp
+  ${FIRMWARE_SRC}/modules/tools/laser/Laser.cpp
+  ${FIRMWARE_SRC}/modules/tools/spindle/AnalogSpindleControl.cpp
+  ${FIRMWARE_SRC}/modules/tools/spindle/PIDPWMSpindleControl.cpp
+  ${FIRMWARE_SRC}/modules/tools/spindle/PWMSpindleControl.cpp
+  ${FIRMWARE_SRC}/modules/tools/spindle/SpindleControl.cpp
+  ${FIRMWARE_SRC}/modules/tools/spindle/SpindleMaker.cpp
+  ${FIRMWARE_SRC}/modules/tools/switch/Switch.cpp
+  ${FIRMWARE_SRC}/modules/tools/switch/SwitchPool.cpp
+  ${FIRMWARE_SRC}/modules/tools/zprobe/CartGridStrategy.cpp
+  ${FIRMWARE_SRC}/modules/tools/zprobe/ZProbe.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/AD8495.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/PT100_E3D.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/TemperatureControl.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/TemperatureControlPool.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/Thermistor.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperaturecontrol/max31855.cpp
+  ${FIRMWARE_SRC}/modules/tools/temperatureswitch/TemperatureSwitch.cpp
+  ${FIRMWARE_SRC}/modules/tools/drillingcycles/Drillingcycles.cpp
 )
 
-sim_glob_firmware_sources(FIRMWARE_LIB_SOURCES
-  version.cpp
-  libs/*.cpp
-  libs/ConfigSources/FileConfigSource.cpp
-)
-list(FILTER FIRMWARE_LIB_SOURCES EXCLUDE REGEX "/libs/(Kernel|MRI_Hooks|FirmwareFileSystem|ahbmalloc|platform_memory|SDFAT|utils|Vector3|MemoryPool)\\.cpp$")
-
-# Auto-detect source additions in the firmware subsystems the stock C1/CA1
-# simulator actually links. Unsupported machine families and transports stay
-# excluded here on purpose.
-sim_glob_firmware_sources(FIRMWARE_MODULE_SOURCES
-  modules/communication/*.cpp
-  modules/communication/utils/*.cpp
-  modules/utils/configurator/*.cpp
-  modules/utils/player/*.[cC]*
-  modules/robot/*.cpp
-  modules/robot/arm_solutions/CartesianSolution.cpp
-  modules/tools/switch/*.cpp
-  modules/tools/endstops/*.cpp
-  modules/tools/spindle/*.cpp
-  modules/tools/zprobe/*.cpp
-  modules/tools/temperaturecontrol/*.cpp
-  modules/tools/temperatureswitch/*.cpp
-  modules/tools/drillingcycles/*.cpp
-)
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/communication/SerialConsole2\\.cpp$")
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/robot/(Block|Conveyor|Planner)\\.cpp$")
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/utils/player/Player\\.cpp$")
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/tools/spindle/(HuanyangSpindleControl|ModbusSpindleControl)\\.cpp$")
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/tools/zprobe/(DeltaCalibrationStrategy|DeltaGridStrategy|Plane3D|ThreePointStrategy)\\.cpp$")
-list(FILTER FIRMWARE_MODULE_SOURCES EXCLUDE REGEX "/modules/tools/temperaturecontrol/PID_Autotuner\\.cpp$")
+foreach(_firmware_source IN LISTS CARVERA_FIRMWARE_SOURCES)
+  if(NOT EXISTS "${_firmware_source}")
+    message(FATAL_ERROR "Pinned firmware source is missing: ${_firmware_source}")
+  endif()
+endforeach()

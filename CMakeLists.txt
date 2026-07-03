@@ -108,55 +108,9 @@ endif()
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 include(cmake/FirmwareSources.cmake)
+include(cmake/CompilerDiagnostics.cmake)
 
-add_library(carvera_firmware_sim
-  ${SIM_FIRMWARE_FACADE_SOURCES}
-  ${SIM_CORE_SOURCES}
-  ${SIM_PROTOCOL_SOURCES}
-  ${SIM_RUNTIME_SUPPORT_SOURCES}
-  ${SIM_GENERATED_FIRMWARE_SOURCES}
-  ${FIRMWARE_LIB_SOURCES}
-  ${FIRMWARE_MODULE_SOURCES}
-)
-
-add_library(carvera_sim_api
-  ${SIM_PROTO_SRCS}
-  src/protocol/api_conversions.cpp
-  src/protocol/api_harness_commands.cpp
-  src/protocol/api_lifecycle_commands.cpp
-  src/protocol/api_physical_commands.cpp
-  src/protocol/api_serial_motion_commands.cpp
-  src/protocol/api_snapshot.cpp
-  src/protocol/api_snapshot_transport_commands.cpp
-  src/protocol/discovery_beacon.cpp
-  src/protocol/interactive_transport_manager.cpp
-  src/protocol/localhost_tcp_bridge.cpp
-  src/protocol/machine_state_proto.cpp
-  src/protocol/nonblocking_fd_pump.cpp
-  src/protocol/api_service.cpp
-  src/protocol/framed_proto.cpp
-  src/protocol/platform_io.cpp
-  src/protocol/virtual_com_port.cpp
-  src/runtime/firmware_runtime.cpp
-  src/runtime/runtime_boot_session.cpp
-  src/runtime/runtime_io.cpp
-  src/runtime/runtime_physical_controls.cpp
-  src/runtime/runtime_pump.cpp
-)
-
-target_include_directories(carvera_sim_api PUBLIC
-  include
-  ${CMAKE_CURRENT_BINARY_DIR}
-  ${SIM_PROTOBUF_INCLUDE_DIRS}
-)
-
-target_link_libraries(carvera_sim_api PUBLIC
-  carvera_firmware_sim
-  ${SIM_PROTOBUF_LIBRARY}
-)
-
-target_include_directories(carvera_firmware_sim PUBLIC
-  include
+set(CARVERA_FIRMWARE_INCLUDE_DIRS
   ${CARVERA_FIRMWARE_ROOT}/mbed/src/capi
   ${FIRMWARE_SRC}
   ${FIRMWARE_SRC}/libs
@@ -183,21 +137,7 @@ target_include_directories(carvera_firmware_sim PUBLIC
   ${FIRMWARE_SRC}/modules/tools/drillingcycles
 )
 
-function(sim_force_include target_name)
-  set(_include_flags)
-  foreach(_include_path IN LISTS ARGN)
-    string(APPEND _include_flags " -include${_include_path}")
-  endforeach()
-  string(STRIP "${_include_flags}" _include_flags)
-  target_compile_options(${target_name} PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:SHELL:${_include_flags}>
-  )
-endfunction()
-
-sim_force_include(carvera_firmware_sim ${HOST_PRELUDE})
-sim_force_include(carvera_sim_api ${HOST_PRELUDE})
-target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
-target_compile_definitions(carvera_firmware_sim PRIVATE
+set(CARVERA_FIRMWARE_COMPILE_DEFINITIONS
   # Mirror build/build.sh -> make AXIS=5 PAXIS=3 CNC=1, plus the
   # release-profile defines emitted by src/makefile/build/common.mk.
   __GITVERSIONSTRING__="2.1.0c-simulator"
@@ -224,10 +164,99 @@ target_compile_definitions(carvera_firmware_sim PRIVATE
   CARTESIAN_ONLY=1
   NO_PID_AUTOTUNE=1
 )
+
+function(sim_force_include target_name)
+  set(_include_flags)
+  foreach(_include_path IN LISTS ARGN)
+    string(APPEND _include_flags " -include${_include_path}")
+  endforeach()
+  string(STRIP "${_include_flags}" _include_flags)
+  target_compile_options(${target_name} PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:SHELL:${_include_flags}>
+  )
+endfunction()
+
+add_library(carvera_firmware_objects OBJECT ${CARVERA_FIRMWARE_SOURCES})
+target_include_directories(carvera_firmware_objects PRIVATE include)
+target_include_directories(carvera_firmware_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_compile_definitions(carvera_firmware_objects PRIVATE
+  CHECKSUM_USE_CPP
+  ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
+)
+sim_force_include(carvera_firmware_objects ${HOST_PRELUDE})
+sim_enable_sanitizers(carvera_firmware_objects)
+
+add_library(carvera_sim_host_objects OBJECT
+  ${SIM_FIRMWARE_FACADE_SOURCES}
+  ${SIM_CORE_SOURCES}
+  ${SIM_PROTOCOL_SOURCES}
+  ${SIM_RUNTIME_SUPPORT_SOURCES}
+)
+target_include_directories(carvera_sim_host_objects PRIVATE include)
+target_include_directories(carvera_sim_host_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_compile_definitions(carvera_sim_host_objects PRIVATE
+  CHECKSUM_USE_CPP
+  ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
+)
+sim_force_include(carvera_sim_host_objects ${HOST_PRELUDE})
+sim_enable_project_diagnostics(carvera_sim_host_objects)
+
+add_library(carvera_firmware_sim STATIC
+  $<TARGET_OBJECTS:carvera_firmware_objects>
+  $<TARGET_OBJECTS:carvera_sim_host_objects>
+)
+target_include_directories(carvera_firmware_sim PUBLIC include)
+target_include_directories(carvera_firmware_sim SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
+sim_enable_sanitizers(carvera_firmware_sim)
+
 set_property(
   SOURCE
-  ${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp
+  ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
   APPEND PROPERTY COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
 )
+
+add_library(carvera_sim_runtime
+  src/runtime/firmware_runtime.cpp
+  src/runtime/runtime_boot_session.cpp
+  src/runtime/runtime_io.cpp
+  src/runtime/runtime_physical_controls.cpp
+  src/runtime/runtime_pump.cpp
+)
+target_include_directories(carvera_sim_runtime PUBLIC include)
+target_link_libraries(carvera_sim_runtime PUBLIC carvera_firmware_sim)
+sim_force_include(carvera_sim_runtime ${HOST_PRELUDE})
+sim_enable_project_diagnostics(carvera_sim_runtime)
+
+add_library(carvera_sim_proto ${SIM_PROTO_SRCS})
+target_include_directories(carvera_sim_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+if(SIM_PROTOBUF_INCLUDE_DIRS)
+  target_include_directories(carvera_sim_proto SYSTEM PUBLIC ${SIM_PROTOBUF_INCLUDE_DIRS})
+endif()
+target_link_libraries(carvera_sim_proto PUBLIC ${SIM_PROTOBUF_LIBRARY})
+sim_enable_sanitizers(carvera_sim_proto)
+
+add_library(carvera_sim_api
+  src/protocol/api_conversions.cpp
+  src/protocol/api_harness_commands.cpp
+  src/protocol/api_lifecycle_commands.cpp
+  src/protocol/api_physical_commands.cpp
+  src/protocol/api_serial_motion_commands.cpp
+  src/protocol/api_snapshot.cpp
+  src/protocol/api_snapshot_transport_commands.cpp
+  src/protocol/discovery_beacon.cpp
+  src/protocol/interactive_transport_manager.cpp
+  src/protocol/localhost_tcp_bridge.cpp
+  src/protocol/machine_state_proto.cpp
+  src/protocol/nonblocking_fd_pump.cpp
+  src/protocol/api_service.cpp
+  src/protocol/framed_proto.cpp
+  src/protocol/platform_io.cpp
+  src/protocol/virtual_com_port.cpp
+)
+target_include_directories(carvera_sim_api PUBLIC include)
+target_link_libraries(carvera_sim_api PUBLIC carvera_sim_runtime carvera_sim_proto)
+sim_force_include(carvera_sim_api ${HOST_PRELUDE})
+sim_enable_project_diagnostics(carvera_sim_api)
 
 include(cmake/TestsAndApps.cmake)

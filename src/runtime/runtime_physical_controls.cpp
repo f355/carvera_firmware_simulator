@@ -230,6 +230,7 @@ class RuntimePhysicalControls::FirmwareReadbacks {
           static_cast<int>(*checksum),
           on,
           *value,
+          0.0F,
       };
       return PublicData::set_value(switch_checksum, *checksum, state_value_checksum, &state);
     }
