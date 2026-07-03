@@ -20,9 +20,8 @@
 #include <iostream>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -44,8 +43,8 @@ void verify_cover_input(const char* test_name, sim::MachineModel model, const ch
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings({model, 2}), "test should configure requested factory model");
   runtime.boot();
 
@@ -75,8 +74,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
   runtime.set_cover_open(false);

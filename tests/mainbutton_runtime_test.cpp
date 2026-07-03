@@ -25,9 +25,8 @@
 #include "MainButtonPublicAccess.h"
 #include "checksumm.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -102,8 +101,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
   auto panel = runtime.front_panel_state();
@@ -162,8 +161,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", ca1_led_root);
 
-  sim::MachineSimulator ca1_led_simulator;
-  sim::FirmwareRuntime ca1_led_runtime(ca1_led_simulator);
+  sim::SimulationInstance ca1_led_simulation;
+  auto& ca1_led_runtime = ca1_led_simulation.firmware();
   require(ca1_led_runtime.set_factory_settings({sim::MachineModel::CarveraAirCA1, 2}),
           "CA1 LED strip test should configure factory settings");
   ca1_led_runtime.boot();
@@ -183,8 +182,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", alarm_root);
 
-  sim::MachineSimulator alarm_simulator;
-  sim::FirmwareRuntime alarm_runtime(alarm_simulator);
+  sim::SimulationInstance alarm_simulation;
+  auto& alarm_runtime = alarm_simulation.firmware();
   auto& alarm_kernel = alarm_runtime.boot();
 
   alarm_kernel.set_halt_reason(MANUAL);
@@ -216,8 +215,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", repeat_root);
 
-  sim::MachineSimulator repeat_simulator;
-  sim::FirmwareRuntime repeat_runtime(repeat_simulator);
+  sim::SimulationInstance repeat_simulation;
+  auto& repeat_runtime = repeat_simulation.firmware();
   auto& repeat_kernel = repeat_runtime.boot();
   repeat_runtime.write_serial("play /sd/gcodes/repeat.cnc\n");
   repeat_runtime.run_main_loop(8);
@@ -235,8 +234,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", sleep_root);
 
-  sim::MachineSimulator sleep_simulator;
-  sim::FirmwareRuntime sleep_runtime(sleep_simulator);
+  sim::SimulationInstance sleep_simulation;
+  auto& sleep_runtime = sleep_simulation.firmware();
   auto& sleep_kernel = sleep_runtime.boot();
 
   press_front_button(sleep_runtime, 2);

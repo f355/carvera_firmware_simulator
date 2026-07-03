@@ -15,26 +15,20 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
+#include "test_support.hpp"
 
-#include "carvera_sim.pb.h"
-#include "sim/api_service.hpp"
-#include "sim/framed_proto.hpp"
 #include "sim/simulation_instance.hpp"
 
 int main() {
   sim::SimulationInstance simulation;
-  sim::ApiService api(simulation);
 
-  carvera::sim::v1::Request request;
-  while (sim::proto_framing::read_message(std::cin, request)) {
-    const auto response = api.handle(request);
-    if (!sim::proto_framing::write_message(std::cout, response)) {
-      return 1;
-    }
-    std::cout.flush();
-    request.Clear();
-  }
+  sim::test::require(!simulation.firmware().booted(), "new simulation firmware should start powered off");
+  sim::test::require(simulation.machine().set_realtime_speed(3.0), "simulation machine should accept realtime speed");
+  sim::test::require(simulation.firmware().realtime_speed() == 3.0,
+                     "simulation firmware should be bound to the instance machine");
+  const auto& const_simulation = simulation;
+  sim::test::require(&const_simulation.machine() == &simulation.machine(),
+                     "const and mutable machine access should refer to the owned machine");
 
-  return std::cin.eof() ? 0 : 1;
+  return 0;
 }

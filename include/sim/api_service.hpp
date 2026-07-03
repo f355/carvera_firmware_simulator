@@ -23,15 +23,14 @@
 #include <string>
 
 #include "carvera_sim.pb.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/interactive_transport_manager.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace sim {
 
 class ApiService {
  public:
-  explicit ApiService(MachineSimulator& simulator);
+  explicit ApiService(SimulationInstance& simulation);
 
   carvera::sim::v1::Response handle(const carvera::sim::v1::Request& request);
   carvera::sim::v1::Response handle_cooperative(const carvera::sim::v1::Request& request);
@@ -57,7 +56,7 @@ class ApiService {
   void fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot& snapshot);
 
   MachineSimulator& simulator_;
-  FirmwareRuntime firmware_;
+  FirmwareRuntime& firmware_;
   InteractiveTransportManager interactive_transport_;
 };
 

@@ -21,9 +21,8 @@
 #include <string>
 
 #include "sim/delay_hooks.hpp"
-#include "sim/firmware_runtime.hpp"
 #include "sim/interactive_io.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
@@ -45,9 +44,9 @@ int main() {
   sim::test::write_c1_atc_config(sd.path(), config_options);
   sd.mount();
 
-  sim::MachineSimulator simulator;
+  sim::SimulationInstance simulation;
   sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 62.0);
-  sim::FirmwareRuntime runtime(simulator);
+  auto& runtime = simulation.firmware();
   runtime.boot();
   sim::LocalhostTcpBridge bridge(runtime);
   require(bridge.start(0), "localhost WiFi bridge should start");

@@ -22,8 +22,7 @@
 #include <utility>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 #include "cartesian_config.hpp"
 #include "temp_sdcard.hpp"
@@ -32,23 +31,22 @@ namespace sim::test {
 
 class ProbeRuntime {
  public:
-  explicit ProbeRuntime(std::string name, std::string extra_config = {}) : sd_(std::move(name)), runtime_(simulator_) {
+  explicit ProbeRuntime(std::string name, std::string extra_config = {}) : sd_(std::move(name)) {
     CartesianConfigOptions config;
     config.include_probe_inputs = true;
     config.extra = std::move(extra_config);
     write_cartesian_config(sd_.path(), config);
     sd_.mount();
-    kernel_ = &runtime_.boot();
+    kernel_ = &simulation_.firmware().boot();
   }
 
-  MachineSimulator& simulator() { return simulator_; }
-  FirmwareRuntime& runtime() { return runtime_; }
+  MachineSimulator& simulator() { return simulation_.machine(); }
+  FirmwareRuntime& runtime() { return simulation_.firmware(); }
   Kernel& kernel() { return *kernel_; }
 
  private:
   TempSdCard sd_;
-  MachineSimulator simulator_;
-  FirmwareRuntime runtime_;
+  SimulationInstance simulation_;
   Kernel* kernel_{nullptr};
 };
 

@@ -21,7 +21,7 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -49,8 +49,8 @@ int main() {
       "gamma_limit_enable true\n";
   sd.write_config(sim::test::cartesian_config(config));
 
-  sim::MachineSimulator simulator;
-  sim::ApiService api(simulator);
+  sim::SimulationInstance simulation;
+  sim::ApiService api(simulation);
 
   carvera::sim::v1::Request request;
   carvera::sim::v1::Response response;

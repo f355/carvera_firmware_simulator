@@ -20,9 +20,8 @@
 #include <iostream>
 #include <regex>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 
@@ -53,8 +52,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   runtime.boot();
 
   runtime.write_serial("version\nmodel\ntime 1234567890\ntime\n");

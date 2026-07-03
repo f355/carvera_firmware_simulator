@@ -23,10 +23,9 @@
 #include <iostream>
 #include <string>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/interactive_io.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
@@ -63,8 +62,9 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   runtime.boot();
 
   sim::VirtualComPort uart(runtime);
@@ -96,8 +96,9 @@ int main() {
           "virtual COM bridge should accept controller homing and jog commands");
   ::close(serial_fd);
 
-  sim::MachineSimulator tcp_simulator;
-  sim::FirmwareRuntime tcp_runtime(tcp_simulator);
+  sim::SimulationInstance tcp_simulation;
+  auto& tcp_simulator = tcp_simulation.machine();
+  auto& tcp_runtime = tcp_simulation.firmware();
   tcp_runtime.boot();
   sim::LocalhostTcpBridge wifi(tcp_runtime);
   require(wifi.start(0), "localhost WiFi bridge should start on an ephemeral port");
@@ -129,8 +130,8 @@ int main() {
           "localhost WiFi bridge should accept controller homing and jog commands");
   ::close(client);
 
-  sim::MachineSimulator backlog_simulator;
-  sim::FirmwareRuntime backlog_runtime(backlog_simulator);
+  sim::SimulationInstance backlog_simulation;
+  auto& backlog_runtime = backlog_simulation.firmware();
   backlog_runtime.boot();
   sim::LocalhostTcpBridge backlog_wifi(backlog_runtime);
   require(backlog_wifi.start(0), "backlog WiFi bridge should start");

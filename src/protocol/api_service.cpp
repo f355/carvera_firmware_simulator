@@ -23,8 +23,8 @@
 
 namespace sim {
 
-ApiService::ApiService(MachineSimulator& simulator)
-    : simulator_(simulator), firmware_(simulator), interactive_transport_(firmware_) {}
+ApiService::ApiService(SimulationInstance& simulation)
+    : simulator_(simulation.machine()), firmware_(simulation.firmware()), interactive_transport_(firmware_) {}
 
 carvera::sim::v1::Response ApiService::handle(const carvera::sim::v1::Request& request) {
   if (auto response = handle_lifecycle_command(request)) {

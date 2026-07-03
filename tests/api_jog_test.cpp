@@ -22,7 +22,7 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 
@@ -44,8 +44,8 @@ int main() {
   config.include_rotary_axes = true;
   sim::test::write_cartesian_config(root, config);
 
-  sim::MachineSimulator simulator;
-  sim::ApiService api(simulator);
+  sim::SimulationInstance simulation;
+  sim::ApiService api(simulation);
 
   carvera::sim::v1::Request request;
   carvera::sim::v1::Response response;

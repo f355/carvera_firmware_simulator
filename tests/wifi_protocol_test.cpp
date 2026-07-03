@@ -19,9 +19,8 @@
 #include <iostream>
 #include <string>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/m8266_wifi.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace {
 
@@ -35,8 +34,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   runtime.boot();
 
   auto& wifi = sim::m8266_wifi::active();

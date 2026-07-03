@@ -22,9 +22,8 @@
 
 #include "Robot.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/machine_state_snapshot.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
@@ -119,8 +118,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime firmware(simulator);
+  sim::SimulationInstance simulation;
+  auto& firmware = simulation.firmware();
   sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0, sim::ToolKind::CuttingTool);
   sim::physical_scene::active().set_spindle_tool(3, 55.5, true, sim::ToolKind::ThreeAxisProbe, 2.5);
 

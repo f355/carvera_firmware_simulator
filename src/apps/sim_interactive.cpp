@@ -23,10 +23,9 @@
 #include <thread>
 #include <vector>
 
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/interactive_transport_manager.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace {
 
@@ -131,8 +130,8 @@ int main(int argc, char** argv) {
     sim::host_filesystem::mount("sd", sd_root);
   }
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   if (!runtime.set_factory_settings(factory)) {
     std::cerr << "failed to configure factory settings\n";
     return 1;

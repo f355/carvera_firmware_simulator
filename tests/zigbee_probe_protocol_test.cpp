@@ -24,8 +24,7 @@
 #include "Kernel.h"
 #include "PublicData.h"
 #include "StreamOutput.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace {
 
@@ -39,8 +38,8 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   runtime.boot();
 
   runtime.run_main_loop(1);

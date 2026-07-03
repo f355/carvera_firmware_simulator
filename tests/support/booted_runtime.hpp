@@ -19,27 +19,25 @@
 #define SIMULATOR_TESTS_SUPPORT_BOOTED_RUNTIME_HPP
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace sim::test {
 
 class BootedRuntime {
  public:
-  BootedRuntime() : runtime_(simulator_), kernel_(&runtime_.boot()) {}
+  BootedRuntime() : kernel_(&simulation_.firmware().boot()) {}
 
-  explicit BootedRuntime(const FactorySettings& factory_settings) : runtime_(simulator_) {
-    runtime_.set_factory_settings(factory_settings);
-    kernel_ = &runtime_.boot();
+  explicit BootedRuntime(const FactorySettings& factory_settings) {
+    simulation_.firmware().set_factory_settings(factory_settings);
+    kernel_ = &simulation_.firmware().boot();
   }
 
-  MachineSimulator& simulator() { return simulator_; }
-  FirmwareRuntime& runtime() { return runtime_; }
+  MachineSimulator& simulator() { return simulation_.machine(); }
+  FirmwareRuntime& runtime() { return simulation_.firmware(); }
   Kernel& kernel() { return *kernel_; }
 
  private:
-  MachineSimulator simulator_;
-  FirmwareRuntime runtime_;
+  SimulationInstance simulation_;
   Kernel* kernel_{nullptr};
 };
 

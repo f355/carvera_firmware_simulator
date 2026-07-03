@@ -20,8 +20,7 @@
 #include "ATCHandlerPublicAccess.h"
 #include "PublicData.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
@@ -45,9 +44,9 @@ int main() {
   sim::test::write_c1_atc_config(sd.path());
   sd.mount();
 
-  sim::MachineSimulator simulator;
+  sim::SimulationInstance simulation;
   sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0);
-  sim::FirmwareRuntime runtime(simulator);
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
   const auto tool_setter = sim::physical_scene::active().tool_setter_box();
   require(tool_setter.has_value(), "C1 boot should configure the physical ETS volume");

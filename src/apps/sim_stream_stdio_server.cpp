@@ -29,9 +29,9 @@
 #include "sim/api_service.hpp"
 #include "sim/framed_proto.hpp"
 #include "sim/logging.hpp"
-#include "sim/machine_simulator.hpp"
 #include "sim/machine_state_proto.hpp"
 #include "sim/motion_telemetry.hpp"
+#include "sim/simulation_instance.hpp"
 
 #include <cerrno>
 #include <fcntl.h>
@@ -235,8 +235,8 @@ class MachineSnapshotEventEmitter {
 }  // namespace
 
 int main() {
-  sim::MachineSimulator simulator;
-  sim::ApiService api(simulator);
+  sim::SimulationInstance simulation;
+  sim::ApiService api(simulation);
   StreamRequestPump stream_requests;
   MachineSnapshotEventEmitter machine_snapshot_events;
   PhysicalIoEventEmitter physical_io_events;

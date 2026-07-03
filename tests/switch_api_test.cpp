@@ -23,7 +23,7 @@
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -58,8 +58,8 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::ApiService api(simulator);
+  sim::SimulationInstance simulation;
+  sim::ApiService api(simulation);
   carvera::sim::v1::Request request;
 
   request.set_id(1);

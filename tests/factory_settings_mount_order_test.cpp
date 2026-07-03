@@ -23,7 +23,7 @@
 #include "sim/api_service.hpp"
 #include "sim/host_filesystem.hpp"
 #include "sim/i2c_eeprom.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -61,8 +61,8 @@ int main() {
   seed_sd_with_rotary_enabled_eeprom(sd_root);
   sim::host_filesystem::clear_mounts();
 
-  sim::MachineSimulator simulator;
-  sim::ApiService api(simulator);
+  sim::SimulationInstance simulation;
+  sim::ApiService api(simulation);
 
   carvera::sim::v1::Request request;
   request.set_id(1);

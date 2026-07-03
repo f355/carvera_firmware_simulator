@@ -23,9 +23,8 @@
 #include "ATCHandlerPublicAccess.h"
 #include "PublicData.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/machine_geometry.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -68,8 +67,8 @@ int main() {
   sd.write_config_txt("");
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");
   sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 58.0);

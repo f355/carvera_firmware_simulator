@@ -21,9 +21,8 @@
 #include <string>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/runtime_wait.hpp"
@@ -66,8 +65,9 @@ int main() {
   sim::host_filesystem::clear_mounts();
   sim::host_filesystem::mount("sd", root);
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "boot should finish without an alarm");
 

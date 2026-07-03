@@ -15,26 +15,16 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
-
-#include "carvera_sim.pb.h"
-#include "sim/api_service.hpp"
-#include "sim/framed_proto.hpp"
 #include "sim/simulation_instance.hpp"
 
-int main() {
-  sim::SimulationInstance simulation;
-  sim::ApiService api(simulation);
+namespace sim {
 
-  carvera::sim::v1::Request request;
-  while (sim::proto_framing::read_message(std::cin, request)) {
-    const auto response = api.handle(request);
-    if (!sim::proto_framing::write_message(std::cout, response)) {
-      return 1;
-    }
-    std::cout.flush();
-    request.Clear();
-  }
+SimulationInstance::SimulationInstance() : firmware_(machine_) {}
 
-  return std::cin.eof() ? 0 : 1;
-}
+MachineSimulator& SimulationInstance::machine() { return machine_; }
+
+const MachineSimulator& SimulationInstance::machine() const { return machine_; }
+
+FirmwareRuntime& SimulationInstance::firmware() { return firmware_; }
+
+}  // namespace sim

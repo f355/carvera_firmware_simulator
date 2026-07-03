@@ -22,9 +22,8 @@
 
 #include "Robot.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/m8266_wifi.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/stepper_axis.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -87,8 +86,9 @@ void test_ca1_without_rotary_accessory() {
   sd.write_config(ca1_rotary_config());
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0x01}),
           "CA1 factory settings may enable A homing even when the accessory is unplugged");
   auto& kernel = runtime.boot();
@@ -118,8 +118,9 @@ void test_c1_without_rotary_accessory() {
   sd.write_config(ca1_rotary_config());
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraC1, 0x05}),
           "C1 factory settings may enable A homing even when the accessory is unplugged");
   auto& kernel = runtime.boot();
@@ -149,9 +150,10 @@ void test_ca1_with_rotary_accessory() {
   sd.write_config(ca1_rotary_config());
   sd.mount();
 
-  sim::MachineSimulator simulator;
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
   simulator.set_rotary_accessory_installed(true);
-  sim::FirmwareRuntime runtime(simulator);
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0x01}),
           "CA1 factory settings should enable the 4th-axis homing flag before boot");
   auto& kernel = runtime.boot();
@@ -184,9 +186,10 @@ void test_c1_with_rotary_accessory() {
   sd.write_config(ca1_rotary_config());
   sd.mount();
 
-  sim::MachineSimulator simulator;
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
   simulator.set_rotary_accessory_installed(true);
-  sim::FirmwareRuntime runtime(simulator);
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraC1, 0x05}),
           "C1 factory settings should preserve the C1 flag while enabling A homing");
   auto& kernel = runtime.boot();

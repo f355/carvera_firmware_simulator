@@ -39,9 +39,8 @@
 #include "checksumm.h"
 #include "libs/utils.h"
 #include "lpc17xx_wdt.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/host_filesystem.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -91,8 +90,9 @@ int main() {
                   "spindle.acc_ratio 1.635\n"
                   "spindle.control_smoothing 0.001\n");
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   boot_runtime_with_sd(runtime, root);
   auto& kernel = runtime.boot();
 

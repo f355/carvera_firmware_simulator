@@ -22,7 +22,7 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace sim::test {
 
@@ -38,12 +38,12 @@ class ApiHarness {
     return api_.handle(request);
   }
 
-  MachineSimulator& simulator() { return simulator_; }
+  MachineSimulator& simulator() { return simulation_.machine(); }
   ApiService& api() { return api_; }
 
  private:
-  MachineSimulator simulator_;
-  ApiService api_{simulator_};
+  SimulationInstance simulation_;
+  ApiService api_{simulation_};
   std::uint32_t next_id_{1};
 };
 

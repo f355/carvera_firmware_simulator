@@ -19,8 +19,7 @@
 #include "carvera_sim.pb.h"
 #include "libs/Kernel.h"
 #include "sim/api_snapshot.hpp"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/assertions.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -31,8 +30,9 @@ int main() {
   sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.start();
   require(kernel.robot != nullptr, "firmware start should create Robot");
   require(runtime.run_until_idle(200'000), "firmware should finish startup homing");

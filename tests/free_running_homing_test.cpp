@@ -21,8 +21,7 @@
 
 #include "Robot.h"
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/motion_telemetry.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -49,8 +48,9 @@ int main() {
   sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   sim::MachineTelemetry last_telemetry;
   bool saw_telemetry = false;
   sim::motion_telemetry::active().set_sink([&](const sim::MachineTelemetry& sample) {

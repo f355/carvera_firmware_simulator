@@ -22,9 +22,8 @@
 #include <thread>
 
 #include "sim/delay_hooks.hpp"
-#include "sim/firmware_runtime.hpp"
 #include "sim/interactive_io.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/assertions.hpp"
 #include "support/posix_io.hpp"
 #include "support/temp_sdcard.hpp"
@@ -69,8 +68,8 @@ int main() {
       "soft_endstop.enable true\n");
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   runtime.boot();
   sim::LocalhostTcpBridge bridge(runtime);
   require(bridge.start(0), "localhost WiFi bridge should start");

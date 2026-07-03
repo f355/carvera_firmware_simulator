@@ -222,6 +222,7 @@ add_library(carvera_sim_runtime
   src/runtime/runtime_io.cpp
   src/runtime/runtime_physical_controls.cpp
   src/runtime/runtime_pump.cpp
+  src/runtime/simulation_instance.cpp
 )
 target_include_directories(carvera_sim_runtime PUBLIC include)
 target_link_libraries(carvera_sim_runtime PUBLIC carvera_firmware_sim)

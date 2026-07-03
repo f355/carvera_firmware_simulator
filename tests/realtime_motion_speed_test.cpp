@@ -21,9 +21,8 @@
 #include <iostream>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
 #include "sim/i2c_eeprom.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -119,8 +118,9 @@ MeasuredMove run_long_diagonal(double realtime_speed) {
   sd.write_config_txt(kCa1SpeedConfig);
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 2}),
           "CA1 factory settings should apply before boot");
   auto& kernel = runtime.boot();
@@ -142,8 +142,9 @@ MeasuredMove run_long_diagonal_after_mid_move_speed_change() {
   sd.write_config_txt(kCa1SpeedConfig);
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 2}),
           "CA1 factory settings should apply before boot");
   auto& kernel = runtime.boot();

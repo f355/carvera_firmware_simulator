@@ -20,8 +20,7 @@
 #include <string>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -158,8 +157,8 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   sd.write_config(laser_config());
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");
   auto& kernel = runtime.boot();
@@ -220,8 +219,9 @@ int main() {
            "M322.2\n");
   sd.mount();
 
-  sim::MachineSimulator simulator;
-  sim::FirmwareRuntime runtime(simulator);
+  sim::SimulationInstance simulation;
+  auto& simulator = simulation.machine();
+  auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "runtime should boot before Player laser playback");
   (void)runtime.read_serial();

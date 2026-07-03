@@ -20,8 +20,7 @@
 #include <string>
 
 #include "libs/Kernel.h"
-#include "sim/firmware_runtime.hpp"
-#include "sim/machine_simulator.hpp"
+#include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -74,8 +73,8 @@ int main() {
     sd.write_config(spindle_temperature_config());
     sd.mount();
 
-    sim::MachineSimulator simulator;
-    sim::FirmwareRuntime runtime(simulator);
+    sim::SimulationInstance simulation;
+    auto& runtime = simulation.firmware();
     auto& kernel = runtime.boot();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature fault injection");
 
@@ -94,8 +93,8 @@ int main() {
     sd.write_config(power_temperature_config());
     sd.mount();
 
-    sim::MachineSimulator simulator;
-    sim::FirmwareRuntime runtime(simulator);
+    sim::SimulationInstance simulation;
+    auto& runtime = simulation.firmware();
     require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
             "CA1 factory settings should apply before boot");
     auto& kernel = runtime.boot();
