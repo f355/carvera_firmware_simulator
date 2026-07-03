@@ -46,16 +46,6 @@ std::string host_path_string(const char* path) { return host_path(path).string()
 
 namespace sim {
 
-std::map<std::string, std::filesystem::path> HostFilesystem::snapshot_mounts() const {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return mounts_;
-}
-
-void HostFilesystem::copy_mounts_from(const HostFilesystem& other) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  mounts_ = other.snapshot_mounts();
-}
-
 void HostFilesystem::clear_mounts(I2cEepromDevice& eeprom) {
   std::lock_guard<std::mutex> lock(mutex_);
   mounts_.clear();

@@ -23,7 +23,6 @@
 #include <iostream>
 #include <string>
 
-#include "sim/host_filesystem.hpp"
 #include "sim/interactive_io.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
@@ -59,10 +58,7 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_interactive_io_test");
   const auto& root = temp_root.path();
   sim::test::write_cartesian_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   runtime.boot();

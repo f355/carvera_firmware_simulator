@@ -20,12 +20,14 @@
 
 #include "sim/firmware_runtime.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 namespace sim {
 
 class SimulationInstance {
  public:
   SimulationInstance();
+  explicit SimulationInstance(const PersistentMachineConfig& config);
 
   SimulationInstance(const SimulationInstance&) = delete;
   SimulationInstance& operator=(const SimulationInstance&) = delete;
@@ -33,8 +35,11 @@ class SimulationInstance {
   MachineSimulator& machine();
   const MachineSimulator& machine() const;
   FirmwareRuntime& firmware();
+  PersistentMachineState& persistent_state();
+  const PersistentMachineState& persistent_state() const;
 
  private:
+  PersistentMachineState persistent_state_;
   MachineSimulator machine_;
   FirmwareRuntime firmware_;
 };

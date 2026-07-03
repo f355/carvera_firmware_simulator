@@ -27,10 +27,9 @@
 #include "StepTicker.h"
 #include "StreamOutput.h"
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_runner.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
 
@@ -59,12 +58,11 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_gcode_dispatch_test");
   const auto& root = temp_root.path();
   sim::test::write_direct_robot_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-  sim::i2c_eeprom::reset();
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
+  sim::PersistentMachineState persistent_state(sim::test::persistent_sd_config(root));
+  persistent_state.eeprom().reset();
+  persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
 
-  sim::MachineSimulator simulator;
+  sim::MachineSimulator simulator(persistent_state);
   Kernel kernel;
 
   const auto axis = simulator.add_step_dir_axis({1, 18}, {1, 20});

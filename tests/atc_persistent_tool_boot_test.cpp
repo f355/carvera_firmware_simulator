@@ -35,9 +35,7 @@ int main() {
   config_options.include_cartesian_homing_retracts = false;
   config_options.include_detector_motion_limits = false;
   sim::test::write_c1_atc_config(sd.path(), config_options);
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 57.0);
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();

@@ -25,8 +25,8 @@
 #include "Thermistor.h"
 #include "checksumm.h"
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -59,10 +59,8 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_thermistor_test");
   const auto& root = temp_root.path();
   write_temperature_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::MachineSimulator simulator;
+  sim::PersistentMachineState persistent_state(sim::test::persistent_sd_config(root));
+  sim::MachineSimulator simulator(persistent_state);
   Kernel kernel;
 
   Thermistor thermistor;

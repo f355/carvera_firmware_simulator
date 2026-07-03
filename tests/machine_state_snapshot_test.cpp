@@ -22,7 +22,6 @@
 
 #include "Robot.h"
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "sim/machine_state_snapshot.hpp"
 #include "sim/physical_scene.hpp"
@@ -115,10 +114,7 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_machine_state_snapshot_test");
   const auto& root = temp_root.path();
   write_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& firmware = simulation.firmware();
   sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0, sim::ToolKind::CuttingTool);
   sim::physical_scene::active().set_spindle_tool(3, 55.5, true, sim::ToolKind::ThreeAxisProbe, 2.5);

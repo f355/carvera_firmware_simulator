@@ -30,6 +30,10 @@ namespace pb = carvera::sim::v1;
 
 class ApiHarness {
  public:
+  ApiHarness() = default;
+  explicit ApiHarness(const PersistentMachineConfig& persistent_config)
+      : simulation_(persistent_config), api_(simulation_) {}
+
   template <typename FillRequest>
   pb::Response request(FillRequest fill_request) {
     pb::Request request;

@@ -71,9 +71,7 @@ int main() {
   {
     sim::test::TempSdCard sd("carvera_sim_spindle_overtemp_runtime_test");
     sd.write_config(spindle_temperature_config());
-    sd.mount();
-
-    sim::SimulationInstance simulation;
+    sim::SimulationInstance simulation(sd.persistent_config());
     auto& runtime = simulation.firmware();
     auto& kernel = runtime.boot();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature fault injection");
@@ -91,9 +89,7 @@ int main() {
   {
     sim::test::TempSdCard sd("carvera_sim_power_overtemp_runtime_test");
     sd.write_config(power_temperature_config());
-    sd.mount();
-
-    sim::SimulationInstance simulation;
+    sim::SimulationInstance simulation(sd.persistent_config());
     auto& runtime = simulation.firmware();
     require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
             "CA1 factory settings should apply before boot");

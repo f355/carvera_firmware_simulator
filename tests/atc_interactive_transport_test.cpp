@@ -42,9 +42,7 @@ int main() {
   sim::test::C1AtcConfigOptions config_options;
   config_options.include_atc_home_pin = false;
   sim::test::write_c1_atc_config(sd.path(), config_options);
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   sim::physical_scene::active().set_atc_pocket_tool(2, 2, true, 62.0);
   auto& runtime = simulation.firmware();
   runtime.boot();

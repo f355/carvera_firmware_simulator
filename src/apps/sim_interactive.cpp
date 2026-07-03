@@ -23,7 +23,6 @@
 #include <thread>
 #include <vector>
 
-#include "sim/host_filesystem.hpp"
 #include "sim/interactive_transport_manager.hpp"
 #include "sim/simulation_instance.hpp"
 
@@ -126,11 +125,12 @@ int main(int argc, char** argv) {
     wifi_ports.push_back(0);
   }
 
+  sim::PersistentMachineConfig persistent_config;
   if (!sd_root.empty()) {
-    sim::host_filesystem::mount("sd", sd_root);
+    persistent_config.mounts.push_back({"sd", sd_root});
   }
 
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(persistent_config);
   auto& runtime = simulation.firmware();
   if (!runtime.set_factory_settings(factory)) {
     std::cerr << "failed to configure factory settings\n";

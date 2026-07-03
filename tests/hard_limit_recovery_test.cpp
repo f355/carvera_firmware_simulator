@@ -21,7 +21,6 @@
 #include <string>
 
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
@@ -62,10 +61,7 @@ int main() {
       "gamma_limit_enable true\n"
       "endstop_debounce_count 1\n";
   sim::test::write_cartesian_config(root, config);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();

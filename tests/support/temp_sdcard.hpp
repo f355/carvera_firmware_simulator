@@ -26,6 +26,7 @@
 #include <string>
 
 #include "sim/host_filesystem.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 #include <unistd.h>
 
@@ -46,6 +47,10 @@ inline std::filesystem::path make_unique_temp_sdcard_root(const std::string& nam
   throw std::runtime_error("failed to create unique temporary SD card directory");
 }
 
+inline PersistentMachineConfig persistent_sd_config(const std::filesystem::path& root) {
+  return PersistentMachineConfig{.mounts = {{"sd", root}}};
+}
+
 class TempDirectory {
  public:
   explicit TempDirectory(const std::string& name) : root_(make_unique_temp_sdcard_root(name)) {}
@@ -59,6 +64,8 @@ class TempDirectory {
   TempDirectory& operator=(const TempDirectory&) = delete;
 
   const std::filesystem::path& path() const { return root_; }
+
+  PersistentMachineConfig persistent_config() const { return persistent_sd_config(root_); }
 
  private:
   std::filesystem::path root_;
@@ -80,6 +87,8 @@ class TempSdCard {
   TempSdCard& operator=(const TempSdCard&) = delete;
 
   const std::filesystem::path& path() const { return root_; }
+
+  PersistentMachineConfig persistent_config() const { return persistent_sd_config(root_); }
 
   void mount() {
     host_filesystem::clear_mounts();

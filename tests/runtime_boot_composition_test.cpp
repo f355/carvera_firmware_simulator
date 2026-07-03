@@ -39,7 +39,6 @@
 #include "checksumm.h"
 #include "libs/utils.h"
 #include "lpc17xx_wdt.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -71,12 +70,6 @@ void write_sd_config(const std::filesystem::path& root, const std::string& text)
   job << "G1 X1 F600\n";
 }
 
-void boot_runtime_with_sd(sim::FirmwareRuntime& runtime, const std::filesystem::path& root) {
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-  (void)runtime.boot();
-}
-
 }  // namespace
 
 int main() {
@@ -90,10 +83,9 @@ int main() {
                   "spindle.acc_ratio 1.635\n"
                   "spindle.control_smoothing 0.001\n");
 
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
-  boot_runtime_with_sd(runtime, root);
   auto& kernel = runtime.boot();
 
   const auto boot_output = runtime.read_serial();
@@ -166,14 +158,12 @@ int main() {
 
   runtime.reset();
   write_sd_config(root, "sd_ok true\nspindle.delay_s 0\ndrillingcycles.enable true\ndrillingcycles.dwell_units P\n");
-  boot_runtime_with_sd(runtime, root);
   require(runtime.boot().hooks[ON_GCODE_RECEIVED].size() == disabled_gcode_hook_count + 1,
           "free-running runtime should load real Drillingcycles and let its config gate decide whether it registers");
 
   runtime.reset();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before reboot");
-  boot_runtime_with_sd(runtime, root);
   auto& ca1_kernel = runtime.boot();
   require(!ca1_kernel.robot->is_soft_endstop_enabled(),
           "runtime should not force CA1 soft endstops when the SD config does not enable them");

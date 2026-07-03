@@ -66,9 +66,7 @@ int main() {
       "# controller handshake config\n"
       "sd_ok true\n"
       "soft_endstop.enable true\n");
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   runtime.boot();
   sim::LocalhostTcpBridge bridge(runtime);

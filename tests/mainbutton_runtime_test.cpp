@@ -25,7 +25,6 @@
 #include "MainButtonPublicAccess.h"
 #include "checksumm.h"
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -98,10 +97,7 @@ int main() {
   sim::test::TempDirectory root_dir("carvera_sim_mainbutton_runtime_test");
   const auto& root = root_dir.path();
   write_config(root, "None", 3000);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
@@ -158,10 +154,7 @@ int main() {
       "ps24_pin 0.10\n"
       "power.auto_sleep false\n";
   sim::test::write_cartesian_config(ca1_led_root, ca1_led_config);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", ca1_led_root);
-
-  sim::SimulationInstance ca1_led_simulation;
+  sim::SimulationInstance ca1_led_simulation(sim::test::persistent_sd_config(ca1_led_root));
   auto& ca1_led_runtime = ca1_led_simulation.firmware();
   require(ca1_led_runtime.set_factory_settings({sim::MachineModel::CarveraAirCA1, 2}),
           "CA1 LED strip test should configure factory settings");
@@ -179,10 +172,7 @@ int main() {
   sim::test::TempDirectory alarm_dir("carvera_sim_mainbutton_alarm_test");
   const auto& alarm_root = alarm_dir.path();
   write_config(alarm_root, "None", 1);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", alarm_root);
-
-  sim::SimulationInstance alarm_simulation;
+  sim::SimulationInstance alarm_simulation(sim::test::persistent_sd_config(alarm_root));
   auto& alarm_runtime = alarm_simulation.firmware();
   auto& alarm_kernel = alarm_runtime.boot();
 
@@ -212,10 +202,7 @@ int main() {
       job << "G4 P0\n";
     }
   }
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", repeat_root);
-
-  sim::SimulationInstance repeat_simulation;
+  sim::SimulationInstance repeat_simulation(sim::test::persistent_sd_config(repeat_root));
   auto& repeat_runtime = repeat_simulation.firmware();
   auto& repeat_kernel = repeat_runtime.boot();
   repeat_runtime.write_serial("play /sd/gcodes/repeat.cnc\n");
@@ -231,10 +218,7 @@ int main() {
   sim::test::TempDirectory sleep_dir("carvera_sim_mainbutton_sleep_test");
   const auto& sleep_root = sleep_dir.path();
   write_config(sleep_root, "Sleep", 1);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", sleep_root);
-
-  sim::SimulationInstance sleep_simulation;
+  sim::SimulationInstance sleep_simulation(sim::test::persistent_sd_config(sleep_root));
   auto& sleep_runtime = sleep_simulation.firmware();
   auto& sleep_kernel = sleep_runtime.boot();
 

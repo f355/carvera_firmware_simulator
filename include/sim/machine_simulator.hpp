@@ -46,10 +46,12 @@ enum class TemperatureSensor {
 };
 
 class SimulatorContext;
+class PersistentMachineState;
 
 class MachineSimulator {
  public:
   MachineSimulator();
+  explicit MachineSimulator(PersistentMachineState& persistent_state);
   ~MachineSimulator();
 
   MachineSimulator(const MachineSimulator&) = delete;
@@ -89,6 +91,9 @@ class MachineSimulator {
   bool axis_endstop_triggered(std::size_t axis, EndstopSide side) const;
 
  private:
+  void initialize();
+
+  std::unique_ptr<PersistentMachineState> owned_persistent_state_;
   std::unique_ptr<SimulatorContext> context_;
   SimulatorContext* previous_context_{nullptr};
   bool rotary_accessory_installed_{false};

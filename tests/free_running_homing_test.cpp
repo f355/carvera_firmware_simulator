@@ -46,9 +46,7 @@ void require_near(double actual, double expected, double tolerance, const char* 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_free_running_homing_test");
   sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   sim::MachineTelemetry last_telemetry;

@@ -31,12 +31,12 @@ namespace sim::test {
 
 class ProbeRuntime {
  public:
-  explicit ProbeRuntime(std::string name, std::string extra_config = {}) : sd_(std::move(name)) {
+  explicit ProbeRuntime(std::string name, std::string extra_config = {})
+      : sd_(std::move(name)), simulation_(sd_.persistent_config()) {
     CartesianConfigOptions config;
     config.include_probe_inputs = true;
     config.extra = std::move(extra_config);
     write_cartesian_config(sd_.path(), config);
-    sd_.mount();
     kernel_ = &simulation_.firmware().boot();
   }
 

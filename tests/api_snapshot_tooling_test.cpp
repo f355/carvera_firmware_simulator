@@ -26,9 +26,7 @@ int main() {
 
   sim::test::TempSdCard sd("carvera_sim_api_snapshot_test");
   sim::test::write_api_snapshot_config(sd.path());
-  sd.mount();
-
-  sim::test::ApiHarness api;
+  sim::test::ApiHarness api(sd.persistent_config());
   auto response = api.request([](auto& request) {
     auto* atc_tools = request.mutable_set_atc_pocket_tools();
     atc_tools->set_replace(true);

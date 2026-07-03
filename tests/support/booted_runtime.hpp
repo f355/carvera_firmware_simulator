@@ -32,6 +32,15 @@ class BootedRuntime {
     kernel_ = &simulation_.firmware().boot();
   }
 
+  explicit BootedRuntime(const PersistentMachineConfig& persistent_config)
+      : simulation_(persistent_config), kernel_(&simulation_.firmware().boot()) {}
+
+  BootedRuntime(const PersistentMachineConfig& persistent_config, const FactorySettings& factory_settings)
+      : simulation_(persistent_config) {
+    simulation_.firmware().set_factory_settings(factory_settings);
+    kernel_ = &simulation_.firmware().boot();
+  }
+
   MachineSimulator& simulator() { return simulation_.machine(); }
   FirmwareRuntime& runtime() { return simulation_.firmware(); }
   Kernel& kernel() { return *kernel_; }

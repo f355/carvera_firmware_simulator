@@ -33,10 +33,9 @@
 #include "StreamOutputPool.h"
 #include "libs/Kernel.h"
 #include "modules/tools/atc/ATCHandler.h"
-#include "sim/host_filesystem.hpp"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_pump.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "sim/robot_axis_binding.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -126,12 +125,11 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_atc_test");
   const auto& root = temp_root.path();
   write_atc_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-  sim::i2c_eeprom::reset();
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
+  sim::PersistentMachineState persistent_state(sim::test::persistent_sd_config(root));
+  persistent_state.eeprom().reset();
+  persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
 
-  sim::MachineSimulator simulator;
+  sim::MachineSimulator simulator(persistent_state);
   Kernel kernel;
   kernel.eeprom_data->TOOL = 0;
   sim::attach_configured_stepper_axes(kernel);
@@ -176,9 +174,10 @@ int main() {
           "C1 with ATC should enter the rack pickup path for M6 T1");
   kernel.streams->remove_stream(&c1_stream);
 
-  sim::i2c_eeprom::reset();
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x00});
-  sim::MachineSimulator air_simulator;
+  sim::PersistentMachineState air_persistent_state;
+  air_persistent_state.eeprom().reset();
+  air_persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraAirCA1, 0x00});
+  sim::MachineSimulator air_simulator(air_persistent_state);
   Kernel air_kernel;
   air_kernel.eeprom_data->TOOL = 0;
   sim::attach_configured_stepper_axes(air_kernel);

@@ -57,6 +57,7 @@ set(SIM_CORE_SOURCES
   src/core/physical_scene.cpp
   src/core/physical_signal_driver.cpp
   src/core/physical_tooling.cpp
+  src/core/persistent_machine_state.cpp
   src/core/probe_contact_model.cpp
   src/core/realtime_timer_pacer.cpp
   src/core/robot_axis_binding.cpp

@@ -19,8 +19,6 @@
 #define SIMULATOR_SIM_SIMULATOR_CONTEXT_HPP
 
 #include "sim/adc.hpp"
-#include "sim/host_filesystem.hpp"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/interrupt_controller.hpp"
 #include "sim/lpc1768.hpp"
 #include "sim/m8266_wifi.hpp"
@@ -28,6 +26,7 @@
 #include "sim/mbed_peripheral_state.hpp"
 #include "sim/motion_telemetry.hpp"
 #include "sim/physical_scene.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "sim/realtime_timer_pacer.hpp"
 #include "sim/runtime_motor_alarm_wiring.hpp"
 #include "sim/spindle_state.hpp"
@@ -40,6 +39,8 @@ namespace sim {
 
 class SimulatorContext {
  public:
+  explicit SimulatorContext(PersistentMachineState& persistent_state) : persistent_state_(persistent_state) {}
+
   void reset(bool preserve_physical_scene = false);
 
   VirtualClock& clock() { return clock_; }
@@ -90,11 +91,11 @@ class SimulatorContext {
   runtime_motor_alarm_wiring::MotorAlarmWiring& motor_alarm_wiring() { return motor_alarm_wiring_; }
   const runtime_motor_alarm_wiring::MotorAlarmWiring& motor_alarm_wiring() const { return motor_alarm_wiring_; }
 
-  I2cEepromDevice& eeprom() { return eeprom_; }
-  const I2cEepromDevice& eeprom() const { return eeprom_; }
+  I2cEepromDevice& eeprom() { return persistent_state_.eeprom(); }
+  const I2cEepromDevice& eeprom() const { return persistent_state_.eeprom(); }
 
-  HostFilesystem& host_filesystem() { return host_filesystem_; }
-  const HostFilesystem& host_filesystem() const { return host_filesystem_; }
+  HostFilesystem& host_filesystem() { return persistent_state_.host_filesystem(); }
+  const HostFilesystem& host_filesystem() const { return persistent_state_.host_filesystem(); }
 
  private:
   VirtualClock clock_{};
@@ -113,8 +114,7 @@ class SimulatorContext {
   PhysicalScene physical_scene_{};
   m8266_wifi::Module m8266_wifi_{};
   runtime_motor_alarm_wiring::MotorAlarmWiring motor_alarm_wiring_{};
-  I2cEepromDevice eeprom_{};
-  HostFilesystem host_filesystem_{};
+  PersistentMachineState& persistent_state_;
 };
 
 namespace simulator_context {

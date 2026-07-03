@@ -64,9 +64,7 @@ int main() {
                            "temperature_control.spindle.max_temp 90\n"
                            "temperature_control.spindle.get_m_code 105\n"
                            "temperature_control.spindle.designator M\n"));
-    sd.mount();
-
-    sim::test::BootedRuntime booted;
+    sim::test::BootedRuntime booted(sd.persistent_config());
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature reporting");
@@ -89,9 +87,8 @@ int main() {
                            "temperature_control.power.max_temp 90\n"
                            "temperature_control.power.get_m_code 106\n"
                            "temperature_control.power.designator P\n"));
-    sd.mount();
-
-    sim::test::BootedRuntime booted(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0});
+    sim::test::BootedRuntime booted(sd.persistent_config(),
+                                    sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0});
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before power temperature reporting");

@@ -28,9 +28,7 @@ int main() {
 
   sim::test::TempSdCard sd("carvera_sim_nonblocking_snapshot_homed_test");
   sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.start();

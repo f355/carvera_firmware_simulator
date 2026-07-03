@@ -17,7 +17,9 @@
 
 #include "test_support.hpp"
 
+#include "sim/persistent_machine_state.hpp"
 #include "sim/simulation_instance.hpp"
+#include "support/temp_sdcard.hpp"
 
 int main() {
   sim::SimulationInstance simulation;
@@ -29,6 +31,22 @@ int main() {
   const auto& const_simulation = simulation;
   sim::test::require(&const_simulation.machine() == &simulation.machine(),
                      "const and mutable machine access should refer to the owned machine");
+
+  sim::test::TempDirectory sd_root("carvera_sim_persistent_instance_test");
+  sim::PersistentMachineConfig config;
+  config.mounts.push_back({"sd", sd_root.path()});
+  sim::SimulationInstance persistent_simulation(config);
+
+  const auto translated = persistent_simulation.persistent_state().host_filesystem().translate("/sd/config.txt");
+  sim::test::require(translated == sd_root.path() / "config.txt",
+                     "configured storage should be mounted before the simulation powers on");
+  sim::test::require(persistent_simulation.persistent_state().eeprom().has_persistent_file(),
+                     "an SD mount should attach its EEPROM backing file");
+
+  persistent_simulation.persistent_state().eeprom().poke(7, 0x5a);
+  persistent_simulation.machine().reset();
+  sim::test::require(persistent_simulation.persistent_state().eeprom().peek(7) == 0x5a,
+                     "machine reset should preserve persistent EEPROM contents");
 
   return 0;
 }

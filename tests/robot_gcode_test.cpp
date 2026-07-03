@@ -23,9 +23,9 @@
 #include "Robot.h"
 #include "StepTicker.h"
 #include "libs/Kernel.h"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/motion_runner.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "support/direct_robot_config.hpp"
 
 namespace {
@@ -36,10 +36,11 @@ using sim::test::require;
 }  // namespace
 
 int main() {
-  sim::i2c_eeprom::reset();
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
+  sim::PersistentMachineState persistent_state;
+  persistent_state.eeprom().reset();
+  persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
 
-  sim::MachineSimulator simulator;
+  sim::MachineSimulator simulator(persistent_state);
   Kernel kernel;
 
   const auto x_axis = simulator.add_step_dir_axis({1, 18}, {1, 20});

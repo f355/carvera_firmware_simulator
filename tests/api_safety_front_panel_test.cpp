@@ -25,9 +25,7 @@ int main() {
 
   sim::test::TempSdCard sd("carvera_sim_api_safety_test");
   sim::test::write_api_snapshot_config(sd.path());
-  sd.mount();
-
-  sim::test::ApiHarness api;
+  sim::test::ApiHarness api(sd.persistent_config());
   auto response = api.request([](auto& request) { request.mutable_set_cover_open()->set_open(true); });
   require(response.ok(), "set_cover_open should succeed");
 

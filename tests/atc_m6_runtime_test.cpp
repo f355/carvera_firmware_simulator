@@ -42,9 +42,7 @@ void pump_script(sim::FirmwareRuntime& runtime) {
 int main() {
   sim::test::TempSdCard sd("carvera_sim_atc_m6_runtime");
   sim::test::write_c1_atc_config(sd.path());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   sim::physical_scene::active().set_atc_pocket_tool(1, 1, true, 62.0);
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();

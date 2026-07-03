@@ -54,9 +54,7 @@ int main() {
 
   sim::test::TempSdCard sd("carvera_sim_api_temperature_test");
   write_temperature_config(sd.path());
-  sd.mount();
-
-  sim::test::ApiHarness api;
+  sim::test::ApiHarness api(sd.persistent_config());
   auto response = api.request([](auto& request) {
     request.mutable_set_machine_model()->set_machine_model(sim::test::pb::MACHINE_MODEL_CARVERA_AIR_CA1);
     request.mutable_set_machine_model()->set_function_setting(0);

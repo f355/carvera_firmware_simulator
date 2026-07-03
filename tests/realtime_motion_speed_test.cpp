@@ -21,7 +21,6 @@
 #include <iostream>
 
 #include "libs/Kernel.h"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -113,12 +112,9 @@ MeasuredMove measure_mid_move(sim::FirmwareRuntime& runtime, sim::MachineSimulat
 }
 
 MeasuredMove run_long_diagonal(double realtime_speed) {
-  sim::i2c_eeprom::reset();
   sim::test::TempSdCard sd("carvera_sim_realtime_motion_speed_test");
   sd.write_config_txt(kCa1SpeedConfig);
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 2}),
@@ -137,12 +133,9 @@ MeasuredMove run_long_diagonal(double realtime_speed) {
 }
 
 MeasuredMove run_long_diagonal_after_mid_move_speed_change() {
-  sim::i2c_eeprom::reset();
   sim::test::TempSdCard sd("carvera_sim_realtime_motion_speed_change_test");
   sd.write_config_txt(kCa1SpeedConfig);
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 2}),

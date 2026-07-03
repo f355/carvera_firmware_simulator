@@ -32,13 +32,10 @@ class HostFilesystem {
   void clear_mounts(I2cEepromDevice& eeprom);
   void mount(const std::string& name, const std::filesystem::path& root, I2cEepromDevice& eeprom);
   void ensure_mount(const std::string& name, I2cEepromDevice& eeprom);
-  void copy_mounts_from(const HostFilesystem& other);
   std::filesystem::path translate(const char* path) const;
   bool exists(const std::string& path) const;
 
  private:
-  std::map<std::string, std::filesystem::path> snapshot_mounts() const;
-
   mutable std::mutex mutex_;
   std::map<std::string, std::filesystem::path> mounts_;
 };

@@ -22,7 +22,6 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 
@@ -55,10 +54,7 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_switch_api_test");
   const auto& root = temp_root.path();
   write_switch_config(root);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   sim::ApiService api(simulation);
   carvera::sim::v1::Request request;
 

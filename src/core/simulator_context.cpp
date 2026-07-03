@@ -37,7 +37,7 @@ void SimulatorContext::reset(bool preserve_physical_scene) {
   motion_telemetry_.reset();
   m8266_wifi_.reset();
   motor_alarm_wiring_.clear();
-  eeprom_.reset_transaction();
+  persistent_state_.eeprom().reset_transaction();
   interrupt_controller_.reset();
   realtime_timer_pacer_.reset();
   timer_scheduler_.reset();
@@ -50,7 +50,8 @@ void SimulatorContext::reset(bool preserve_physical_scene) {
 namespace simulator_context {
 
 SimulatorContext& fallback() {
-  static SimulatorContext context;
+  static PersistentMachineState persistent_state;
+  static SimulatorContext context(persistent_state);
   return context;
 }
 

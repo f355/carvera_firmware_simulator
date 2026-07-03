@@ -20,7 +20,6 @@
 #include <iostream>
 #include <regex>
 
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
@@ -49,10 +48,7 @@ int main() {
   sim::test::CartesianConfigOptions config;
   config.sd_ok = false;
   sim::test::write_cartesian_config(root, config);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& runtime = simulation.firmware();
   runtime.boot();
 

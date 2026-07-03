@@ -20,7 +20,6 @@
 #include <iostream>
 
 #include "libs/Kernel.h"
-#include "sim/host_filesystem.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -40,10 +39,7 @@ void verify_cover_input(const char* test_name, sim::MachineModel model, const ch
   sim::test::CartesianConfigOptions config;
   config.extra = std::string("cover_endstop ") + cover_pin + "\nendstop_debounce_count 1\n";
   sim::test::write_cartesian_config(root, config);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings({model, 2}), "test should configure requested factory model");
   runtime.boot();
@@ -71,10 +67,7 @@ int main() {
       "cover_endstop 1.8!^\n"
       "endstop_debounce_count 1\n";
   sim::test::write_cartesian_config(root, config);
-  sim::host_filesystem::clear_mounts();
-  sim::host_filesystem::mount("sd", root);
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 

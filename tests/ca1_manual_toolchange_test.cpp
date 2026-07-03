@@ -65,9 +65,7 @@ void press_front_button(sim::FirmwareRuntime& runtime) {
 int main() {
   sim::test::TempSdCard sd("carvera_sim_ca1_manual_toolchange");
   sd.write_config_txt("");
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");

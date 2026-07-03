@@ -84,9 +84,7 @@ void pulse_delta_steps(sim::MachineSimulator& simulator, int pulses) {
 void test_ca1_without_rotary_accessory() {
   sim::test::TempSdCard sd("carvera_sim_rotary_axis_disabled_test");
   sd.write_config(ca1_rotary_config());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0x01}),
@@ -116,9 +114,7 @@ void test_ca1_without_rotary_accessory() {
 void test_c1_without_rotary_accessory() {
   sim::test::TempSdCard sd("carvera_sim_c1_rotary_axis_disabled_test");
   sd.write_config(ca1_rotary_config());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraC1, 0x05}),
@@ -148,9 +144,7 @@ void test_c1_without_rotary_accessory() {
 void test_ca1_with_rotary_accessory() {
   sim::test::TempSdCard sd("carvera_sim_rotary_axis_enabled_test");
   sd.write_config(ca1_rotary_config());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   simulator.set_rotary_accessory_installed(true);
   auto& runtime = simulation.firmware();
@@ -184,9 +178,7 @@ void test_ca1_with_rotary_accessory() {
 void test_c1_with_rotary_accessory() {
   sim::test::TempSdCard sd("carvera_sim_c1_rotary_axis_enabled_test");
   sd.write_config(ca1_rotary_config());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   simulator.set_rotary_accessory_installed(true);
   auto& runtime = simulation.firmware();

@@ -22,7 +22,11 @@
 
 #include "InterruptIn.h"
 #include "PwmOut.h"
+#include "sim/host_filesystem.hpp"
+#include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/simulator_context.hpp"
+#include "support/temp_sdcard.hpp"
 #include "us_ticker_api.h"
 
 namespace {
@@ -59,6 +63,20 @@ bool eventually(Predicate&& predicate, std::chrono::milliseconds timeout) {
 }  // namespace
 
 int main() {
+  {
+    sim::test::TempDirectory fallback_sd("carvera_sim_fallback_isolation_test");
+    sim::host_filesystem::mount("sd", fallback_sd.path());
+    sim::i2c_eeprom::write(9, 0x5a);
+
+    sim::MachineSimulator isolated;
+    require(isolated.context().host_filesystem().translate("/sd/probe.txt") ==
+                std::filesystem::path("/sd/probe.txt"),
+            "standalone simulator should not inherit fallback filesystem mounts");
+    require(!isolated.context().eeprom().has_persistent_file(),
+            "standalone simulator should not inherit fallback EEPROM persistence");
+  }
+  sim::host_filesystem::clear_mounts();
+
   sim::MachineSimulator simulator;
 
   simulator.advance_us(25);

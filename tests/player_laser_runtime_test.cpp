@@ -155,9 +155,7 @@ void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineS
 void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   sim::test::TempSdCard sd("carvera_sim_ca1_plain_laser_mode_test");
   sd.write_config(laser_config());
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
           "CA1 factory settings should apply before boot");
@@ -217,9 +215,7 @@ int main() {
            "G1 X-20 F60\n"
            "M5\n"
            "M322.2\n");
-  sd.mount();
-
-  sim::SimulationInstance simulation;
+  sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();

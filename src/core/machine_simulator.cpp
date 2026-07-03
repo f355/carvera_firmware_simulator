@@ -25,6 +25,7 @@
 #include "sim/adc.hpp"
 #include "sim/board_profile.hpp"
 #include "sim/gpio_level.hpp"
+#include "sim/persistent_machine_state.hpp"
 #include "sim/simulator_context.hpp"
 #include "sim/us_ticker_sim.hpp"
 
@@ -57,11 +58,19 @@ std::uint8_t stock_temperature_channel(TemperatureSensor sensor) {
 
 }  // namespace
 
-MachineSimulator::MachineSimulator()
-    : context_(std::make_unique<SimulatorContext>()), previous_context_(simulator_context::activate(context_.get())) {
+MachineSimulator::MachineSimulator() : owned_persistent_state_(std::make_unique<PersistentMachineState>()) {
+  context_ = std::make_unique<SimulatorContext>(*owned_persistent_state_);
+  initialize();
+}
+
+MachineSimulator::MachineSimulator(PersistentMachineState& persistent_state)
+    : context_(std::make_unique<SimulatorContext>(persistent_state)) {
+  initialize();
+}
+
+void MachineSimulator::initialize() {
+  previous_context_ = simulator_context::activate(context_.get());
   context_->reset();
-  context_->host_filesystem().copy_mounts_from(previous_context_->host_filesystem());
-  context_->eeprom() = previous_context_->eeprom();
   set_temperature(TemperatureSensor::Spindle, 25.0);
   set_temperature(TemperatureSensor::Power, 25.0);
 }

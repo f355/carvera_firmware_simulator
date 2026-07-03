@@ -22,8 +22,8 @@
 #include "PublicData.h"
 #include "libs/Kernel.h"
 #include "modules/utils/mainbutton/MainButton.h"
-#include "sim/i2c_eeprom.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 namespace {
 
@@ -33,9 +33,10 @@ using sim::test::require;
 }  // namespace
 
 int main() {
-  sim::i2c_eeprom::reset();
-  sim::i2c_eeprom::configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
-  sim::MachineSimulator simulator;
+  sim::PersistentMachineState persistent_state;
+  persistent_state.eeprom().reset();
+  persistent_state.eeprom().configure_factory_settings({sim::MachineModel::CarveraC1, 0x04});
+  sim::MachineSimulator simulator(persistent_state);
 
   Kernel kernel;
   kernel.config = new Config(new MemoryConfigSource({

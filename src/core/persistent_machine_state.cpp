@@ -15,23 +15,24 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "sim/simulation_instance.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 namespace sim {
 
-SimulationInstance::SimulationInstance() : machine_(persistent_state_), firmware_(machine_) {}
+PersistentMachineState::PersistentMachineState(const PersistentMachineConfig& config) {
+  for (const auto& mount_config : config.mounts) {
+    mount(mount_config.name, mount_config.host_root);
+  }
+}
 
-SimulationInstance::SimulationInstance(const PersistentMachineConfig& config)
-    : persistent_state_(config), machine_(persistent_state_), firmware_(machine_) {}
+void PersistentMachineState::clear_mounts() { host_filesystem_.clear_mounts(eeprom_); }
 
-MachineSimulator& SimulationInstance::machine() { return machine_; }
+void PersistentMachineState::mount(const std::string& name, const std::filesystem::path& host_root) {
+  host_filesystem_.mount(name, host_root, eeprom_);
+}
 
-const MachineSimulator& SimulationInstance::machine() const { return machine_; }
-
-FirmwareRuntime& SimulationInstance::firmware() { return firmware_; }
-
-PersistentMachineState& SimulationInstance::persistent_state() { return persistent_state_; }
-
-const PersistentMachineState& SimulationInstance::persistent_state() const { return persistent_state_; }
+void PersistentMachineState::ensure_mount(const std::string& name) {
+  host_filesystem_.ensure_mount(name, eeprom_);
+}
 
 }  // namespace sim
