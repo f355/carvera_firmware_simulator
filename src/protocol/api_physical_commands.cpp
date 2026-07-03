@@ -23,10 +23,13 @@
 #include <sstream>
 
 #include "sim/api_conversions.hpp"
+#include "sim/firmware_runtime.hpp"
 #include "sim/logging.hpp"
+#include "sim/machine_simulator.hpp"
 #include "sim/physical_scene.hpp"
 #include "sim/runtime_atc_config.hpp"
-#include "sim/simulator_context.hpp"
+#include "sim/runtime_physical_controls.hpp"
+#include "sim/runtime_pump.hpp"
 
 namespace sim {
 
@@ -114,10 +117,9 @@ void fill_pin(carvera::sim::v1::PinAddress& target, PinAddress source) {
   target.set_pin(source.pin);
 }
 
-void apply_tool_setter_box(PhysicalScene& scene, FirmwareRuntime& firmware,
-                           const carvera::sim::v1::SetToolSetterBox& command) {
+void apply_tool_setter_box(PhysicalScene& scene, const carvera::sim::v1::SetToolSetterBox& command) {
   if (command.enabled()) {
-    firmware.set_tool_setter_box(api::box_from_proto(command.bounds()));
+    scene.set_tool_setter_box(api::box_from_proto(command.bounds()));
     logging::event("physical", "tool setter box " + box_summary(command.bounds()));
   } else {
     scene.clear_tool_setter_box();
@@ -125,10 +127,9 @@ void apply_tool_setter_box(PhysicalScene& scene, FirmwareRuntime& firmware,
   }
 }
 
-void apply_stock_box(PhysicalScene& scene, FirmwareRuntime& firmware,
-                     const carvera::sim::v1::SetStockBox& command) {
+void apply_stock_box(PhysicalScene& scene, const carvera::sim::v1::SetStockBox& command) {
   if (command.enabled()) {
-    firmware.set_stock_box(api::box_from_proto(command.bounds()));
+    scene.set_stock_box(api::box_from_proto(command.bounds()));
     logging::event("physical", "stock box " + box_summary(command.bounds()));
   } else {
     scene.clear_stock_box();
@@ -184,7 +185,7 @@ std::optional<const char*> apply_spindle_tool(PhysicalScene& scene,
   return std::nullopt;
 }
 
-std::optional<const char*> apply_temperature(FirmwareRuntime& firmware,
+std::optional<const char*> apply_temperature(RuntimePhysicalControls& inputs,
                                              const carvera::sim::v1::SetTemperature& command) {
   const auto sensor = api::temperature_sensor(command.sensor());
   if (!sensor.has_value()) {
@@ -193,7 +194,7 @@ std::optional<const char*> apply_temperature(FirmwareRuntime& firmware,
   if (!std::isfinite(command.celsius()) || command.celsius() <= -273.15) {
     return "temperature must be finite and above absolute zero";
   }
-  firmware.set_temperature(*sensor, command.celsius());
+  inputs.set_temperature(*sensor, command.celsius());
   std::ostringstream message;
   message << std::fixed << std::setprecision(1) << temperature_sensor_name(command.sensor()) << " temperature "
           << command.celsius() << "C";
@@ -208,12 +209,12 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
 
   switch (request.command_case()) {
     case Request::kSetProbeInputs:
-      firmware_.set_probe_inputs(request.set_probe_inputs().probe(), request.set_probe_inputs().tool_setter());
+      inputs_.set_probe_inputs(request.set_probe_inputs().probe(), request.set_probe_inputs().tool_setter());
       logging::event("physical", std::string("probe input=") + bool_text(request.set_probe_inputs().probe()) +
                                      " ets=" + bool_text(request.set_probe_inputs().tool_setter()));
       return ok(request.id());
     case Request::kGetProbeInputs: {
-      const auto states = firmware_.probe_inputs();
+      const auto states = inputs_.probe_inputs();
       auto response = ok(request.id());
       auto* inputs = response.mutable_probe_inputs();
       inputs->set_probe(states.first);
@@ -221,12 +222,12 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       return response;
     }
     case Request::kSetCoverOpen:
-      firmware_.set_cover_open(request.set_cover_open().open());
+      inputs_.set_cover_open(request.set_cover_open().open());
       logging::event("physical", std::string("cover ") + (request.set_cover_open().open() ? "open" : "closed"));
       return ok(request.id());
     case Request::kGetCoverOpen: {
       auto response = ok(request.id());
-      response.mutable_cover_state()->set_open(firmware_.cover_open());
+      response.mutable_cover_state()->set_open(inputs_.cover_open());
       return response;
     }
     case Request::kSetLimitSwitch: {
@@ -235,7 +236,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       if (!axis.has_value() || !side.has_value()) {
         return error(request.id(), "invalid limit switch");
       }
-      firmware_.set_limit_switch(*axis, *side, request.set_limit_switch().triggered());
+      inputs_.set_limit_switch(*axis, *side, request.set_limit_switch().triggered());
       logging::event("physical", std::string("limit ") + api::axis_letter(request.set_limit_switch().axis()) +
                                      (*side == LimitSwitchSide::Min ? "-min " : "-max ") +
                                      bool_text(request.set_limit_switch().triggered()));
@@ -251,7 +252,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       auto* state = response.mutable_limit_switch_state();
       state->set_axis(request.get_limit_switch().axis());
       state->set_side(request.get_limit_switch().side());
-      state->set_triggered(firmware_.limit_switch(*axis, *side));
+      state->set_triggered(inputs_.limit_switch(*axis, *side));
       return response;
     }
     case Request::kSetMotorAlarm: {
@@ -259,7 +260,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       if (!axis.has_value()) {
         return error(request.id(), "invalid motor alarm axis");
       }
-      firmware_.set_motor_alarm(*axis, request.set_motor_alarm().triggered());
+      inputs_.set_motor_alarm(*axis, request.set_motor_alarm().triggered());
       logging::event("fault", std::string("motor ") + api::axis_letter(request.set_motor_alarm().axis()) + " alarm " +
                                   bool_text(request.set_motor_alarm().triggered()));
       return ok(request.id());
@@ -272,23 +273,23 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       auto response = ok(request.id());
       auto* state = response.mutable_motor_alarm_state();
       state->set_axis(request.get_motor_alarm().axis());
-      state->set_triggered(firmware_.motor_alarm(*axis));
+      state->set_triggered(inputs_.motor_alarm(*axis));
       return response;
     }
     case Request::kSetSpindleAlarm:
-      if (!firmware_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
+      if (!inputs_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
         return error(request.id(), "spindle alarm is not configured");
       }
-      firmware_.run_main_loop(1);
+      runner_.run_main_loop(1);
       logging::event("fault", std::string("spindle alarm ") + bool_text(request.set_spindle_alarm().triggered()));
       return ok(request.id());
     case Request::kSetRotaryAccessoryInstalled:
-      simulator_.set_rotary_accessory_installed(request.set_rotary_accessory_installed().installed());
+      machine_.set_rotary_accessory_installed(request.set_rotary_accessory_installed().installed());
       logging::event("physical", std::string("rotary accessory ") +
                                      bool_text(request.set_rotary_accessory_installed().installed()));
       return ok(request.id());
     case Request::kGetSpindleAlarm: {
-      const auto alarm = firmware_.spindle_alarm();
+      const auto alarm = inputs_.spindle_alarm();
       auto response = ok(request.id());
       auto* state = response.mutable_spindle_alarm_state();
       state->set_available(alarm.has_value());
@@ -296,50 +297,48 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       return response;
     }
     case Request::kSetMainButtonPressed:
-      firmware_.set_main_button_pressed(request.set_main_button_pressed().pressed());
-      firmware_.run_main_loop(1);
+      inputs_.set_main_button_pressed(request.set_main_button_pressed().pressed());
+      runner_.run_main_loop(1);
       logging::event("physical", std::string("main button ") +
                                      (request.set_main_button_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
     case Request::kSetEStopPressed:
-      firmware_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
-      firmware_.run_main_loop(1);
+      inputs_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
+      runner_.run_main_loop(1);
       logging::event("physical",
                      std::string("e-stop ") + (request.set_e_stop_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
     case Request::kGetFrontPanelState: {
-      const auto panel = firmware_.front_panel_state();
+      const auto panel = inputs_.front_panel_state();
       auto response = ok(request.id());
       fill_front_panel(*response.mutable_front_panel_state(), panel);
       return response;
     }
     case Request::kSetAtcPocketTools: {
-      if (const auto message = apply_atc_pocket_tools(simulator_.context().physical_scene(), firmware_,
-                                                      request.set_atc_pocket_tools())) {
+      if (const auto message = apply_atc_pocket_tools(world_, firmware_, request.set_atc_pocket_tools())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     }
     case Request::kSetSpindleTool: {
-      if (const auto message =
-              apply_spindle_tool(simulator_.context().physical_scene(), request.set_spindle_tool())) {
+      if (const auto message = apply_spindle_tool(world_, request.set_spindle_tool())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     }
     case Request::kSetProbeToolInstalled:
-      firmware_.set_probe_tool_installed(request.set_probe_tool_installed().installed());
+      world_.set_probe_tool_installed(request.set_probe_tool_installed().installed());
       logging::event("physical",
                      std::string("probe tool ") + bool_text(request.set_probe_tool_installed().installed()));
       return ok(request.id());
     case Request::kSetToolSetterBox:
-      apply_tool_setter_box(simulator_.context().physical_scene(), firmware_, request.set_tool_setter_box());
+      apply_tool_setter_box(world_, request.set_tool_setter_box());
       return ok(request.id());
     case Request::kSetStockBox:
-      apply_stock_box(simulator_.context().physical_scene(), firmware_, request.set_stock_box());
+      apply_stock_box(world_, request.set_stock_box());
       return ok(request.id());
     case Request::kSetTemperature: {
-      if (const auto message = apply_temperature(firmware_, request.set_temperature())) {
+      if (const auto message = apply_temperature(inputs_, request.set_temperature())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
@@ -353,7 +352,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
           request.set_switch_state().has_value()
               ? std::make_optional(static_cast<float>(request.set_switch_state().value()))
               : std::nullopt;
-      if (!firmware_.set_switch_state(*name, request.set_switch_state().on(), value)) {
+      if (!inputs_.set_switch_state(*name, request.set_switch_state().on(), value)) {
         return error(request.id(), "switch is not available");
       }
       std::ostringstream message;
@@ -370,7 +369,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       if (!name.has_value()) {
         return error(request.id(), "unsupported switch name");
       }
-      const auto state = firmware_.switch_state(*name);
+      const auto state = inputs_.switch_state(*name);
       auto response = ok(request.id());
       auto* output = response.mutable_switch_state();
       output->set_name(request.get_switch_state().name());
@@ -380,7 +379,7 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       return response;
     }
     case Request::kGetLaserState: {
-      const auto state = firmware_.laser_state();
+      const auto state = inputs_.laser_state();
       auto response = ok(request.id());
       auto* output = response.mutable_laser_state();
       output->set_available(state.available);
@@ -399,11 +398,11 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
 void ApiService::fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot& snapshot) {
   snapshot.Clear();
 
-  const auto probe = firmware_.probe_inputs();
+  const auto probe = inputs_.probe_inputs();
   snapshot.mutable_probe_inputs()->set_probe(probe.first);
   snapshot.mutable_probe_inputs()->set_tool_setter(probe.second);
-  snapshot.mutable_cover()->set_open(firmware_.cover_open());
-  fill_front_panel(*snapshot.mutable_front_panel(), firmware_.front_panel_state());
+  snapshot.mutable_cover()->set_open(inputs_.cover_open());
+  fill_front_panel(*snapshot.mutable_front_panel(), inputs_.front_panel_state());
 
   for (const auto axis : kSnapshotAxes) {
     const auto axis_index = api::axis_index(axis);
@@ -412,10 +411,10 @@ void ApiService::fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot&
     }
     auto* output = snapshot.add_motor_alarms();
     output->set_axis(axis);
-    output->set_triggered(firmware_.motor_alarm(*axis_index));
+    output->set_triggered(inputs_.motor_alarm(*axis_index));
   }
 
-  const auto spindle_alarm = firmware_.spindle_alarm();
+  const auto spindle_alarm = inputs_.spindle_alarm();
   snapshot.mutable_spindle_alarm()->set_available(spindle_alarm.has_value());
   snapshot.mutable_spindle_alarm()->set_triggered(spindle_alarm.value_or(false));
 
@@ -424,7 +423,7 @@ void ApiService::fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot&
     if (!switch_name.has_value()) {
       continue;
     }
-    const auto state = firmware_.switch_state(*switch_name);
+    const auto state = inputs_.switch_state(*switch_name);
     auto* output = snapshot.add_switches();
     output->set_name(name);
     output->set_available(state.available);
@@ -432,7 +431,7 @@ void ApiService::fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot&
     output->set_value(state.value);
   }
 
-  const auto laser = firmware_.laser_state();
+  const auto laser = inputs_.laser_state();
   snapshot.mutable_laser()->set_available(laser.available);
   snapshot.mutable_laser()->set_mode(laser.mode);
   snapshot.mutable_laser()->set_firing(laser.firing);
@@ -441,7 +440,7 @@ void ApiService::fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot&
   snapshot.mutable_laser()->set_scale_percent(laser.scale_percent);
 
   for (const auto pin : kSnapshotPwmPins) {
-    const auto state = simulator_.pwm_output(pin);
+    const auto state = machine_.pwm_output(pin);
     auto* output = snapshot.add_pwm_outputs();
     fill_pin(*output->mutable_pin(), pin);
     output->set_configured(state.configured);
@@ -456,12 +455,12 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_physical_comm
 
   switch (request.command_case()) {
     case Request::kSetProbeInputs:
-      firmware_.set_probe_inputs(request.set_probe_inputs().probe(), request.set_probe_inputs().tool_setter());
+      inputs_.set_probe_inputs(request.set_probe_inputs().probe(), request.set_probe_inputs().tool_setter());
       logging::event("physical", std::string("probe input=") + bool_text(request.set_probe_inputs().probe()) +
                                      " ets=" + bool_text(request.set_probe_inputs().tool_setter()));
       return ok(request.id());
     case Request::kSetCoverOpen:
-      firmware_.set_cover_open(request.set_cover_open().open());
+      inputs_.set_cover_open(request.set_cover_open().open());
       logging::event("physical", std::string("cover ") + (request.set_cover_open().open() ? "open" : "closed"));
       return ok(request.id());
     case Request::kSetLimitSwitch: {
@@ -470,7 +469,7 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_physical_comm
       if (!axis.has_value() || !side.has_value()) {
         return error(request.id(), "invalid limit switch");
       }
-      firmware_.set_limit_switch(*axis, *side, request.set_limit_switch().triggered());
+      inputs_.set_limit_switch(*axis, *side, request.set_limit_switch().triggered());
       logging::event("physical", std::string("limit ") + api::axis_letter(request.set_limit_switch().axis()) +
                                      (*side == LimitSwitchSide::Min ? "-min " : "-max ") +
                                      bool_text(request.set_limit_switch().triggered()));
@@ -481,52 +480,50 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_physical_comm
       if (!axis.has_value()) {
         return error(request.id(), "invalid motor alarm axis");
       }
-      firmware_.set_motor_alarm(*axis, request.set_motor_alarm().triggered());
+      inputs_.set_motor_alarm(*axis, request.set_motor_alarm().triggered());
       logging::event("fault", std::string("motor ") + api::axis_letter(request.set_motor_alarm().axis()) + " alarm " +
                                   bool_text(request.set_motor_alarm().triggered()));
       return ok(request.id());
     }
     case Request::kSetSpindleAlarm:
-      if (!firmware_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
+      if (!inputs_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
         return error(request.id(), "spindle alarm is not configured");
       }
       logging::event("fault", std::string("spindle alarm ") + bool_text(request.set_spindle_alarm().triggered()));
       return ok(request.id());
     case Request::kSetMainButtonPressed:
-      firmware_.set_main_button_pressed(request.set_main_button_pressed().pressed());
+      inputs_.set_main_button_pressed(request.set_main_button_pressed().pressed());
       logging::event("physical", std::string("main button ") +
                                      (request.set_main_button_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
     case Request::kSetEStopPressed:
-      firmware_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
+      inputs_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
       logging::event("physical",
                      std::string("e-stop ") + (request.set_e_stop_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
     case Request::kSetRotaryAccessoryInstalled:
-      simulator_.set_rotary_accessory_installed(request.set_rotary_accessory_installed().installed());
+      machine_.set_rotary_accessory_installed(request.set_rotary_accessory_installed().installed());
       logging::event("physical", std::string("rotary accessory ") +
                                      bool_text(request.set_rotary_accessory_installed().installed()));
       return ok(request.id());
     case Request::kSetAtcPocketTools:
-      if (const auto message = apply_atc_pocket_tools(simulator_.context().physical_scene(), firmware_,
-                                                      request.set_atc_pocket_tools())) {
+      if (const auto message = apply_atc_pocket_tools(world_, firmware_, request.set_atc_pocket_tools())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     case Request::kSetSpindleTool:
-      if (const auto message =
-              apply_spindle_tool(simulator_.context().physical_scene(), request.set_spindle_tool())) {
+      if (const auto message = apply_spindle_tool(world_, request.set_spindle_tool())) {
         return error(request.id(), *message);
       }
       return ok(request.id());
     case Request::kSetToolSetterBox:
-      apply_tool_setter_box(simulator_.context().physical_scene(), firmware_, request.set_tool_setter_box());
+      apply_tool_setter_box(world_, request.set_tool_setter_box());
       return ok(request.id());
     case Request::kSetStockBox:
-      apply_stock_box(simulator_.context().physical_scene(), firmware_, request.set_stock_box());
+      apply_stock_box(world_, request.set_stock_box());
       return ok(request.id());
     case Request::kSetTemperature:
-      if (const auto message = apply_temperature(firmware_, request.set_temperature())) {
+      if (const auto message = apply_temperature(inputs_, request.set_temperature())) {
         return error(request.id(), *message);
       }
       return ok(request.id());

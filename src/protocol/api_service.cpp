@@ -20,11 +20,20 @@
 #include <utility>
 
 #include "sim/api_snapshot.hpp"
+#include "sim/firmware_runtime.hpp"
+#include "sim/simulation_instance.hpp"
 
 namespace sim {
 
 ApiService::ApiService(SimulationInstance& simulation)
-    : simulator_(simulation.machine()), firmware_(simulation.firmware()), interactive_transport_(firmware_) {}
+    : firmware_(simulation.firmware()),
+      inputs_(simulation.inputs()),
+      world_(simulation.world()),
+      io_(simulation.io()),
+      runner_(simulation.runner()),
+      machine_(simulation.machine()),
+      persistent_state_(simulation.persistent_state()),
+      interactive_transport_(firmware_) {}
 
 carvera::sim::v1::Response ApiService::handle(const carvera::sim::v1::Request& request) {
   if (auto response = handle_lifecycle_command(request)) {
@@ -69,7 +78,7 @@ void ApiService::set_auxiliary_interactive_pump(std::function<void()> pump) {
 }
 
 bool ApiService::fill_machine_snapshot_nonblocking(carvera::sim::v1::MachineSnapshot& snapshot) {
-  return sim::fill_machine_snapshot_nonblocking(snapshot, firmware_, simulator_);
+  return sim::fill_machine_snapshot_nonblocking(snapshot, firmware_, machine_);
 }
 
 bool ApiService::fill_physical_io_snapshot_nonblocking(carvera::sim::v1::PhysicalIoSnapshot& snapshot) {

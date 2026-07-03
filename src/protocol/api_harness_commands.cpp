@@ -25,7 +25,8 @@
 #include "libs/Kernel.h"
 #include "sim/api_conversions.hpp"
 #include "sim/i2c_eeprom.hpp"
-#include "sim/simulator_context.hpp"
+#include "sim/machine_simulator.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 namespace sim {
 namespace {
@@ -146,7 +147,7 @@ bool apply_eeprom_field(EEPROM_data& data, const carvera::sim::v1::EepromField& 
 
 std::optional<ApiService::Response> ApiService::handle_harness_command(const carvera::sim::v1::Request& request) {
   using Request = carvera::sim::v1::Request;
-  auto& eeprom = simulator_.context().eeprom();
+  auto& eeprom = persistent_state_.eeprom();
 
   switch (request.command_case()) {
     case Request::kSetGpioInput: {
@@ -154,7 +155,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       if (!api::valid_pin(command.pin())) {
         return error(request.id(), "invalid GPIO pin");
       }
-      simulator_.set_gpio_input(api::pin_address(command.pin()), command.high());
+      machine_.set_gpio_input(api::pin_address(command.pin()), command.high());
       return ok(request.id());
     }
     case Request::kGetGpioLevel: {
@@ -165,7 +166,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       auto response = ok(request.id());
       auto* level = response.mutable_gpio_level();
       level->mutable_pin()->CopyFrom(command.pin());
-      level->set_high(simulator_.gpio_level(api::pin_address(command.pin())));
+      level->set_high(machine_.gpio_level(api::pin_address(command.pin())));
       return response;
     }
     case Request::kAttachStepDirAxis: {
@@ -173,7 +174,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       if (!api::valid_pin(command.step_pin()) || !api::valid_pin(command.direction_pin())) {
         return error(request.id(), "invalid step/dir axis pin");
       }
-      const auto axis = simulator_.add_step_dir_axis(
+      const auto axis = machine_.add_step_dir_axis(
           api::pin_address(command.step_pin()), api::pin_address(command.direction_pin()), command.invert_direction());
       auto response = ok(request.id());
       response.mutable_attached_axis()->set_axis(static_cast<std::uint32_t>(axis));
@@ -184,7 +185,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
         auto response = ok(request.id());
         auto* position = response.mutable_axis_position();
         position->set_axis(request.get_axis_position().axis());
-        position->set_steps(simulator_.axis_position_steps(request.get_axis_position().axis()));
+        position->set_steps(machine_.axis_position_steps(request.get_axis_position().axis()));
         return response;
       } catch (const std::exception&) {
         return error(request.id(), "invalid axis");
@@ -195,7 +196,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       if (!api::valid_pin(command.pin())) {
         return error(request.id(), "invalid PWM pin");
       }
-      const auto state = simulator_.pwm_output(api::pin_address(command.pin()));
+      const auto state = machine_.pwm_output(api::pin_address(command.pin()));
       auto response = ok(request.id());
       auto* output = response.mutable_pwm_output();
       output->mutable_pin()->CopyFrom(command.pin());
@@ -209,7 +210,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       if (!api::valid_pin(command.pin())) {
         return error(request.id(), "invalid interrupt pin");
       }
-      simulator_.trigger_interrupt_rise(api::pin_address(command.pin()));
+      machine_.trigger_interrupt_rise(api::pin_address(command.pin()));
       return ok(request.id());
     }
     case Request::kSetAdcInput: {
@@ -220,8 +221,8 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       if (command.raw() > 4095) {
         return error(request.id(), "ADC raw value must be 0..4095");
       }
-      simulator_.set_adc_channel_raw(static_cast<std::uint8_t>(command.channel()),
-                                     static_cast<std::uint16_t>(command.raw()));
+      machine_.set_adc_channel_raw(static_cast<std::uint8_t>(command.channel()),
+                                   static_cast<std::uint16_t>(command.raw()));
       return ok(request.id());
     }
     case Request::kGetAdcInput: {
@@ -232,7 +233,7 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       auto response = ok(request.id());
       auto* input = response.mutable_adc_input();
       input->set_channel(command.channel());
-      input->set_raw(simulator_.adc_channel_raw(static_cast<std::uint8_t>(command.channel())));
+      input->set_raw(machine_.adc_channel_raw(static_cast<std::uint8_t>(command.channel())));
       return response;
     }
     case Request::kGetEepromBytes: {

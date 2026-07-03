@@ -17,6 +17,8 @@
 
 #include "sim/simulation_instance.hpp"
 
+#include "sim/simulator_context.hpp"
+
 namespace sim {
 
 SimulationInstance::SimulationInstance() : machine_(persistent_state_), firmware_(machine_) {}
@@ -29,6 +31,16 @@ MachineSimulator& SimulationInstance::machine() { return machine_; }
 const MachineSimulator& SimulationInstance::machine() const { return machine_; }
 
 FirmwareRuntime& SimulationInstance::firmware() { return firmware_; }
+
+RuntimePhysicalControls& SimulationInstance::inputs() { return firmware_.inputs(); }
+
+PhysicalScene& SimulationInstance::world() { return machine_.context().physical_scene(); }
+
+const PhysicalScene& SimulationInstance::world() const { return machine_.context().physical_scene(); }
+
+RuntimeIo& SimulationInstance::io() { return firmware_.io(); }
+
+RuntimePump& SimulationInstance::runner() { return firmware_.runner(); }
 
 PersistentMachineState& SimulationInstance::persistent_state() { return persistent_state_; }
 

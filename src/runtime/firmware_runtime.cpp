@@ -174,4 +174,10 @@ bool FirmwareRuntime::pump_free_running(std::size_t main_loop_iterations, std::s
 
 double FirmwareRuntime::realtime_speed() const { return simulator_.realtime_speed(); }
 
+RuntimePhysicalControls& FirmwareRuntime::inputs() { return *physical_controls_; }
+
+RuntimeIo& FirmwareRuntime::io() { return *io_; }
+
+RuntimePump& FirmwareRuntime::runner() { return *pump_; }
+
 }  // namespace sim

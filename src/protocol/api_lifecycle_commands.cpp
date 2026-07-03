@@ -20,8 +20,10 @@
 #include <sstream>
 
 #include "sim/api_conversions.hpp"
+#include "sim/firmware_runtime.hpp"
 #include "sim/logging.hpp"
-#include "sim/simulator_context.hpp"
+#include "sim/machine_simulator.hpp"
+#include "sim/persistent_machine_state.hpp"
 
 namespace sim {
 namespace {
@@ -47,27 +49,27 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       logging::event("lifecycle", "firmware reset requested");
       return ok(request.id());
     case Request::kPoll:
-      simulator_.poll();
+      machine_.poll();
       return ok(request.id());
     case Request::kGetStatus: {
       auto response = ok(request.id());
       auto* status = response.mutable_status();
       const auto factory_settings = firmware_.factory_settings();
-      status->set_time_us(simulator_.time_us());
-      status->set_time_mode(api::time_mode(simulator_.is_realtime()));
+      status->set_time_us(machine_.time_us());
+      status->set_time_mode(api::time_mode(machine_.is_realtime()));
       status->set_machine_model(api::proto_machine_model(factory_settings.machine_model));
       status->set_function_setting(factory_settings.function_setting);
-      status->set_realtime_speed(simulator_.realtime_speed());
+      status->set_realtime_speed(machine_.realtime_speed());
       return response;
     }
     case Request::kSetTimeMode:
       switch (request.set_time_mode().mode()) {
         case carvera::sim::v1::TIME_MODE_MANUAL:
-          simulator_.pause_realtime();
+          machine_.pause_realtime();
           logging::event("lifecycle", "time mode manual");
           return ok(request.id());
         case carvera::sim::v1::TIME_MODE_REALTIME:
-          simulator_.start_realtime();
+          machine_.start_realtime();
           logging::event("lifecycle", "time mode realtime");
           return ok(request.id());
         default:
@@ -75,7 +77,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       }
     case Request::kSetRealtimeSpeed: {
       const double multiplier = request.set_realtime_speed().multiplier();
-      if (!simulator_.set_realtime_speed(multiplier)) {
+      if (!machine_.set_realtime_speed(multiplier)) {
         return error(request.id(), "realtime speed multiplier must be > 0 and <= 100");
       }
       std::ostringstream message;
@@ -84,7 +86,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       return ok(request.id());
     }
     case Request::kAdvanceTime:
-      simulator_.advance_us(request.advance_time().delta_us());
+      machine_.advance_us(request.advance_time().delta_us());
       return ok(request.id());
     case Request::kMountFilesystem: {
       const auto& mount = request.mount_filesystem();
@@ -94,7 +96,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
       if (mount.host_path().empty()) {
         return error(request.id(), "mount host_path is required");
       }
-      simulator_.context().persistent_state().mount(mount.name(), mount.host_path());
+      persistent_state_.mount(mount.name(), mount.host_path());
       logging::event("filesystem", "mounted /" + mount.name() + " -> " + mount.host_path());
       return ok(request.id());
     }

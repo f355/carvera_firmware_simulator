@@ -88,6 +88,10 @@ class FirmwareRuntime {
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
   double realtime_speed() const;
 
+  RuntimePhysicalControls& inputs();
+  RuntimeIo& io();
+  RuntimePump& runner();
+
  private:
   MachineModel machine_model() const;
 

@@ -28,7 +28,7 @@ std::optional<ApiService::Response> ApiService::handle_snapshot_transport_comman
   switch (request.command_case()) {
     case Request::kGetMachineSnapshot: {
       auto response = ok(request.id());
-      if (!fill_machine_snapshot(*response.mutable_machine_snapshot(), firmware_, simulator_)) {
+      if (!fill_machine_snapshot(*response.mutable_machine_snapshot(), firmware_, machine_)) {
         return error(request.id(), "firmware Robot is not available");
       }
       return response;

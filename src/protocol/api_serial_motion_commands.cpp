@@ -18,6 +18,8 @@
 #include "sim/api_service.hpp"
 
 #include "sim/api_conversions.hpp"
+#include "sim/runtime_io.hpp"
+#include "sim/runtime_pump.hpp"
 
 namespace sim {
 
@@ -26,17 +28,17 @@ std::optional<ApiService::Response> ApiService::handle_serial_motion_command(con
 
   switch (request.command_case()) {
     case Request::kWriteSerial:
-      firmware_.write_serial(request.write_serial().data());
+      io_.write_serial(request.write_serial().data());
       return ok(request.id());
     case Request::kReadSerial: {
       auto response = ok(request.id());
-      response.mutable_serial_data()->set_data(firmware_.read_serial());
+      response.mutable_serial_data()->set_data(io_.read_serial());
       return response;
     }
     case Request::kRunUntilIdle: {
       const auto max_step_ticks =
           request.run_until_idle().max_step_ticks() == 0 ? 100000 : request.run_until_idle().max_step_ticks();
-      const bool idle = firmware_.run_until_idle(static_cast<std::size_t>(max_step_ticks));
+      const bool idle = runner_.run_until_motion_idle(static_cast<std::size_t>(max_step_ticks)).motion_idle;
       auto response = ok(request.id());
       response.mutable_run_result()->set_idle(idle);
       if (!idle) {
@@ -51,14 +53,14 @@ std::optional<ApiService::Response> ApiService::handle_serial_motion_command(con
         return error(request.id(), "invalid jog command");
       }
 
-      firmware_.write_serial("G91\n");
-      firmware_.write_serial(command);
+      io_.write_serial("G91\n");
+      io_.write_serial(command);
       const auto max_step_ticks = request.jog().max_step_ticks() == 0 ? 100000 : request.jog().max_step_ticks();
-      const bool idle = firmware_.run_until_idle(static_cast<std::size_t>(max_step_ticks));
+      const bool idle = runner_.run_until_motion_idle(static_cast<std::size_t>(max_step_ticks)).motion_idle;
       auto response = ok(request.id());
       auto* result = response.mutable_jog_result();
       result->set_idle(idle);
-      result->set_serial_data(firmware_.read_serial());
+      result->set_serial_data(io_.read_serial());
       if (!idle) {
         response.set_ok(false);
         response.set_error("jog did not reach idle");

@@ -24,9 +24,17 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/interactive_transport_manager.hpp"
-#include "sim/simulation_instance.hpp"
 
 namespace sim {
+
+class FirmwareRuntime;
+class MachineSimulator;
+class PersistentMachineState;
+class PhysicalScene;
+class RuntimeIo;
+class RuntimePhysicalControls;
+class RuntimePump;
+class SimulationInstance;
 
 class ApiService {
  public:
@@ -55,8 +63,13 @@ class ApiService {
   carvera::sim::v1::Response error(std::uint64_t request_id, const char* message) const;
   void fill_physical_io_snapshot(carvera::sim::v1::PhysicalIoSnapshot& snapshot);
 
-  MachineSimulator& simulator_;
   FirmwareRuntime& firmware_;
+  RuntimePhysicalControls& inputs_;
+  PhysicalScene& world_;
+  RuntimeIo& io_;
+  RuntimePump& runner_;
+  MachineSimulator& machine_;
+  PersistentMachineState& persistent_state_;
   InteractiveTransportManager interactive_transport_;
 };
 

@@ -24,6 +24,11 @@
 
 namespace sim {
 
+class PhysicalScene;
+class RuntimeIo;
+class RuntimePhysicalControls;
+class RuntimePump;
+
 class SimulationInstance {
  public:
   SimulationInstance();
@@ -35,6 +40,11 @@ class SimulationInstance {
   MachineSimulator& machine();
   const MachineSimulator& machine() const;
   FirmwareRuntime& firmware();
+  RuntimePhysicalControls& inputs();
+  PhysicalScene& world();
+  const PhysicalScene& world() const;
+  RuntimeIo& io();
+  RuntimePump& runner();
   PersistentMachineState& persistent_state();
   const PersistentMachineState& persistent_state() const;
 

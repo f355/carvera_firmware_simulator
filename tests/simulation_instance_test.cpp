@@ -19,12 +19,21 @@
 
 #include "sim/persistent_machine_state.hpp"
 #include "sim/simulation_instance.hpp"
+#include "sim/simulator_context.hpp"
 #include "support/temp_sdcard.hpp"
 
 int main() {
   sim::SimulationInstance simulation;
 
   sim::test::require(!simulation.firmware().booted(), "new simulation firmware should start powered off");
+  sim::test::require(&simulation.world() == &simulation.machine().context().physical_scene(),
+                     "world capability should expose the instance physical scene");
+  sim::test::require(&simulation.inputs() == &simulation.firmware().inputs(),
+                     "inputs capability should expose the runtime physical controls");
+  sim::test::require(&simulation.io() == &simulation.firmware().io(),
+                     "I/O capability should expose the runtime external I/O");
+  sim::test::require(&simulation.runner() == &simulation.firmware().runner(),
+                     "runner capability should expose the runtime event runner");
   sim::test::require(simulation.machine().set_realtime_speed(3.0), "simulation machine should accept realtime speed");
   sim::test::require(simulation.firmware().realtime_speed() == 3.0,
                      "simulation firmware should be bound to the instance machine");
