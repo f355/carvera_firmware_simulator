@@ -22,6 +22,11 @@ from typing import Any, cast
 from gui.app_actions import AppActions
 from gui.app_view import AppView
 from gui.core.gui_state import GuiStateStore
+from gui.presenters.appearance import AppearancePresenter
+from gui.presenters.physical import PhysicalPresenter
+from gui.presenters.service import ServicePresenter
+from gui.presenters.state import StatePresenter
+from gui.presenters.tooling import ToolingPresenter
 from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, TransportEndpoint
 from gui.views.environment_tab import GUI_REALTIME_SPEED_MAX
 from gui.views.machine_tab import FirmwareStateView
@@ -111,6 +116,15 @@ class FakeClient:
         _ = multiplier
 
 
+def test_app_actions_is_composed_from_feature_presenters() -> None:
+    actions = AppActions(SimpleNamespace())  # type: ignore[arg-type]
+    assert isinstance(actions.state, StatePresenter)
+    assert isinstance(actions.tooling, ToolingPresenter)
+    assert isinstance(actions.physical, PhysicalPresenter)
+    assert isinstance(actions.service, ServicePresenter)
+    assert isinstance(actions.appearance, AppearancePresenter)
+
+
 def make_firmware_state_view() -> FirmwareStateView:
     return FirmwareStateView(
         firmware_badge=FakeLabel(),
@@ -142,7 +156,7 @@ def test_drain_telemetry_updates_scene_while_powering_on() -> None:
     view.axis_panel_view = cast(Any, axis_panel)
     view.machine_scene_view = cast(Any, machine_scene)
 
-    actions.drain_telemetry(view)
+    actions.state.drain_telemetry(view)
 
     assert store.snapshot().machine_state == telemetry
     assert axis_panel.updated_with == telemetry
@@ -171,7 +185,7 @@ def test_drain_snapshot_updates_full_firmware_state_and_scene() -> None:
     view.firmware_state_view = cast(Any, firmware_view)
     view.machine_scene_view = cast(Any, machine_scene)
 
-    actions.drain_snapshots(view)
+    actions.state.drain_snapshots(view)
 
     assert store.snapshot().machine_state == snapshot
     assert firmware_view.firmware_badge.text == "booted"
@@ -203,7 +217,7 @@ def test_drain_snapshot_updates_during_power_transition() -> None:
     view.firmware_state_view = cast(Any, make_firmware_state_view())
     view.machine_scene_view = cast(Any, FakeMachineScene())
 
-    actions.drain_snapshots(view)
+    actions.state.drain_snapshots(view)
 
     assert store.snapshot().machine_state == snapshot
 
@@ -227,7 +241,7 @@ def test_drain_snapshot_does_not_advance_cursor_while_offline() -> None:
     view = AppView()
     view.firmware_state_view = cast(Any, make_firmware_state_view())
 
-    actions.drain_snapshots(view)
+    actions.state.drain_snapshots(view)
 
     assert buffer.last_cursor is None
     assert view.snapshot_cursor == 0
@@ -270,7 +284,7 @@ def test_restore_view_applies_running_machine_state_to_new_page() -> None:
     view.machine_scene_view = cast(Any, machine_scene)
     view.transport_panel_view = cast(Any, transport_panel)
 
-    actions.restore_view(view)
+    actions.state.restore_view(view)
 
     assert model_select.value == "ca1"
     assert model_select.disabled is True
@@ -299,7 +313,7 @@ def test_realtime_speed_changed_sends_selected_multiplier() -> None:
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(5.0))  # type: ignore[assignment]
 
-    asyncio.run(actions.realtime_speed_changed(view))
+    asyncio.run(actions.physical.realtime_speed_changed(view))
 
     assert process_controller.calls == [(client.set_realtime_speed, (5.0,))]
 
@@ -314,7 +328,7 @@ def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> 
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(1.0))  # type: ignore[assignment]
 
-    asyncio.run(actions.realtime_speed_changed(view, value=6.0))
+    asyncio.run(actions.physical.realtime_speed_changed(view, value=6.0))
 
     assert process_controller.calls == [(client.set_realtime_speed, (6.0,))]
 
@@ -330,7 +344,7 @@ def test_realtime_speed_changed_clamps_to_gui_cap() -> None:
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=speed_control)  # type: ignore[assignment]
 
-    asyncio.run(actions.realtime_speed_changed(view, value=19.5))
+    asyncio.run(actions.physical.realtime_speed_changed(view, value=19.5))
 
     assert process_controller.calls == [(client.set_realtime_speed, (GUI_REALTIME_SPEED_MAX,))]
     assert speed_control.value == GUI_REALTIME_SPEED_MAX

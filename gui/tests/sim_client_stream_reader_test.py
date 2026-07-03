@@ -22,6 +22,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from gui.protocol.framed_transport import FramedTransport
+from gui.protocol.simulator_process import SimulatorProcess
 from gui.protocol.sim_client import SimulatorClient, SimulatorClientError, pb
 
 
@@ -103,6 +105,8 @@ def test_sim_client_stream_reader_test() -> None:
         write_fake_stream_server(server, repo_root)
 
         client = SimulatorClient(server, stream_frames=True, event_handler=handle_event)
+        assert isinstance(client.process, SimulatorProcess)
+        assert isinstance(client.transport, FramedTransport)
         client.start()
         try:
             assert event_received.wait(timeout=1.0), "stream-mode client did not dispatch events while idle"

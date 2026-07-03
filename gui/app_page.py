@@ -52,7 +52,7 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
         return str(view.model_select.value)
 
     def scene_appearance_event(event: Any = None) -> None:
-        actions.scene_appearance_changed(view, event)
+        actions.appearance.scene_appearance_changed(view, event)
 
     ui.add_css(SIM_CSS)
     with ui.element("div").classes("sim-page"):
@@ -61,10 +61,10 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
             view.header.model_select = ui.toggle(
                 {"c1": "Carvera (C1)", "ca1": "Carvera Air (CA1)"},
                 value=selected_model,
-                on_change=lambda _: actions.update_machine_shell_model(view),
+                on_change=lambda _: actions.state.update_machine_shell_model(view),
             ).props("dense unelevated toggle-color=primary")
             view.header.cad_models_switch = ui.switch(
-                "Show 3D Machine", value=True, on_change=lambda event: actions.cad_models_changed(view, event)
+                "Show 3D Machine", value=True, on_change=lambda event: actions.state.cad_models_changed(view, event)
             )
             with ui.element("div").classes("header-controls"):
                 with ui.element("div").classes("axis-strip"):
@@ -76,18 +76,18 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                             axis_labels[axis] = ui.label("--").classes("axis-value")
                 with ui.element("div").classes("primary-controls"):
                     view.header.main_button_control = (
-                        ui.button("Main", on_click=lambda: actions.press_main_button(view))
+                        ui.button("Main", on_click=lambda: actions.physical.press_main_button(view))
                         .props("dense outline")
                         .classes("main-button-led")
                     )
                     e_stop_switch = ui.switch(
                         "E-stop",
                         value=False,
-                        on_change=lambda event: actions.front_panel_changed(view, "e_stop", event),
+                        on_change=lambda event: actions.physical.front_panel_changed(view, "e_stop", event),
                     )
                     view.header.e_stop_switch = e_stop_switch
                     view.header.power_switch = ui.switch(
-                        "Power", value=False, on_change=lambda event: actions.power_changed(view, event)
+                        "Power", value=False, on_change=lambda event: actions.power.power_changed(view, event)
                     )
         with ui.splitter(value=64).classes("main-splitter") as main_splitter:
             with main_splitter.before:
@@ -109,7 +109,7 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                         ui.button(
                             "Clear Backplot",
                             icon="timeline",
-                            on_click=lambda: actions.clear_backplot(view),
+                            on_click=lambda: actions.state.clear_backplot(view),
                         ).props("dense outline")
                     machine_scene.move_camera(x=430, y=-560, z=320, look_at_x=0, look_at_y=0, look_at_z=70, duration=0)
                     machine_scene.axes_helper(35)
@@ -127,41 +127,45 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                     with ui.tab_panels(tabs, value=status_tab).classes("side-panels w-full"):
                         with ui.tab_panel(status_tab):
                             view.machine_tab_view = build_machine_tab(
-                                cover_changed=lambda event: actions.cover_changed(view, event),
-                                rotary_accessory_changed=lambda event: actions.rotary_accessory_changed(view, event),
+                                cover_changed=lambda event: actions.physical.cover_changed(view, event),
+                                rotary_accessory_changed=lambda event: actions.physical.rotary_accessory_changed(
+                                    view, event
+                                ),
                             )
                             assert view.rotary_accessory_switch is not None
                             view.signals_tab_view = build_signals_tab(
                                 switch_watches=SWITCH_WATCHES,
                                 pwm_watches=PWM_WATCHES,
-                                set_temperature=lambda: actions.set_temperature(view),
+                                set_temperature=lambda: actions.physical.set_temperature(view),
                                 include_temperature=False,
                             )
 
                         with ui.tab_panel(environment_tab):
                             view.environment_tab_view = build_environment_tab(
-                                motor_alarm_changed=lambda axis, event: actions.motor_alarm_changed(view, axis, event),
-                                spindle_alarm_changed=lambda event: actions.spindle_alarm_changed(view, event),
-                                realtime_speed_changed=lambda event: actions.realtime_speed_changed(
+                                motor_alarm_changed=lambda axis, event: actions.physical.motor_alarm_changed(
+                                    view, axis, event
+                                ),
+                                spindle_alarm_changed=lambda event: actions.physical.spindle_alarm_changed(view, event),
+                                realtime_speed_changed=lambda event: actions.physical.realtime_speed_changed(
                                     view, event_value(event)
                                 ),
                                 scene_appearance_changed=scene_appearance_event,
-                                set_temperature=lambda: actions.set_temperature(view),
+                                set_temperature=lambda: actions.physical.set_temperature(view),
                             )
 
                         with ui.tab_panel(tool_table_tab):
                             view.atc_tab_view = build_atc_tab(
-                                apply_rack=lambda: actions.apply_atc_table(view),
-                                load_pocket=lambda pocket: actions.load_spindle_tool_from_pocket(view, pocket),
-                                unload_spindle=lambda: actions.unload_spindle_tool(view),
-                                load_defaults=lambda: actions.load_default_tools(view),
-                                clear_loaded=lambda: actions.clear_tool_table(view),
+                                apply_rack=lambda: actions.tooling.apply_atc_table(view),
+                                load_pocket=lambda pocket: actions.tooling.load_spindle_tool_from_pocket(view, pocket),
+                                unload_spindle=lambda: actions.tooling.unload_spindle_tool(view),
+                                load_defaults=lambda: actions.tooling.load_default_tools(view),
+                                clear_loaded=lambda: actions.tooling.clear_tool_table(view),
                             )
 
                         with ui.tab_panel(stock_tab):
                             view.stock_tab_view = build_gpio_tab(
                                 pin_watches=(),
-                                apply_stock=lambda: actions.apply_physical_boxes(view),
+                                apply_stock=lambda: actions.tooling.apply_physical_boxes(view),
                                 include_stock=True,
                                 include_pin_watch=False,
                             )
@@ -172,8 +176,8 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
                                 sd_root=session.sd_root, simulator_path=session.args.simulator
                             )
                             view.eeprom_panel_view = build_eeprom_panel(
-                                refresh_eeprom=lambda: actions.refresh_eeprom(view),
-                                write_eeprom=lambda: actions.write_eeprom(view),
+                                refresh_eeprom=lambda: actions.service.refresh_eeprom(view),
+                                write_eeprom=lambda: actions.service.write_eeprom(view),
                             )
 
                         with ui.tab_panel(comms_tab):
@@ -238,10 +242,10 @@ def build_ui_page(session: SimulatorSession, actions: AppActions) -> None:
         )
         assert view.cad_models_switch is not None
         view.machine_scene_view.set_cad_models_visible(bool(view.cad_models_switch.value))
-        actions.update_machine_shell_model(view)
-        actions.restore_view(view)
+        actions.state.update_machine_shell_model(view)
+        actions.state.restore_view(view)
 
-    ui.timer(0.033, lambda: actions.drain_telemetry(view))
-    ui.timer(0.1, lambda: actions.drain_snapshots(view))
-    ui.timer(0.1, lambda: actions.drain_physical_io(view))
-    ui.timer(0.1, lambda: actions.drain_transport_log(view))
+    ui.timer(0.033, lambda: actions.state.drain_telemetry(view))
+    ui.timer(0.1, lambda: actions.state.drain_snapshots(view))
+    ui.timer(0.1, lambda: actions.state.drain_physical_io(view))
+    ui.timer(0.1, lambda: actions.state.drain_transport_log(view))

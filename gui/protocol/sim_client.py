@@ -15,15 +15,12 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
-import threading
-import time
-from collections import deque
 from pathlib import Path
 from typing import Any, Callable
 
-from gui.core.logging import log_gui_event
+from gui.protocol.client_error import SimulatorClientError as SimulatorClientError
+from gui.protocol.framed_transport import FramedTransport
+from gui.protocol.simulator_process import SimulatorProcess
 
 from .proto_codegen import add_generated_to_path
 from .model import (
@@ -71,10 +68,6 @@ BoxTuple = tuple[float, float, float, float, float, float]
 DEFAULT_FUNCTION_SETTING = 0x02
 
 
-class SimulatorClientError(RuntimeError):
-    pass
-
-
 class SimulatorClient:
     def __init__(
         self,
@@ -86,191 +79,30 @@ class SimulatorClient:
         inherit_stderr: bool = False,
         request_timeout_s: float = 10.0,
     ) -> None:
-        self.binary = Path(binary)
-        self.stream_frames = stream_frames
-        self.event_handler = event_handler
-        self.stderr_handler = stderr_handler
-        self.inherit_stderr = inherit_stderr
-        self.request_timeout_s = request_timeout_s
-        self._process: subprocess.Popen[bytes] | None = None
-        self._next_id = 1
-        self._request_lock = threading.Lock()
-        self._write_lock = threading.Lock()
-        self._response_condition = threading.Condition()
-        self._responses: dict[int, pb.Response] = {}
-        self._reader_error: str | None = None
-        self._reader_thread: threading.Thread | None = None
-        self._stderr_thread: threading.Thread | None = None
-        self._stderr_lock = threading.Lock()
-        self._stderr_lines: deque[str] = deque(maxlen=40)
+        self.process = SimulatorProcess(
+            binary,
+            stderr_handler=stderr_handler,
+            inherit_stderr=inherit_stderr,
+        )
+        self.transport = FramedTransport(
+            self.process,
+            stream_frames=stream_frames,
+            event_handler=event_handler,
+            request_timeout_s=request_timeout_s,
+        )
 
     @property
     def powered(self) -> bool:
-        return self._process is not None and self._process.poll() is None
+        return self.transport.powered
 
     def start(self) -> None:
-        if self.powered:
-            return
-        if not self.binary.exists():
-            raise SimulatorClientError(f"simulator binary not found: {self.binary}")
-        log_gui_event(f"launching simulator binary path={self.binary}")
-        self._process = subprocess.Popen(
-            [str(self.binary)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=0,
-        )
-        log_gui_event(f"simulator process started pid={self._process.pid}")
-        self._responses.clear()
-        self._reader_error = None
-        with self._stderr_lock:
-            self._stderr_lines.clear()
-        if self.stream_frames:
-            self._reader_thread = threading.Thread(target=self._read_stream_frames, daemon=True)
-            self._reader_thread.start()
-        self._stderr_thread = threading.Thread(target=self._read_stderr_lines, daemon=True)
-        self._stderr_thread.start()
+        self.transport.start()
 
     def stop(self) -> None:
-        with self._request_lock:
-            process = self._process
-            self._process = None
-            if process is None:
-                return
-            log_gui_event(f"stopping simulator process pid={process.pid}")
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=2.0)
-                except subprocess.TimeoutExpired:
-                    log_gui_event(f"killing unresponsive simulator process pid={process.pid}")
-                    process.kill()
-                    process.wait(timeout=2.0)
-            log_gui_event(f"simulator process stopped pid={process.pid} returncode={process.returncode}")
-            self._set_reader_error("simulator stopped")
-            if self._reader_thread is not None and self._reader_thread is not threading.current_thread():
-                self._reader_thread.join(timeout=1.0)
-            self._reader_thread = None
-            if self._stderr_thread is not None and self._stderr_thread is not threading.current_thread():
-                self._stderr_thread.join(timeout=1.0)
-            self._stderr_thread = None
+        self.transport.stop()
 
     def request(self, request: pb.Request) -> pb.Response:
-        with self._request_lock:
-            if not self.powered:
-                self.start()
-            assert self._process is not None
-            assert self._process.stdin is not None
-            assert self._process.stdout is not None
-
-            with self._write_lock:
-                request.id = self._next_id
-                self._next_id += 1
-                payload = request.SerializeToString()
-                self._process.stdin.write(len(payload).to_bytes(4, "little"))
-                self._process.stdin.write(payload)
-                self._process.stdin.flush()
-
-            if self.stream_frames:
-                response = self._wait_for_response(request.id)
-            else:
-                response = self._read_response()
-        if not response.ok:
-            raise SimulatorClientError(response.error or "simulator request failed")
-        return response
-
-    def _read_response(self) -> pb.Response:
-        assert self._process is not None
-        assert self._process.stdout is not None
-
-        while True:
-            header = self._process.stdout.read(4)
-            if len(header) != 4:
-                raise SimulatorClientError(self._process_error("simulator closed stdout"))
-            size = int.from_bytes(header, "little")
-            data = self._process.stdout.read(size)
-            if len(data) != size:
-                raise SimulatorClientError(self._process_error("short simulator response"))
-
-            if not self.stream_frames:
-                response = pb.Response()
-                response.ParseFromString(data)
-                return response
-
-            frame = pb.StreamFrame()
-            frame.ParseFromString(data)
-            payload = frame.WhichOneof("payload")
-            if payload == "response":
-                return frame.response
-            if payload == "event" and self.event_handler is not None:
-                self.event_handler(frame.event)
-
-    def _read_stream_frames(self) -> None:
-        process = self._process
-        if process is None or process.stdout is None:
-            return
-
-        try:
-            while True:
-                header = process.stdout.read(4)
-                if len(header) != 4:
-                    self._set_reader_error(self._process_error("simulator closed stdout"))
-                    return
-                size = int.from_bytes(header, "little")
-                data = process.stdout.read(size)
-                if len(data) != size:
-                    self._set_reader_error(self._process_error("short simulator response"))
-                    return
-
-                frame = pb.StreamFrame()
-                frame.ParseFromString(data)
-                payload = frame.WhichOneof("payload")
-                if payload == "response":
-                    with self._response_condition:
-                        self._responses[frame.response.id] = frame.response
-                        self._response_condition.notify_all()
-                elif payload == "event" and self.event_handler is not None:
-                    self.event_handler(frame.event)
-        except Exception as exc:
-            self._set_reader_error(str(exc))
-
-    def _read_stderr_lines(self) -> None:
-        process = self._process
-        if process is None or process.stderr is None:
-            return
-        try:
-            for raw_line in iter(process.stderr.readline, b""):
-                line = raw_line.decode("utf-8", errors="replace").rstrip("\n")
-                with self._stderr_lock:
-                    self._stderr_lines.append(line)
-                if self.inherit_stderr:
-                    print(line, file=sys.stderr)
-                if self.stderr_handler is not None:
-                    self.stderr_handler(line)
-        except Exception:
-            return
-
-    def _set_reader_error(self, message: str) -> None:
-        with self._response_condition:
-            self._reader_error = message
-            self._response_condition.notify_all()
-
-    def _wait_for_response(self, request_id: int) -> pb.Response:
-        deadline = time.monotonic() + self.request_timeout_s
-        with self._response_condition:
-            while True:
-                response = self._responses.pop(request_id, None)
-                if response is not None:
-                    return response
-                if self._reader_error is not None:
-                    raise SimulatorClientError(self._reader_error)
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise SimulatorClientError(
-                        f"simulator request {request_id} timed out after {self.request_timeout_s:.1f}s"
-                    )
-                self._response_condition.wait(remaining)
+        return self.transport.request(request)
 
     def mount_filesystem(self, name: str, host_path: Path) -> None:
         request = pb.Request()
@@ -487,8 +319,3 @@ class SimulatorClient:
     @staticmethod
     def _fill_box(target: Any, box: BoxTuple) -> None:
         target.min_x, target.min_y, target.min_z, target.max_x, target.max_y, target.max_z = box
-
-    def _process_error(self, message: str) -> str:
-        with self._stderr_lock:
-            stderr = "\n".join(self._stderr_lines)
-        return f"{message}: {stderr.strip()}" if stderr.strip() else message
