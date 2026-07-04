@@ -82,6 +82,7 @@ def test_nicegui_page_serves_simulator_controls() -> None:
             "Carvera (C1)",
             "Carvera Air (CA1)",
             "Show 3D Machine",
+            "Open SD Card Folder",
             "Tool Table",
             "Inputs",
             "4th axis connected",

@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,9 @@ class TransportPanelView:
         self.wifi_label.text = "--"
 
 
-def build_transport_panel(*, sd_root: Path, simulator_path: Path) -> TransportPanelView:
+def build_transport_panel(
+    *, sd_root: Path, simulator_path: Path, open_sd_root: Callable[[], None]
+) -> TransportPanelView:
     with ui.element("div").classes("panel-section"):
         ui.label("Controller Links").classes("section-title")
         with ui.element("div").classes("metrics-grid"):
@@ -66,6 +69,7 @@ def build_transport_panel(*, sd_root: Path, simulator_path: Path) -> TransportPa
                 ui.label("Machine shell").classes("metric-name")
                 machine_model_label = ui.label("none").classes("badge-off")
         ui.label(f"SD root parent: {sd_root}").classes("section-subtle")
+        ui.button("Open SD Card Folder", icon="folder_open", on_click=open_sd_root).props("dense outline")
         ui.label(f"Simulator: {simulator_path}").classes("section-subtle")
 
     return TransportPanelView(

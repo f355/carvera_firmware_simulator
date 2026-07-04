@@ -21,6 +21,7 @@ from nicegui import ui
 
 from gui.app_view import AppView
 from gui.core.defaults import PWM_WATCHES, SWITCH_WATCHES
+from gui.core.platform_paths import open_in_file_manager
 from gui.core.session import SimulatorSession
 from gui.presenters.app import AppPresenters
 from gui.scene.lighting import configure_scene_lighting
@@ -173,7 +174,9 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                         with ui.tab_panel(service_tab):
                             view.firmware_state_view = build_firmware_state_panel()
                             view.transport_panel_view = build_transport_panel(
-                                sd_root=session.sd_root, simulator_path=session.args.simulator
+                                sd_root=session.sd_root,
+                                simulator_path=session.args.simulator,
+                                open_sd_root=lambda: open_in_file_manager(session.sd_root),
                             )
                             view.eeprom_panel_view = build_eeprom_panel(
                                 refresh_eeprom=lambda: actions.service.refresh_eeprom(view),

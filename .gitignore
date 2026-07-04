@@ -1,6 +1,8 @@
 build/
 /build-coverage/
+/build-macos-app/
 /coverage/
+/dist/
 .DS_Store
 .venv/
 __pycache__/

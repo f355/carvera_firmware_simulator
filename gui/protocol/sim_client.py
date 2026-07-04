@@ -21,8 +21,8 @@ from typing import Any, Callable
 from gui.protocol.client_error import SimulatorClientError as SimulatorClientError
 from gui.protocol.framed_transport import FramedTransport
 from gui.protocol.simulator_process import SimulatorProcess
+from gui.generated import carvera_sim_pb2 as pb
 
-from .proto_codegen import add_generated_to_path
 from .model import (
     EepromField,
     EepromFieldType,
@@ -33,10 +33,6 @@ from .model import (
     interactive_transport_to_state,
     tool_kind_to_proto,
 )
-
-
-add_generated_to_path()
-import carvera_sim_pb2 as pb  # noqa: E402
 
 
 AXIS_TO_PROTO = {

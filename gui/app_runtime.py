@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import signal
 import sys
-from pathlib import Path
 from typing import Any
 
 from nicegui import app, ui
 
-SIMULATOR_ROOT = Path(__file__).resolve().parents[1]
+from gui.core.runtime_paths import resource_root
+
+
+SIMULATOR_ROOT = resource_root()
 if str(SIMULATOR_ROOT) not in sys.path:
     sys.path.insert(0, str(SIMULATOR_ROOT))
 
@@ -43,7 +45,7 @@ def healthz() -> dict[str, bool]:
 app.on_shutdown(session.client.stop)
 
 
-def run() -> None:
+def run(*, native: bool = False) -> None:
     def handle_shutdown_signal(signum: int, _frame: Any) -> None:
         print("\nShutting down Carvera simulator GUI...", file=sys.stderr)
         session.client.stop()
@@ -55,10 +57,12 @@ def run() -> None:
         ui.run(
             lambda: build_ui_page(session, actions),
             host=session.args.host,
-            port=session.args.port,
+            port=session.args.port if session.args.port is not None else (None if native else 8080),
             title="Carvera Simulator",
             reload=False,
             show=False,
+            native=native,
+            window_size=(1440, 900) if native else None,
         )
     except (KeyboardInterrupt, SystemExit):
         pass

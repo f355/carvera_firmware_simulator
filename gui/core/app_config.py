@@ -22,14 +22,18 @@ from pathlib import Path
 from shutil import copy2
 
 from .defaults import DEFAULT_SD_CONFIG
+from .platform_paths import user_data_root
 
 
 def default_stream_simulator(simulator_root: Path) -> Path:
+    packaged_binary = simulator_root / "bin" / "carvera_sim_stream_stdio"
+    if packaged_binary.exists():
+        return packaged_binary
     return simulator_root / "build" / "carvera_sim_stream_stdio"
 
 
-def default_sd_root(simulator_root: Path) -> Path:
-    return simulator_root / "sdcard"
+def default_sd_root() -> Path:
+    return user_data_root() / "sdcard"
 
 
 def default_sd_seed_root(simulator_root: Path) -> Path:
@@ -118,7 +122,7 @@ def build_arg_parser(simulator_root: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Carvera simulator GUI")
     parser.add_argument("--simulator", type=Path, default=default_stream_simulator(simulator_root))
     parser.add_argument("--firmware-root", type=Path, default=default_firmware_root(simulator_root))
-    parser.add_argument("--sd-root", type=Path, default=default_sd_root(simulator_root))
+    parser.add_argument("--sd-root", type=Path, default=default_sd_root())
     parser.add_argument("--model", choices=["c1", "ca1"], default="c1")
     parser.add_argument(
         "--machine-model",
@@ -149,7 +153,7 @@ def build_arg_parser(simulator_root: Path) -> argparse.ArgumentParser:
         help="Do not mirror simulator UART/WiFi traffic to the terminal.",
     )
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=None)
     parser.set_defaults(log_transport=True)
     return parser
 

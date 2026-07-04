@@ -117,6 +117,28 @@ different firmware revision, add `-DCARVERA_ALLOW_UNPINNED_FIRMWARE=ON`.
 
 If you do not use Ninja, drop `-G Ninja`.
 
+### macOS desktop app
+
+On an Apple Silicon Mac, build the unsigned, non-notarized application and DMG
+with:
+
+```sh
+./scripts/build_macos_app.sh
+```
+
+The result is `dist/macos/Carvera-Simulator-macOS-arm64.dmg`. The script builds
+the bundled firmware simulator, packages the native GUI, and verifies the DMG
+contents. Because the application is unsigned, macOS may require opening it
+with Finder's **Open** context-menu command the first time.
+
+CI builds the same DMG on its ARM64 macOS runner and publishes it as the
+`Carvera-Simulator-macOS-arm64` workflow artifact.
+
+The rolling [Development Build](https://github.com/f355/carvera_firmware_simulator/releases/tag/dev)
+prerelease contains the application artifacts from the latest successful CI run
+on `main`. Its `dev` tag and assets are replaced in place, so it is convenient
+for testing current development code but is not a versioned release.
+
 ### Coverage reports
 
 Configure a separate instrumented build and run its `coverage` target:
@@ -203,15 +225,19 @@ is a localhost TCP bridge through the real firmware `WifiProvider` path.
 
 ## Persistent machine state
 
-The simulator keeps virtual machine state per model:
+The GUI keeps virtual machine state in the platform user-data directory. On
+macOS that is:
 
 ```text
-sdcard/c1/
-sdcard/ca1/
+~/Library/Application Support/Carvera Simulator/sdcard/
 ```
 
-Those directories are ignored by Git. If a model SD directory is empty when the
-GUI starts, it is initialized from:
+Linux uses `$XDG_DATA_HOME/carvera-simulator/sdcard/`, falling back to
+`~/.local/share/carvera-simulator/sdcard/`. The **Open SD Card Folder** button
+opens this parent folder in the platform file manager; it contains the `c1/`
+and `ca1/` model directories.
+
+If a model SD directory is empty when the GUI starts, it is initialized from:
 
 ```text
 default_sdcard/c1/

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "NiceGUI front end for the Carvera firmware simulator"
 requires-python = ">=3.11"
 dependencies = [
-    "nicegui>=3.12.1",
+    "nicegui[native]>=3.12.1",
     "protobuf>=7.35.0",
 ]
 
@@ -17,7 +17,6 @@ extend-exclude = ["gui/generated"]
 
 [tool.mypy]
 python_version = "3.11"
-mypy_path = ["gui/generated"]
 exclude = ["gui/generated/"]
 
 [tool.pytest.ini_options]
@@ -32,4 +31,7 @@ dev = [
     "pytest>=9.0.3",
     "ruff>=0.15.15",
     "types-protobuf>=7.34.1.20260518",
+]
+package = [
+    "pyinstaller>=6.20.0",
 ]

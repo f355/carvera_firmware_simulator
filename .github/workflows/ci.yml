@@ -19,8 +19,8 @@ jobs:
         include:
           - os: ubuntu-latest
             name: ubuntu-24.04
-          - os: macos-latest
-            name: macos-latest
+          - os: macos-15
+            name: macos-15 / ARM64
           - os: windows-latest
             name: windows-latest / WSL
 
@@ -125,7 +125,7 @@ jobs:
       - name: Configure CMake
         if: runner.os == 'macOS'
         run: |
-          CMAKE_ARGS=(-S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
+          CMAKE_ARGS=(-S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
           cmake "${CMAKE_ARGS[@]}"
 
       - name: Build and run C++ tests
@@ -168,6 +168,20 @@ jobs:
         if: runner.os == 'macOS'
         run: uv run pytest gui/tests
 
+      - name: Build macOS desktop app
+        if: runner.os == 'macOS'
+        env:
+          CARVERA_SIM_PACKAGE_BUILD_DIR: ${{ github.workspace }}/build
+        run: scripts/build_macos_app.sh
+
+      - name: Upload macOS desktop app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Carvera-Simulator-macOS-arm64
+          path: dist/macos/Carvera-Simulator-macOS-arm64.dmg
+          if-no-files-found: error
+
       - name: Add coverage summary
         if: runner.os == 'Linux' && always() && hashFiles('coverage/summary.md') != ''
         run: cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
@@ -179,3 +193,73 @@ jobs:
           name: coverage-ubuntu-24.04
           path: coverage
           if-no-files-found: error
+
+  release-dev:
+    name: Publish development release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    concurrency:
+      group: dev-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download application artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: Carvera-Simulator-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish rolling development release
+        run: |
+          mapfile -d '' -t ASSETS < <(find release-assets -type f -print0)
+          if (( ${#ASSETS[@]} == 0 )); then
+            echo "error: no application artifacts were downloaded" >&2
+            exit 1
+          fi
+
+          REMOTE_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$REMOTE_MAIN" != "$GITHUB_SHA" ]]; then
+            echo "Skipping stale run for $GITHUB_SHA; main is now $REMOTE_MAIN"
+            exit 0
+          fi
+
+          REMOTE_DEV="$(git ls-remote origin refs/tags/dev | cut -f1)"
+          git tag --force dev "$GITHUB_SHA"
+          git push --force-with-lease="refs/tags/dev:$REMOTE_DEV" origin refs/tags/dev
+
+          NOTES="Automatic development build from commit $GITHUB_SHA. This prerelease is replaced after every successful push to main."
+          if gh release view dev >/dev/null 2>&1; then
+            gh release edit dev \
+              --title "Development Build" \
+              --notes "$NOTES" \
+              --prerelease \
+              --target "$GITHUB_SHA"
+          else
+            gh release create dev \
+              --title "Development Build" \
+              --notes "$NOTES" \
+              --prerelease \
+              --latest=false \
+              --verify-tag
+          fi
+
+          gh release upload dev "${ASSETS[@]}" --clobber
+
+          declare -A CURRENT_ASSETS=()
+          for asset in "${ASSETS[@]}"; do
+            CURRENT_ASSETS["$(basename "$asset")"]=1
+          done
+          while IFS= read -r existing_asset; do
+            if [[ -n "$existing_asset" && -z "${CURRENT_ASSETS[$existing_asset]+present}" ]]; then
+              gh release delete-asset dev "$existing_asset" --yes
+            fi
+          done < <(gh release view dev --json assets --jq '.assets[].name')

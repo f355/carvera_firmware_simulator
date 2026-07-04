@@ -22,7 +22,9 @@ import pytest
 from gui.core.app_config import (
     build_arg_parser,
     default_firmware_root,
+    default_sd_root,
     default_sd_seed_root,
+    default_stream_simulator,
     parse_vec3,
     prepare_model_sd_root,
     prepare_sd_root,
@@ -76,6 +78,14 @@ def test_model_sd_paths_are_isolated() -> None:
     assert sd_root_for_model(root, "ca1") == root / "ca1"
 
 
+def test_packaged_simulator_binary_takes_precedence(tmp_path: Path) -> None:
+    packaged_binary = tmp_path / "bin" / "carvera_sim_stream_stdio"
+    packaged_binary.parent.mkdir()
+    packaged_binary.touch()
+
+    assert default_stream_simulator(tmp_path) == packaged_binary
+
+
 def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
     sd_root = tmp_path / "sdcard"
     prepare_sd_root(sd_root)
@@ -87,13 +97,14 @@ def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
     assert config.read_text(encoding="utf-8") == "# user config\n"
 
 
-def test_parser_defaults_are_relative_to_simulator_root(tmp_path: Path) -> None:
+def test_parser_uses_platform_data_for_writable_sd_root(tmp_path: Path) -> None:
     parser = build_arg_parser(tmp_path)
     args = parser.parse_args([])
 
     assert args.simulator == tmp_path / "build" / "carvera_sim_stream_stdio"
-    assert args.sd_root == tmp_path / "sdcard"
+    assert args.sd_root == default_sd_root()
     assert default_sd_seed_root(tmp_path) == tmp_path / "default_sdcard"
+    assert args.port is None
     assert args.wifi_port == 2222
     assert args.log_transport is True
 

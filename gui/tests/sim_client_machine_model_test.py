@@ -17,12 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gui.protocol.proto_codegen import add_generated_to_path
+from gui.generated import carvera_sim_pb2 as pb
 from gui.protocol.sim_client import SimulatorClient
-
-
-add_generated_to_path()
-import carvera_sim_pb2 as pb  # noqa: E402
 
 
 class RecordingClient(SimulatorClient):

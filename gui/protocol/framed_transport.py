@@ -20,12 +20,8 @@ import time
 from typing import Any, Callable
 
 from gui.protocol.client_error import SimulatorClientError
-from gui.protocol.proto_codegen import add_generated_to_path
 from gui.protocol.simulator_process import SimulatorProcess
-
-
-add_generated_to_path()
-import carvera_sim_pb2 as pb  # noqa: E402
+from gui.generated import carvera_sim_pb2 as pb
 
 
 class FramedTransport:
