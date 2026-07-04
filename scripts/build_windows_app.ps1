@@ -82,6 +82,10 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 }
 
 $AppName = "Carvera Simulator"
+$WebView2Version = "150.0.4078.48"
+$WebView2ArchiveName = "Microsoft.WebView2.FixedVersionRuntime.150.0.4078.48.x64.cab"
+$WebView2Url = "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/60926d99-f201-46bb-91a0-d868dc06b275/$WebView2ArchiveName"
+$WebView2Sha256 = "9e347ba96d031e381d1041d1c20fd434d457875c422eeac3f40eee4a5e0ab5c0"
 $BuildDir = if ($env:CARVERA_SIM_PACKAGE_BUILD_DIR) {
     $env:CARVERA_SIM_PACKAGE_BUILD_DIR
 } else {
@@ -148,13 +152,47 @@ if (-not (Test-Path -LiteralPath $SimulatorBinary -PathType Leaf)) {
     throw "Native simulator binary is missing: $SimulatorBinary"
 }
 
+$DownloadDir = Join-Path $BuildDir "downloads"
+$WebView2Archive = Join-Path $DownloadDir $WebView2ArchiveName
+New-Item -ItemType Directory -Force -Path $DownloadDir | Out-Null
+if (Test-Path -LiteralPath $WebView2Archive -PathType Leaf) {
+    $ArchiveHash = (Get-FileHash -LiteralPath $WebView2Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ArchiveHash -ne $WebView2Sha256) {
+        Remove-Item -LiteralPath $WebView2Archive -Force
+    }
+}
+if (-not (Test-Path -LiteralPath $WebView2Archive -PathType Leaf)) {
+    $ProgressPreference = "SilentlyContinue"
+    Invoke-WebRequest -Uri $WebView2Url -OutFile $WebView2Archive -UseBasicParsing
+}
+$ArchiveHash = (Get-FileHash -LiteralPath $WebView2Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($ArchiveHash -ne $WebView2Sha256) {
+    throw "WebView2 archive checksum mismatch: expected $WebView2Sha256, got $ArchiveHash"
+}
+
 $PyInstallerDist = Join-Path $PackageWorkDir "pyinstaller-dist"
 $PyInstallerWork = Join-Path $PackageWorkDir "pyinstaller-work"
 $SpecDir = Join-Path $PackageWorkDir "spec"
 $RuntimeBin = Join-Path $PackageWorkDir "runtime\bin"
-Remove-Item -LiteralPath $PackageWorkDir -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $OutputDir -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $PyInstallerDist, $PyInstallerWork, $SpecDir, $RuntimeBin, $OutputDir | Out-Null
+$WebView2ExtractRoot = Join-Path $PackageWorkDir "webview2-extract"
+if (Test-Path -LiteralPath $PackageWorkDir) {
+    Remove-Item -LiteralPath $PackageWorkDir -Recurse -Force
+}
+if (Test-Path -LiteralPath $OutputDir) {
+    Remove-Item -LiteralPath $OutputDir -Recurse -Force
+}
+New-Item -ItemType Directory -Force `
+    -Path $PyInstallerDist, $PyInstallerWork, $SpecDir, $RuntimeBin, $WebView2ExtractRoot, $OutputDir | Out-Null
+
+$Expand = Join-Path $env:SystemRoot "System32\expand.exe"
+& $Expand $WebView2Archive "-F:*" $WebView2ExtractRoot | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "expand.exe failed with exit code $LASTEXITCODE"
+}
+$WebView2Runtime = Join-Path $WebView2ExtractRoot "Microsoft.WebView2.FixedVersionRuntime.$WebView2Version.x64"
+if (-not (Test-Path -LiteralPath (Join-Path $WebView2Runtime "msedgewebview2.exe") -PathType Leaf)) {
+    throw "Expanded WebView2 runtime is missing msedgewebview2.exe: $WebView2Runtime"
+}
 
 Copy-Item -LiteralPath $SimulatorBinary -Destination $RuntimeBin
 foreach ($dll in Get-UcrtRuntimeDlls -Executable $SimulatorBinary -UcrtBin $UcrtBin -Objdump $Objdump) {
@@ -172,6 +210,7 @@ foreach ($argument in @(
     "--paths", $RootDir,
     "--add-data", "$(Join-Path $RootDir 'machine_models');machine_models",
     "--add-data", "$(Join-Path $RootDir 'default_sdcard');default_sdcard",
+    "--add-data", "$WebView2Runtime;webview2",
     "--distpath", $PyInstallerDist,
     "--workpath", $PyInstallerWork,
     "--specpath", $SpecDir
@@ -203,7 +242,7 @@ foreach ($runtimeFile in Get-ChildItem -LiteralPath $RuntimeBin -File) {
         throw "Packaged runtime dependency is missing: $packagedFile"
     }
 }
-foreach ($resourceDirectory in @("machine_models", "default_sdcard")) {
+foreach ($resourceDirectory in @("machine_models", "default_sdcard", "webview2")) {
     $packagedResource = @(
         Get-ChildItem -LiteralPath $PyInstallerApp -Recurse -Directory -Filter $resourceDirectory
     )
@@ -211,7 +250,21 @@ foreach ($resourceDirectory in @("machine_models", "default_sdcard")) {
         throw "Packaged resource directory is missing: $resourceDirectory"
     }
 }
+$PackagedWebView2 = @(Get-ChildItem -LiteralPath $PyInstallerApp -Recurse -File -Filter "msedgewebview2.exe")
+if ($PackagedWebView2.Count -ne 1) {
+    throw "Expected exactly one packaged WebView2 runtime, found $($PackagedWebView2.Count)"
+}
 
 $FinalApp = Join-Path $OutputDir $AppName
-Copy-Item -LiteralPath $PyInstallerApp -Destination $FinalApp -Recurse
+New-Item -ItemType Directory -Path $FinalApp | Out-Null
+Copy-Item -Path (Join-Path $PyInstallerApp "*") -Destination $FinalApp -Recurse -Force
+$FinalWebView2 = @(Get-ChildItem -LiteralPath $FinalApp -Recurse -File -Filter "msedgewebview2.exe")
+if ($FinalWebView2.Count -ne 1) {
+    throw "Expected exactly one final WebView2 runtime, found $($FinalWebView2.Count)"
+}
+$FinalWebView2Runtime = $FinalWebView2[0].Directory.FullName
+$Icacls = Join-Path $env:SystemRoot "System32\icacls.exe"
+foreach ($sid in @("*S-1-15-2-2:(OI)(CI)(RX)", "*S-1-15-2-1:(OI)(CI)(RX)")) {
+    Invoke-NativeCommand $Icacls @($FinalWebView2Runtime, "/grant", $sid)
+}
 Write-Output "Created $FinalApp"

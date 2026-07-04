@@ -35,6 +35,31 @@ def test_windows_builder_packages_native_gui_backend_and_runtime_dependencies() 
     assert "Get-UcrtRuntimeDlls" in script
 
 
+def test_windows_builder_bundles_a_pinned_fixed_webview2_runtime() -> None:
+    script = (ROOT / "scripts" / "build_windows_app.ps1").read_text()
+    desktop = (ROOT / "gui" / "desktop.py").read_text()
+
+    assert "Microsoft.WebView2.FixedVersionRuntime.150.0.4078.48.x64.cab" in script
+    assert "9e347ba96d031e381d1041d1c20fd434d457875c422eeac3f40eee4a5e0ab5c0" in script
+    assert '"--add-data"' in script
+    assert '"--runtime-hook"' not in script
+    assert "webview2" in script
+    assert "configure_bundled_webview_runtime" in desktop
+    assert "app.native.settings.update" in desktop
+    assert 'app.native.start_args["gui"] = "edgechromium"' in desktop
+    assert "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER" in (ROOT / "gui" / "core" / "webview_runtime.py").read_text()
+    assert "prepare_fixed_runtime" in desktop
+    assert '"*S-1-15-2-2:(OI)(CI)(RX)"' in script
+    assert '"*S-1-15-2-1:(OI)(CI)(RX)"' in script
+
+
+def test_windows_builder_replaces_the_final_app_without_nesting_stale_output() -> None:
+    script = (ROOT / "scripts" / "build_windows_app.ps1").read_text()
+
+    assert "Remove-Item -LiteralPath $OutputDir -Recurse -Force -ErrorAction SilentlyContinue" not in script
+    assert 'Copy-Item -Path (Join-Path $PyInstallerApp "*") -Destination $FinalApp -Recurse' in script
+
+
 def test_windows_packaging_has_an_isolated_dependency_group() -> None:
     project = (ROOT / "pyproject.toml").read_text()
 

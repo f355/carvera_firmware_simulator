@@ -15,9 +15,28 @@
 
 from multiprocessing import freeze_support
 
+from nicegui import app
+
+from gui.core.runtime_paths import resource_root
+from gui.core.webview_runtime import (
+    bundled_webview_settings,
+    configure_bundled_webview_runtime,
+    prepare_fixed_runtime,
+)
+
+
+RESOURCE_ROOT = resource_root()
+BUNDLED_WEBVIEW2_SETTINGS = bundled_webview_settings(RESOURCE_ROOT)
+BUNDLED_WEBVIEW2_RUNTIME = configure_bundled_webview_runtime(RESOURCE_ROOT)
+if BUNDLED_WEBVIEW2_RUNTIME is not None:
+    app.native.settings.update(BUNDLED_WEBVIEW2_SETTINGS)
+    app.native.start_args["gui"] = "edgechromium"
+
 
 if __name__ == "__main__":
     freeze_support()
+    if BUNDLED_WEBVIEW2_RUNTIME is not None:
+        prepare_fixed_runtime(BUNDLED_WEBVIEW2_RUNTIME)
     from gui.app_runtime import run
 
     run(native=True)
