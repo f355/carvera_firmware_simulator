@@ -345,8 +345,8 @@ same dispatcher backs the GUI.
 
 The API is intentionally hardware-shaped: configure physical tools, stock,
 machine inputs, temperatures, alarms, and realtime speed; read physical axes,
-GPIO/PWM, laser/spindle state, probe contacts, telemetry, EEPROM fields, and
-controller traffic.
+GPIO/PWM, laser/spindle state, probe contacts, telemetry, structured EEPROM
+contents, and controller traffic.
 
 ## Useful development commands
 

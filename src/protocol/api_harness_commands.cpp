@@ -17,8 +17,8 @@
 
 #include "sim/api_service.hpp"
 
-#include <cstdio>
-#include <cstring>
+#include <array>
+#include <cstddef>
 #include <exception>
 #include <string>
 
@@ -32,113 +32,102 @@ namespace sim {
 namespace {
 
 constexpr std::uint16_t eeprom_data_offset = 32;
+constexpr std::size_t tool_not_calibrated_offset = offsetof(EEPROM_data, tool_not_calibrated);
+constexpr int persistent_variable_base = 501;
+constexpr int persistent_variable_count = 20;
+constexpr int work_coordinate_system_base = 54;
+constexpr int work_coordinate_system_count = 6;
+static_assert(sizeof(bool) == 1, "firmware EEPROM layout requires one-byte bools");
 
 EEPROM_data read_persistent_data(const I2cEepromDevice& eeprom) {
   EEPROM_data data{};
   auto* output = reinterpret_cast<std::uint8_t*>(&data);
   for (std::size_t offset = 0; offset < sizeof(EEPROM_data); ++offset) {
+    if (offset == tool_not_calibrated_offset) {
+      continue;
+    }
     output[offset] = eeprom.peek(static_cast<std::uint16_t>(eeprom_data_offset + offset));
   }
+  data.tool_not_calibrated =
+      eeprom.peek(static_cast<std::uint16_t>(eeprom_data_offset + tool_not_calibrated_offset)) != 0;
   return data;
 }
 
 void write_persistent_data(I2cEepromDevice& eeprom, const EEPROM_data& data) {
   const auto* input = reinterpret_cast<const std::uint8_t*>(&data);
   for (std::size_t offset = 0; offset < sizeof(EEPROM_data); ++offset) {
+    if (offset == tool_not_calibrated_offset) {
+      continue;
+    }
     eeprom.poke(static_cast<std::uint16_t>(eeprom_data_offset + offset), input[offset]);
   }
+  eeprom.poke(static_cast<std::uint16_t>(eeprom_data_offset + tool_not_calibrated_offset),
+              data.tool_not_calibrated ? 1 : 0);
 }
 
-void add_float_field(carvera::sim::v1::EepromFields& output, const char* name, float value) {
-  auto* field = output.add_fields();
-  field->set_name(name);
-  field->set_type(carvera::sim::v1::EEPROM_FIELD_TYPE_FLOAT);
-  field->set_number(value);
-}
+void fill_eeprom_contents(carvera::sim::v1::EepromContents& output, const EEPROM_data& data) {
+  output.set_tool_length_offset(data.TLO);
+  output.set_reference_machine_z(data.REFMZ);
+  output.set_tool_machine_z(data.TOOLMZ);
+  output.set_reserved(data.reserve);
+  output.set_active_tool(data.TOOL);
+  output.set_tool_not_calibrated(data.tool_not_calibrated);
+  output.set_current_wcs(data.current_wcs);
 
-void add_int_field(carvera::sim::v1::EepromFields& output, const char* name, int value) {
-  auto* field = output.add_fields();
-  field->set_name(name);
-  field->set_type(carvera::sim::v1::EEPROM_FIELD_TYPE_INT);
-  field->set_integer(value);
-}
-
-void add_bool_field(carvera::sim::v1::EepromFields& output, const char* name, bool value) {
-  auto* field = output.add_fields();
-  field->set_name(name);
-  field->set_type(carvera::sim::v1::EEPROM_FIELD_TYPE_BOOL);
-  field->set_boolean(value);
-}
-
-void fill_eeprom_fields(carvera::sim::v1::EepromFields& output, const EEPROM_data& data) {
-  add_float_field(output, "TLO", data.TLO);
-  add_float_field(output, "REFMZ", data.REFMZ);
-  add_float_field(output, "TOOLMZ", data.TOOLMZ);
-  add_float_field(output, "reserve", data.reserve);
-  add_int_field(output, "TOOL", data.TOOL);
-  add_bool_field(output, "tool_not_calibrated", data.tool_not_calibrated);
-  add_int_field(output, "current_wcs", data.current_wcs);
-
-  char name[32] = {};
-  for (int index = 0; index < 20; ++index) {
-    std::snprintf(name, sizeof(name), "perm_vars[%d]", 501 + index);
-    add_float_field(output, name, data.perm_vars[index]);
+  for (int index = 0; index < persistent_variable_count; ++index) {
+    auto* variable = output.add_persistent_variables();
+    variable->set_number(persistent_variable_base + index);
+    variable->set_value(data.perm_vars[index]);
   }
 
-  constexpr const char* axes[] = {"X", "Y", "Z", "A"};
-  for (int wcs = 0; wcs < 6; ++wcs) {
-    for (int axis = 0; axis < 4; ++axis) {
-      std::snprintf(name, sizeof(name), "G5%d.%s", 4 + wcs, axes[axis]);
-      add_float_field(output, name, data.WCScoord[wcs][axis]);
-    }
-    std::snprintf(name, sizeof(name), "G5%d.rotation", 4 + wcs);
-    add_float_field(output, name, data.WCSrotation[wcs]);
+  for (int index = 0; index < work_coordinate_system_count; ++index) {
+    auto* work_coordinate_system = output.add_work_coordinate_systems();
+    work_coordinate_system->set_number(work_coordinate_system_base + index);
+    work_coordinate_system->set_x(data.WCScoord[index][0]);
+    work_coordinate_system->set_y(data.WCScoord[index][1]);
+    work_coordinate_system->set_z(data.WCScoord[index][2]);
+    work_coordinate_system->set_a(data.WCScoord[index][3]);
+    work_coordinate_system->set_rotation(data.WCSrotation[index]);
   }
 }
 
-bool apply_eeprom_field(EEPROM_data& data, const carvera::sim::v1::EepromField& field) {
-  const auto& name = field.name();
-  if (name == "TLO") {
-    data.TLO = static_cast<float>(field.number());
-  } else if (name == "REFMZ") {
-    data.REFMZ = static_cast<float>(field.number());
-  } else if (name == "TOOLMZ") {
-    data.TOOLMZ = static_cast<float>(field.number());
-  } else if (name == "reserve") {
-    data.reserve = static_cast<float>(field.number());
-  } else if (name == "TOOL") {
-    data.TOOL = static_cast<int>(field.integer());
-  } else if (name == "tool_not_calibrated") {
-    data.tool_not_calibrated = field.boolean();
-  } else if (name == "current_wcs") {
-    data.current_wcs = static_cast<int>(field.integer());
-  } else {
-    int index = 0;
-    if (std::sscanf(name.c_str(), "perm_vars[%d]", &index) == 1 && index >= 501 && index <= 520) {
-      data.perm_vars[index - 501] = static_cast<float>(field.number());
-      return true;
-    }
+bool apply_eeprom_contents(EEPROM_data& data, const carvera::sim::v1::EepromContents& contents) {
+  if (contents.persistent_variables_size() != persistent_variable_count ||
+      contents.work_coordinate_systems_size() != work_coordinate_system_count) {
+    return false;
+  }
 
-    int wcs = 0;
-    char suffix[16] = {};
-    if (std::sscanf(name.c_str(), "G5%d.%15s", &wcs, suffix) == 2 && wcs >= 4 && wcs <= 9) {
-      const int wcs_index = wcs - 4;
-      if (std::strcmp(suffix, "X") == 0) {
-        data.WCScoord[wcs_index][0] = static_cast<float>(field.number());
-      } else if (std::strcmp(suffix, "Y") == 0) {
-        data.WCScoord[wcs_index][1] = static_cast<float>(field.number());
-      } else if (std::strcmp(suffix, "Z") == 0) {
-        data.WCScoord[wcs_index][2] = static_cast<float>(field.number());
-      } else if (std::strcmp(suffix, "A") == 0) {
-        data.WCScoord[wcs_index][3] = static_cast<float>(field.number());
-      } else if (std::strcmp(suffix, "rotation") == 0) {
-        data.WCSrotation[wcs_index] = static_cast<float>(field.number());
-      } else {
-        return false;
-      }
-    } else {
+  data.TLO = static_cast<float>(contents.tool_length_offset());
+  data.REFMZ = static_cast<float>(contents.reference_machine_z());
+  data.TOOLMZ = static_cast<float>(contents.tool_machine_z());
+  data.reserve = static_cast<float>(contents.reserved());
+  data.TOOL = contents.active_tool();
+  data.tool_not_calibrated = contents.tool_not_calibrated();
+  data.current_wcs = contents.current_wcs();
+
+  std::array<bool, persistent_variable_count> seen_variables{};
+  for (const auto& variable : contents.persistent_variables()) {
+    const int index = static_cast<int>(variable.number()) - persistent_variable_base;
+    if (index < 0 || index >= persistent_variable_count || seen_variables[static_cast<std::size_t>(index)]) {
       return false;
     }
+    seen_variables[static_cast<std::size_t>(index)] = true;
+    data.perm_vars[index] = static_cast<float>(variable.value());
+  }
+
+  std::array<bool, work_coordinate_system_count> seen_work_coordinate_systems{};
+  for (const auto& work_coordinate_system : contents.work_coordinate_systems()) {
+    const int index = static_cast<int>(work_coordinate_system.number()) - work_coordinate_system_base;
+    if (index < 0 || index >= work_coordinate_system_count ||
+        seen_work_coordinate_systems[static_cast<std::size_t>(index)]) {
+      return false;
+    }
+    seen_work_coordinate_systems[static_cast<std::size_t>(index)] = true;
+    data.WCScoord[index][0] = static_cast<float>(work_coordinate_system.x());
+    data.WCScoord[index][1] = static_cast<float>(work_coordinate_system.y());
+    data.WCScoord[index][2] = static_cast<float>(work_coordinate_system.z());
+    data.WCScoord[index][3] = static_cast<float>(work_coordinate_system.a());
+    data.WCSrotation[index] = static_cast<float>(work_coordinate_system.rotation());
   }
   return true;
 }
@@ -266,17 +255,15 @@ std::optional<ApiService::Response> ApiService::handle_harness_command(const car
       }
       return ok(request.id());
     }
-    case Request::kGetEepromFields: {
+    case Request::kGetEepromContents: {
       auto response = ok(request.id());
-      fill_eeprom_fields(*response.mutable_eeprom_fields(), read_persistent_data(eeprom));
+      fill_eeprom_contents(*response.mutable_eeprom_contents(), read_persistent_data(eeprom));
       return response;
     }
-    case Request::kSetEepromFields: {
+    case Request::kSetEepromContents: {
       auto data = read_persistent_data(eeprom);
-      for (const auto& field : request.set_eeprom_fields().fields()) {
-        if (!apply_eeprom_field(data, field)) {
-          return error(request.id(), "unsupported EEPROM field");
-        }
+      if (!apply_eeprom_contents(data, request.set_eeprom_contents().contents())) {
+        return error(request.id(), "invalid EEPROM contents");
       }
       write_persistent_data(eeprom, data);
       return ok(request.id());
@@ -299,8 +286,8 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_harness_comma
     case Request::kGetAdcInput:
     case Request::kGetEepromBytes:
     case Request::kSetEepromBytes:
-    case Request::kGetEepromFields:
-    case Request::kSetEepromFields:
+    case Request::kGetEepromContents:
+    case Request::kSetEepromContents:
       return handle_harness_command(request);
     default:
       return std::nullopt;

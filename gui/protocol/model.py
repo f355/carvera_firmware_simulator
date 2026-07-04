@@ -29,12 +29,6 @@ class ToolKind(StrEnum):
     THREE_AXIS_PROBE = "three_axis_probe"
 
 
-class EepromFieldType(StrEnum):
-    BOOL = "bool"
-    INT = "int"
-    FLOAT = "float"
-
-
 class MachineModel(StrEnum):
     CARVERA_C1 = "c1"
     CARVERA_AIR_CA1 = "ca1"
@@ -172,10 +166,32 @@ class MachineState:
 
 
 @dataclass(frozen=True, slots=True)
-class EepromField:
-    name: str
-    type: EepromFieldType
-    value: bool | int | float
+class PersistentVariable:
+    number: int
+    value: float
+
+
+@dataclass(frozen=True, slots=True)
+class WorkCoordinateSystem:
+    number: int
+    x: float
+    y: float
+    z: float
+    a: float
+    rotation: float
+
+
+@dataclass(frozen=True, slots=True)
+class EepromContents:
+    tool_length_offset: float
+    reference_machine_z: float
+    tool_machine_z: float
+    reserved: float
+    active_tool: int
+    tool_not_calibrated: bool
+    current_wcs: int
+    persistent_variables: tuple[PersistentVariable, ...]
+    work_coordinate_systems: tuple[WorkCoordinateSystem, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,16 +289,55 @@ def physical_io_to_state(snapshot: pb.PhysicalIoSnapshot) -> PhysicalIoState:
     )
 
 
-def eeprom_fields_to_state(fields: pb.EepromFields) -> list[EepromField]:
-    rows: list[EepromField] = []
-    for field in fields.fields:
-        if field.type == pb.EEPROM_FIELD_TYPE_BOOL:
-            rows.append(EepromField(name=field.name, type=EepromFieldType.BOOL, value=bool(field.boolean)))
-        elif field.type == pb.EEPROM_FIELD_TYPE_INT:
-            rows.append(EepromField(name=field.name, type=EepromFieldType.INT, value=int(field.integer)))
-        else:
-            rows.append(EepromField(name=field.name, type=EepromFieldType.FLOAT, value=float(field.number)))
-    return rows
+def eeprom_contents_to_state(contents: pb.EepromContents) -> EepromContents:
+    return EepromContents(
+        tool_length_offset=float(contents.tool_length_offset),
+        reference_machine_z=float(contents.reference_machine_z),
+        tool_machine_z=float(contents.tool_machine_z),
+        reserved=float(contents.reserved),
+        active_tool=int(contents.active_tool),
+        tool_not_calibrated=bool(contents.tool_not_calibrated),
+        current_wcs=int(contents.current_wcs),
+        persistent_variables=tuple(
+            PersistentVariable(number=int(variable.number), value=float(variable.value))
+            for variable in contents.persistent_variables
+        ),
+        work_coordinate_systems=tuple(
+            WorkCoordinateSystem(
+                number=int(system.number),
+                x=float(system.x),
+                y=float(system.y),
+                z=float(system.z),
+                a=float(system.a),
+                rotation=float(system.rotation),
+            )
+            for system in contents.work_coordinate_systems
+        ),
+    )
+
+
+def eeprom_contents_to_proto(contents: EepromContents) -> pb.EepromContents:
+    output = pb.EepromContents(
+        tool_length_offset=contents.tool_length_offset,
+        reference_machine_z=contents.reference_machine_z,
+        tool_machine_z=contents.tool_machine_z,
+        reserved=contents.reserved,
+        active_tool=contents.active_tool,
+        tool_not_calibrated=contents.tool_not_calibrated,
+        current_wcs=contents.current_wcs,
+    )
+    for variable in contents.persistent_variables:
+        output.persistent_variables.add(number=variable.number, value=variable.value)
+    for system in contents.work_coordinate_systems:
+        output.work_coordinate_systems.add(
+            number=system.number,
+            x=system.x,
+            y=system.y,
+            z=system.z,
+            a=system.a,
+            rotation=system.rotation,
+        )
+    return output
 
 
 def interactive_transport_to_state(transport: pb.InteractiveTransport) -> InteractiveTransportState:

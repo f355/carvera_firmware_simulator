@@ -51,37 +51,42 @@ int main() {
   });
   require(!response.ok(), "get_eeprom_bytes should reject ranges past EEPROM end");
 
-  response = api.request([](auto& request) { request.mutable_get_eeprom_fields(); });
-  require(response.ok(), "get_eeprom_fields should read named firmware EEPROM fields");
-  require(response.eeprom_fields().fields_size() > 40, "get_eeprom_fields should expose persistent firmware fields");
+  response = api.request([](auto& request) { request.mutable_get_eeprom_contents(); });
+  require(response.ok(), "get_eeprom_contents should read structured firmware EEPROM contents");
+  require(response.has_eeprom_contents(), "get_eeprom_contents should return structured contents");
+  require(response.eeprom_contents().persistent_variables_size() == 20,
+          "EEPROM contents should expose all persistent variables");
+  require(response.eeprom_contents().persistent_variables(0).number() == 501,
+          "persistent variables should carry their firmware number");
+  require(response.eeprom_contents().work_coordinate_systems_size() == 6,
+          "EEPROM contents should expose G54 through G59");
+  require(response.eeprom_contents().work_coordinate_systems(0).number() == 54,
+          "work coordinate systems should carry their G-code number");
 
-  response = api.request([](auto& request) {
-    auto* tlo_field = request.mutable_set_eeprom_fields()->add_fields();
-    tlo_field->set_name("TLO");
-    tlo_field->set_type(sim::test::pb::EEPROM_FIELD_TYPE_FLOAT);
-    tlo_field->set_number(12.5);
-    auto* tool_field = request.mutable_set_eeprom_fields()->add_fields();
-    tool_field->set_name("TOOL");
-    tool_field->set_type(sim::test::pb::EEPROM_FIELD_TYPE_INT);
-    tool_field->set_integer(4);
-    auto* calibrated_field = request.mutable_set_eeprom_fields()->add_fields();
-    calibrated_field->set_name("tool_not_calibrated");
-    calibrated_field->set_type(sim::test::pb::EEPROM_FIELD_TYPE_BOOL);
-    calibrated_field->set_boolean(true);
+  std::string serialized_contents;
+  require(response.SerializeToString(&serialized_contents), "EEPROM contents response should serialize");
+  sim::test::pb::Response parsed_contents;
+  require(parsed_contents.ParseFromString(serialized_contents), "serialized EEPROM contents response should parse");
+  require(parsed_contents.eeprom_contents().persistent_variables_size() == 20,
+          "serialized EEPROM contents should preserve persistent variables");
+
+  auto updated_contents = response.eeprom_contents();
+  updated_contents.set_tool_length_offset(12.5);
+  updated_contents.set_active_tool(4);
+  updated_contents.set_tool_not_calibrated(false);
+  response = api.request([&updated_contents](auto& request) {
+    request.mutable_set_eeprom_contents()->mutable_contents()->CopyFrom(updated_contents);
   });
-  require(response.ok(), "set_eeprom_fields should update named firmware EEPROM fields");
+  require(response.ok(), "set_eeprom_contents should update structured firmware EEPROM contents");
 
-  response = api.request([](auto& request) { request.mutable_get_eeprom_fields(); });
-  require(response.ok(), "get_eeprom_fields should read back updated fields");
-  bool saw_tlo = false;
-  bool saw_tool = false;
-  bool saw_flag = false;
-  for (const auto& field : response.eeprom_fields().fields()) {
-    saw_tlo = saw_tlo || (field.name() == "TLO" && field.number() == 12.5);
-    saw_tool = saw_tool || (field.name() == "TOOL" && field.integer() == 4);
-    saw_flag = saw_flag || (field.name() == "tool_not_calibrated" && field.boolean());
-  }
-  require(saw_tlo && saw_tool && saw_flag, "get_eeprom_fields should reflect named field updates");
+  response = api.request([](auto& request) { request.mutable_get_eeprom_contents(); });
+  require(response.ok(), "get_eeprom_contents should read back updated contents");
+  require(response.eeprom_contents().tool_length_offset() == 12.5,
+          "structured EEPROM contents should preserve tool length offset");
+  require(response.eeprom_contents().active_tool() == 4,
+          "structured EEPROM contents should preserve the active tool");
+  require(!response.eeprom_contents().tool_not_calibrated(),
+          "structured EEPROM contents should preserve calibration state");
 
   return 0;
 }

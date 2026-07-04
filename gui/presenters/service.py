@@ -27,15 +27,15 @@ class ServicePresenter(SessionPresenter):
         if view.eeprom_panel_view is None:
             return
         if not self.session.state_store.snapshot().machine_online:
-            view.eeprom_panel_view.status_label.text = "Power on and refresh to view named EEPROM fields."
+            view.eeprom_panel_view.status_label.text = "Power on and refresh to view EEPROM contents."
             if notify:
                 ui.notify("Power on the simulator before reading EEPROM.", type="warning")
             return
         try:
-            fields = await self.session.process_controller.call(self.session.client.get_eeprom_fields)
-            view.eeprom_panel_view.set_fields(fields)
+            contents = await self.session.process_controller.call(self.session.client.get_eeprom_contents)
+            view.eeprom_panel_view.set_contents(contents)
             if notify:
-                ui.notify("EEPROM fields refreshed", type="positive")
+                ui.notify("EEPROM contents refreshed", type="positive")
         except SimulatorClientError as exc:
             ui.notify(str(exc), type="negative")
 
@@ -47,9 +47,9 @@ class ServicePresenter(SessionPresenter):
             return
         try:
             await self.session.process_controller.call(
-                self.session.client.set_eeprom_fields, view.eeprom_panel_view.edited_fields()
+                self.session.client.set_eeprom_contents, view.eeprom_panel_view.edited_contents()
             )
             await self.refresh_eeprom(view, notify=False)
-            ui.notify("EEPROM fields written; reset firmware to reload running modules.", type="positive")
+            ui.notify("EEPROM contents written; reset firmware to reload running modules.", type="positive")
         except (SimulatorClientError, TypeError, ValueError) as exc:
             ui.notify(str(exc), type="negative")

@@ -155,8 +155,8 @@ int main(int argc, char** argv) {
 
   request.Clear();
   request.set_id(22);
-  request.mutable_get_eeprom_fields();
-  if (!expect(simulator.write_request(request), "failed to write EEPROM fields request")) {
+  request.mutable_get_eeprom_contents();
+  if (!expect(simulator.write_request(request), "failed to write EEPROM contents request")) {
     return 1;
   }
 
@@ -181,7 +181,7 @@ int main(int argc, char** argv) {
 
   response.Clear();
   const bool eeprom_acknowledged =
-      simulator.wait_response(22, response, kBusyResponseDeadline) && response.ok() && response.has_eeprom_fields();
+      simulator.wait_response(22, response, kBusyResponseDeadline) && response.ok() && response.has_eeprom_contents();
   if (!expect(eeprom_acknowledged, "busy stream should acknowledge EEPROM hardware reads quickly")) {
     return 1;
   }

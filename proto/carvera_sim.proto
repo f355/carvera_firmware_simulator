@@ -67,8 +67,8 @@ message Request {
     SetRotaryAccessoryInstalled set_rotary_accessory_installed = 54;
     GetEepromBytes get_eeprom_bytes = 55;
     SetEepromBytes set_eeprom_bytes = 56;
-    GetEepromFields get_eeprom_fields = 57;
-    SetEepromFields set_eeprom_fields = 58;
+    GetEepromContents get_eeprom_contents = 57;
+    SetEepromContents set_eeprom_contents = 58;
     GetProbeInputs get_probe_inputs = 28;
     GetAdcInput get_adc_input = 33;
 
@@ -121,7 +121,7 @@ message Response {
     SpindleAlarmState spindle_alarm_state = 27;
     LaserState laser_state = 28;
     EepromBytes eeprom_bytes = 29;
-    EepromFields eeprom_fields = 30;
+    EepromContents eeprom_contents = 30;
   }
 }
 
@@ -563,26 +563,41 @@ message EepromBytes {
   uint32 total_size = 3;
 }
 
-// Command: read named firmware EEPROM fields.
-message GetEepromFields {}
+// Command: read structured firmware EEPROM contents.
+message GetEepromContents {}
 
-// Command: update named firmware EEPROM fields.
-message SetEepromFields {
-  repeated EepromField fields = 1;
+// Command: replace structured firmware EEPROM contents.
+message SetEepromContents {
+  EepromContents contents = 1;
 }
 
-// Response payload: named firmware EEPROM fields.
-message EepromFields {
-  repeated EepromField fields = 1;
+// Firmware data persisted in the simulated I2C EEPROM.
+message EepromContents {
+  double tool_length_offset = 1;
+  double reference_machine_z = 2;
+  double tool_machine_z = 3;
+  double reserved = 4;
+  int32 active_tool = 5;
+  bool tool_not_calibrated = 6;
+  int32 current_wcs = 7;
+  repeated PersistentVariable persistent_variables = 8;
+  repeated WorkCoordinateSystem work_coordinate_systems = 9;
 }
 
-// One editable firmware EEPROM field.
-message EepromField {
-  string name = 1;
-  EepromFieldType type = 2;
-  double number = 3;
-  int64 integer = 4;
-  bool boolean = 5;
+// One numbered persistent G-code variable (501 through 520).
+message PersistentVariable {
+  uint32 number = 1;
+  double value = 2;
+}
+
+// One persisted work coordinate system (G54 through G59).
+message WorkCoordinateSystem {
+  uint32 number = 1;
+  double x = 2;
+  double y = 3;
+  double z = 4;
+  double a = 5;
+  double rotation = 6;
 }
 
 // Response payload: real firmware Laser module state.
@@ -927,12 +942,4 @@ enum ToolKind {
   TOOL_KIND_CUTTING_TOOL = 1;
   TOOL_KIND_STOCK_Z_PROBE = 2;
   TOOL_KIND_THREE_AXIS_PROBE = 3;
-}
-
-// Editable EEPROM field value type.
-enum EepromFieldType {
-  EEPROM_FIELD_TYPE_UNSPECIFIED = 0;
-  EEPROM_FIELD_TYPE_FLOAT = 1;
-  EEPROM_FIELD_TYPE_INT = 2;
-  EEPROM_FIELD_TYPE_BOOL = 3;
 }

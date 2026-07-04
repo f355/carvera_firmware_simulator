@@ -24,12 +24,12 @@ from gui.protocol.simulator_process import SimulatorProcess
 from gui.generated import carvera_sim_pb2 as pb
 
 from .model import (
-    EepromField,
-    EepromFieldType,
+    EepromContents,
     InteractiveTransportState,
     ToolConfig,
     ToolKind,
-    eeprom_fields_to_state,
+    eeprom_contents_to_proto,
+    eeprom_contents_to_state,
     interactive_transport_to_state,
     tool_kind_to_proto,
 )
@@ -237,25 +237,14 @@ class SimulatorClient:
         request.set_eeprom_bytes.data = bytes(data)
         self.request(request)
 
-    def get_eeprom_fields(self) -> list[EepromField]:
+    def get_eeprom_contents(self) -> EepromContents:
         request = pb.Request()
-        request.get_eeprom_fields.SetInParent()
-        return eeprom_fields_to_state(self.request(request).eeprom_fields)
+        request.get_eeprom_contents.SetInParent()
+        return eeprom_contents_to_state(self.request(request).eeprom_contents)
 
-    def set_eeprom_fields(self, fields: list[EepromField]) -> None:
+    def set_eeprom_contents(self, contents: EepromContents) -> None:
         request = pb.Request()
-        for field in fields:
-            output = request.set_eeprom_fields.fields.add()
-            output.name = field.name
-            if field.type == EepromFieldType.BOOL:
-                output.type = pb.EEPROM_FIELD_TYPE_BOOL
-                output.boolean = bool(field.value)
-            elif field.type == EepromFieldType.INT:
-                output.type = pb.EEPROM_FIELD_TYPE_INT
-                output.integer = int(field.value)
-            else:
-                output.type = pb.EEPROM_FIELD_TYPE_FLOAT
-                output.number = float(field.value)
+        request.set_eeprom_contents.contents.CopyFrom(eeprom_contents_to_proto(contents))
         self.request(request)
 
     def start_interactive_transport(

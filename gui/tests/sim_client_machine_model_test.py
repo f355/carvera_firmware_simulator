@@ -18,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gui.generated import carvera_sim_pb2 as pb
+from gui.protocol.model import EepromContents, PersistentVariable, WorkCoordinateSystem
 from gui.protocol.sim_client import SimulatorClient
 
 
@@ -46,3 +47,25 @@ def test_client_maps_machine_models_and_rotary_accessory_to_protocol_requests() 
     client = RecordingClient()
     client.set_rotary_accessory_installed(True)
     assert client.requests[-1].set_rotary_accessory_installed.installed is True
+
+
+def test_client_sends_structured_eeprom_contents() -> None:
+    client = RecordingClient()
+    contents = EepromContents(
+        tool_length_offset=1.0,
+        reference_machine_z=2.0,
+        tool_machine_z=3.0,
+        reserved=4.0,
+        active_tool=5,
+        tool_not_calibrated=True,
+        current_wcs=6,
+        persistent_variables=(PersistentVariable(number=501, value=7.0),),
+        work_coordinate_systems=(WorkCoordinateSystem(number=54, x=8.0, y=9.0, z=10.0, a=11.0, rotation=12.0),),
+    )
+
+    client.set_eeprom_contents(contents)
+
+    request_contents = client.requests[-1].set_eeprom_contents.contents
+    assert request_contents.tool_length_offset == 1.0
+    assert request_contents.persistent_variables[0].number == 501
+    assert request_contents.work_coordinate_systems[0].rotation == 12.0

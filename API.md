@@ -20,7 +20,7 @@ the simulated physical world around the firmware:
 * put tools in the spindle or C1 ATC rack
 * define stock geometry
 * set thermistor temperatures and alarm inputs
-* read physical axes, spindle RPM, laser state, GPIO/PWM state, EEPROM fields,
+* read physical axes, spindle RPM, laser state, GPIO/PWM state, structured EEPROM contents,
   tool state, and controller traffic
 
 For normal use, prefer the physical-machine commands. The low-level harness
@@ -78,7 +78,7 @@ A typical external client does this:
 1. Start `build/carvera_sim_stream_stdio`.
 2. Send `SetMachineModel` before anything boots the firmware.
 3. Send `MountFilesystem` for `sd`.
-4. Optionally set EEPROM fields, rack tools, rotary accessory state, or other
+4. Optionally set EEPROM contents, rack tools, rotary accessory state, or other
    physical setup.
 5. Send `StartInteractiveTransport` if a controller should connect.
 6. Send `SetTimeMode(TIME_MODE_REALTIME)` for interactive use, or keep manual
@@ -167,7 +167,7 @@ These commands describe the simulated physical machine:
 * `SetAtcPocketTools`
 * `SetSpindleTool`
 * `SetProbeToolInstalled`
-* `SetEepromFields`
+* `SetEepromContents`
 * `SetEepromBytes`
 
 Tool length is the overall tool length. The simulator assumes 20 mm of shank is
@@ -200,7 +200,7 @@ Useful readbacks:
 * `GetPwmOutput`
 * `GetLaserState`
 * `GetAdcInput`
-* `GetEepromFields`
+* `GetEepromContents`
 * `GetEepromBytes`
 
 For drawing the machine, use `AxisState.physical_mm`, not

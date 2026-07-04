@@ -20,77 +20,134 @@ from typing import Any, Awaitable, Callable
 
 from nicegui import ui
 
-from gui.protocol.model import EepromField, EepromFieldType
+from gui.protocol.model import EepromContents, PersistentVariable, WorkCoordinateSystem
 
 
-FIELD_GROUPS = (
-    ("Tool State", ("TOOL", "TLO", "tool_not_calibrated", "REFMZ", "TOOLMZ")),
-    ("Work Offset", ("current_wcs",)),
-    ("G54", ("G54.X", "G54.Y", "G54.Z", "G54.A", "G54.rotation")),
-    ("G55", ("G55.X", "G55.Y", "G55.Z", "G55.A", "G55.rotation")),
-    ("G56", ("G56.X", "G56.Y", "G56.Z", "G56.A", "G56.rotation")),
-    ("G57", ("G57.X", "G57.Y", "G57.Z", "G57.A", "G57.rotation")),
-    ("G58", ("G58.X", "G58.Y", "G58.Z", "G58.A", "G58.rotation")),
-    ("G59", ("G59.X", "G59.Y", "G59.Z", "G59.A", "G59.rotation")),
-    ("Persistent Variables", tuple(f"perm_vars[{index}]" for index in range(501, 521))),
-    ("Other", ()),
-)
+@dataclass
+class WorkCoordinateSystemControls:
+    x: Any
+    y: Any
+    z: Any
+    a: Any
+    rotation: Any
 
 
 @dataclass
 class EepromPanelView:
     status_label: Any
     fields_container: Any
-    field_controls: dict[str, tuple[EepromFieldType, Any]] = field(default_factory=dict)
+    tool_length_offset_control: Any | None = None
+    reference_machine_z_control: Any | None = None
+    tool_machine_z_control: Any | None = None
+    reserved_control: Any | None = None
+    active_tool_control: Any | None = None
+    tool_not_calibrated_control: Any | None = None
+    current_wcs_control: Any | None = None
+    persistent_variable_controls: dict[int, Any] = field(default_factory=dict)
+    work_coordinate_system_controls: dict[int, WorkCoordinateSystemControls] = field(default_factory=dict)
 
-    def set_fields(self, fields: list[EepromField]) -> None:
+    def set_contents(self, contents: EepromContents) -> None:
         self.fields_container.clear()
-        self.field_controls.clear()
-        fields_by_name = {field.name: field for field in fields}
-        rendered = set()
+        self.persistent_variable_controls.clear()
+        self.work_coordinate_system_controls.clear()
         with self.fields_container:
-            for group_name, names in FIELD_GROUPS:
-                group_fields = [fields_by_name[name] for name in names if name in fields_by_name]
-                if group_name == "Other":
-                    group_fields = [field for field in fields if field.name not in rendered]
-                if not group_fields:
-                    continue
-                with ui.element("div").classes("eeprom-field-group"):
-                    ui.label(group_name).classes("eeprom-group-title")
-                    with ui.element("div").classes("eeprom-fields-grid"):
-                        ui.label("Field").classes("table-head")
-                        ui.label("Value").classes("table-head")
-                        for field in group_fields:
-                            self._add_field_control(field)
-                            rendered.add(field.name)
-        self.status_label.text = f"{len(fields)} EEPROM fields loaded"
+            with self._field_group("Tool State"):
+                self.active_tool_control = self._number_control("TOOL", contents.active_tool, integer=True)
+                self.tool_length_offset_control = self._number_control("TLO", contents.tool_length_offset)
+                self.tool_not_calibrated_control = self._bool_control(
+                    "tool_not_calibrated", contents.tool_not_calibrated
+                )
+                self.reference_machine_z_control = self._number_control("REFMZ", contents.reference_machine_z)
+                self.tool_machine_z_control = self._number_control("TOOLMZ", contents.tool_machine_z)
+            with self._field_group("Work Offset"):
+                self.current_wcs_control = self._number_control("current_wcs", contents.current_wcs, integer=True)
+            for system in contents.work_coordinate_systems:
+                with self._field_group(f"G{system.number}"):
+                    self.work_coordinate_system_controls[system.number] = WorkCoordinateSystemControls(
+                        x=self._number_control("X", system.x),
+                        y=self._number_control("Y", system.y),
+                        z=self._number_control("Z", system.z),
+                        a=self._number_control("A", system.a),
+                        rotation=self._number_control("rotation", system.rotation),
+                    )
+            with self._field_group("Persistent Variables"):
+                for variable in contents.persistent_variables:
+                    self.persistent_variable_controls[variable.number] = self._number_control(
+                        str(variable.number), variable.value
+                    )
+            with self._field_group("Other"):
+                self.reserved_control = self._number_control("reserve", contents.reserved)
+        field_count = 7 + len(self.persistent_variable_controls) + 5 * len(self.work_coordinate_system_controls)
+        self.status_label.text = f"{field_count} EEPROM values loaded"
 
-    def edited_fields(self) -> list[EepromField]:
-        fields = []
-        for name, (kind, control) in self.field_controls.items():
-            fields.append(EepromField(name=name, type=kind, value=control.value))
-        return fields
+    def edited_contents(self) -> EepromContents:
+        scalar_controls = (
+            self.tool_length_offset_control,
+            self.reference_machine_z_control,
+            self.tool_machine_z_control,
+            self.reserved_control,
+            self.active_tool_control,
+            self.tool_not_calibrated_control,
+            self.current_wcs_control,
+        )
+        if any(control is None for control in scalar_controls):
+            raise ValueError("EEPROM contents have not been loaded")
+        assert self.tool_length_offset_control is not None
+        assert self.reference_machine_z_control is not None
+        assert self.tool_machine_z_control is not None
+        assert self.reserved_control is not None
+        assert self.active_tool_control is not None
+        assert self.tool_not_calibrated_control is not None
+        assert self.current_wcs_control is not None
+        return EepromContents(
+            tool_length_offset=float(self.tool_length_offset_control.value or 0.0),
+            reference_machine_z=float(self.reference_machine_z_control.value or 0.0),
+            tool_machine_z=float(self.tool_machine_z_control.value or 0.0),
+            reserved=float(self.reserved_control.value or 0.0),
+            active_tool=int(self.active_tool_control.value or 0),
+            tool_not_calibrated=bool(self.tool_not_calibrated_control.value),
+            current_wcs=int(self.current_wcs_control.value or 0),
+            persistent_variables=tuple(
+                PersistentVariable(number=number, value=float(control.value or 0.0))
+                for number, control in sorted(self.persistent_variable_controls.items())
+            ),
+            work_coordinate_systems=tuple(
+                WorkCoordinateSystem(
+                    number=number,
+                    x=float(controls.x.value or 0.0),
+                    y=float(controls.y.value or 0.0),
+                    z=float(controls.z.value or 0.0),
+                    a=float(controls.a.value or 0.0),
+                    rotation=float(controls.rotation.value or 0.0),
+                )
+                for number, controls in sorted(self.work_coordinate_system_controls.items())
+            ),
+        )
 
-    def _add_field_control(self, field: EepromField) -> None:
-        name = field.name
-        kind = field.type
+    def _field_group(self, title: str) -> Any:
+        group = ui.element("div").classes("eeprom-field-group")
+        with group:
+            ui.label(title).classes("eeprom-group-title")
+            grid = ui.element("div").classes("eeprom-fields-grid")
+        return grid
+
+    @staticmethod
+    def _number_control(name: str, value: float | int, *, integer: bool = False) -> Any:
         ui.label(name).classes("table-cell eeprom-field-name")
-        control: Any
-        if kind == EepromFieldType.BOOL:
-            control = ui.switch(value=bool(field.value)).props("dense")
-        elif kind == EepromFieldType.INT:
-            control = (
-                ui.number(value=int(field.value), step=1)
-                .props("dense outlined hide-bottom-space")
-                .classes("compact-field plain-number")
+        return (
+            ui.number(
+                value=int(value) if integer else float(value),
+                format="%d" if integer else "%.6f",
+                step=1 if integer else 0.001,
             )
-        else:
-            control = (
-                ui.number(value=float(field.value), format="%.6f", step=0.001)
-                .props("dense outlined hide-bottom-space")
-                .classes("compact-field plain-number")
-            )
-        self.field_controls[name] = (kind, control)
+            .props("dense outlined hide-bottom-space")
+            .classes("compact-field plain-number")
+        )
+
+    @staticmethod
+    def _bool_control(name: str, value: bool) -> Any:
+        ui.label(name).classes("table-cell eeprom-field-name")
+        return ui.switch(value=value).props("dense")
 
 
 def build_eeprom_panel(
@@ -102,8 +159,8 @@ def build_eeprom_panel(
         ui.label("EEPROM").classes("section-title")
         with ui.element("div").classes("button-row"):
             ui.button("Refresh", on_click=refresh_eeprom).props("dense outline")
-            ui.button("Write fields", on_click=write_eeprom).props("dense color=primary")
-        status_label = ui.label("Power on and refresh to view named EEPROM fields.").classes("section-subtle")
+            ui.button("Write contents", on_click=write_eeprom).props("dense color=primary")
+        status_label = ui.label("Power on and refresh to view EEPROM contents.").classes("section-subtle")
         fields_container = ui.element("div").classes("eeprom-fields")
 
     return EepromPanelView(status_label=status_label, fields_container=fields_container)

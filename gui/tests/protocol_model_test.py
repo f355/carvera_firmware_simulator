@@ -79,27 +79,35 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
     assert frame.telemetry_time_s == 12.34
 
 
-def test_eeprom_and_transport_protobufs_use_typed_domain_state() -> None:
-    fields = model.pb.EepromFields()
-    boolean = fields.fields.add()
-    boolean.name = "sdok"
-    boolean.type = model.pb.EEPROM_FIELD_TYPE_BOOL
-    boolean.boolean = True
-    integer = fields.fields.add()
-    integer.name = "TOOL"
-    integer.type = model.pb.EEPROM_FIELD_TYPE_INT
-    integer.integer = 2
-    number = fields.fields.add()
-    number.name = "TLO"
-    number.type = model.pb.EEPROM_FIELD_TYPE_FLOAT
-    number.number = -31.32
+def test_eeprom_protobuf_uses_structured_domain_state() -> None:
+    contents = model.pb.EepromContents(
+        tool_length_offset=-31.32,
+        reference_machine_z=-122.0,
+        tool_machine_z=-70.0,
+        reserved=3.5,
+        active_tool=2,
+        tool_not_calibrated=True,
+        current_wcs=1,
+    )
+    contents.persistent_variables.add(number=501, value=12.5)
+    contents.work_coordinate_systems.add(number=54, x=1.0, y=2.0, z=3.0, a=4.0, rotation=5.0)
 
-    converted = model.eeprom_fields_to_state(fields)
-    assert converted == [
-        model.EepromField(name="sdok", type=model.EepromFieldType.BOOL, value=True),
-        model.EepromField(name="TOOL", type=model.EepromFieldType.INT, value=2),
-        model.EepromField(name="TLO", type=model.EepromFieldType.FLOAT, value=-31.32),
-    ]
+    converted = model.eeprom_contents_to_state(contents)
+    assert converted == model.EepromContents(
+        tool_length_offset=-31.32,
+        reference_machine_z=-122.0,
+        tool_machine_z=-70.0,
+        reserved=3.5,
+        active_tool=2,
+        tool_not_calibrated=True,
+        current_wcs=1,
+        persistent_variables=(model.PersistentVariable(number=501, value=12.5),),
+        work_coordinate_systems=(model.WorkCoordinateSystem(number=54, x=1.0, y=2.0, z=3.0, a=4.0, rotation=5.0),),
+    )
+    assert model.eeprom_contents_to_proto(converted) == contents
+
+
+def test_transport_protobuf_uses_typed_domain_state() -> None:
 
     transport = model.pb.InteractiveTransport()
     transport.uart_supported = True
