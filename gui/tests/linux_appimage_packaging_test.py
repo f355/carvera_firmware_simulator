@@ -110,6 +110,44 @@ def test_linux_builder_bundles_qt_webengine_runtime_libraries() -> None:
         assert library in build_script
 
 
+def test_linux_builder_copies_a_system_library_omitted_by_pyinstaller(tmp_path: Path) -> None:
+    system_library = tmp_path / "system" / "liblcms2.so.2.0.16"
+    system_library.parent.mkdir()
+    system_library.write_bytes(b"lcms2")
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    ldconfig = bin_dir / "ldconfig"
+    ldconfig.write_text(
+        "#!/usr/bin/env bash\n"
+        f"printf '\\tliblcms2.so.2 (libc6,x86-64) => {system_library}\\n'\n"
+    )
+    ldconfig.chmod(0o755)
+
+    bundle_root = tmp_path / "AppDir" / "usr" / "lib" / "carvera-simulator"
+    destination = bundle_root / "_internal"
+    destination.mkdir(parents=True)
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'source "$1"; linux_bundle_shared_library "$2" "$3" "$4"',
+            "bash",
+            str(COMMON_SCRIPT),
+            "liblcms2.so.2",
+            str(bundle_root),
+            str(destination),
+        ],
+        env={"PATH": f"{bin_dir}:/usr/bin:/bin"},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (destination / "liblcms2.so.2").read_bytes() == b"lcms2"
+
+
 def test_linux_smoke_test_terminates_the_native_gui_process_group() -> None:
     smoke_test = (ROOT / "scripts" / "smoke_test_linux_appimage.sh").read_text()
 

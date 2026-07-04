@@ -61,7 +61,7 @@ REQUIRED_QTWEBENGINE_LIBRARIES=(
   libXfixes.so.3
 )
 
-for command in cmake curl file git ninja readelf sha256sum uv; do
+for command in awk cmake curl file git ldconfig ninja readelf sha256sum uv; do
   command -v "$command" >/dev/null || { echo "error: $command is required" >&2; exit 2; }
 done
 
@@ -115,6 +115,13 @@ mkdir -p \
   "$APP_DIR/usr/share/applications" \
   "$APP_DIR/usr/share/icons/hicolor/scalable/apps"
 cp -a --no-preserve=xattr "$PYINSTALLER_APP/." "$APP_DIR/usr/lib/carvera-simulator/"
+BUNDLED_LIBRARY_DIR="$APP_DIR/usr/lib/carvera-simulator/_internal"
+for library in "${REQUIRED_QTWEBENGINE_LIBRARIES[@]}"; do
+  linux_bundle_shared_library \
+    "$library" \
+    "$APP_DIR/usr/lib/carvera-simulator" \
+    "$BUNDLED_LIBRARY_DIR"
+done
 for library in "${REQUIRED_QTWEBENGINE_LIBRARIES[@]}"; do
   if [[ -z "$(find "$APP_DIR/usr/lib/carvera-simulator" -name "$library" -print -quit)" ]]; then
     echo "error: packaged Qt WebEngine dependency is missing: $library" >&2

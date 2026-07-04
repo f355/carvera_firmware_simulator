@@ -68,3 +68,28 @@ linux_appimagetool_sha256() {
       ;;
   esac
 }
+
+linux_bundle_shared_library() {
+  local library="$1"
+  local bundle_root="$2"
+  local destination="$3"
+  local system_library
+
+  if [[ -n "$(find "$bundle_root" -name "$library" -print -quit)" ]]; then
+    return 0
+  fi
+
+  system_library="$(
+    ldconfig -p | awk -v library="$library" '
+      $1 == library && path == "" { path = $NF }
+      END { print path }
+    '
+  )"
+  if [[ -z "$system_library" || ! -f "$system_library" ]]; then
+    printf 'error: required system library is unavailable: %s\n' "$library" >&2
+    return 1
+  fi
+
+  mkdir -p "$destination"
+  cp -L "$system_library" "$destination/$library"
+}
