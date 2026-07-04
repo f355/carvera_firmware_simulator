@@ -1,4 +1,6 @@
 build/
+/build-coverage/
+/coverage/
 .DS_Store
 .venv/
 __pycache__/

@@ -15,6 +15,7 @@
 
 option(CARVERA_SIM_WARNINGS_AS_ERRORS "Treat warnings in simulator-owned code as errors" ON)
 option(CARVERA_SIM_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
+option(CARVERA_SIM_ENABLE_COVERAGE "Instrument simulator and firmware code for coverage reports" OFF)
 
 function(sim_enable_warnings target_name)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -51,9 +52,33 @@ function(sim_enable_sanitizers target_name)
   endif()
 endfunction()
 
+function(sim_enable_coverage target_name)
+  if(NOT CARVERA_SIM_ENABLE_COVERAGE)
+    return()
+  endif()
+
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    message(FATAL_ERROR "CARVERA_SIM_ENABLE_COVERAGE requires Clang or GCC")
+  endif()
+
+  target_compile_options(${target_name} PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:--coverage;-O0;-g>
+    $<$<COMPILE_LANGUAGE:CXX>:--coverage;-O0;-g>
+  )
+  get_target_property(_target_type ${target_name} TYPE)
+  if(NOT _target_type MATCHES "OBJECT_LIBRARY|STATIC_LIBRARY")
+    target_link_options(${target_name} PRIVATE --coverage)
+  endif()
+endfunction()
+
+function(sim_enable_instrumentation target_name)
+  sim_enable_sanitizers(${target_name})
+  sim_enable_coverage(${target_name})
+endfunction()
+
 function(sim_enable_project_diagnostics target_name)
   sim_enable_warnings(${target_name})
-  sim_enable_sanitizers(${target_name})
+  sim_enable_instrumentation(${target_name})
 endfunction()
 
 function(sim_enable_test_diagnostics target_name)

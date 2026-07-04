@@ -117,6 +117,20 @@ different firmware revision, add `-DCARVERA_ALLOW_UNPINNED_FIRMWARE=ON`.
 
 If you do not use Ninja, drop `-G Ninja`.
 
+### Coverage reports
+
+Configure a separate instrumented build and run its `coverage` target:
+
+```sh
+cmake -S . -B build-coverage -G Ninja -DCARVERA_SIM_ENABLE_COVERAGE=ON
+cmake --build build-coverage --target coverage
+```
+
+The target runs the C++ test suite and writes annotated firmware and simulator
+reports to `build-coverage/coverage/`. The firmware report includes only the
+firmware sources compiled for the C1 and CA1 simulator configurations. Coverage
+is informational; the target does not enforce a threshold.
+
 ## Running the GUI
 
 The easy path is:

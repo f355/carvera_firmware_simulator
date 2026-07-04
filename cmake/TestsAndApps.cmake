@@ -206,7 +206,7 @@ target_compile_definitions(carvera_firmware_boot_main PRIVATE
   NO_TOOLS_ROTARYDELTACALIBRATION=1
 )
 sim_force_include(carvera_firmware_boot_main ${HOST_PRELUDE})
-sim_enable_sanitizers(carvera_firmware_boot_main)
+sim_enable_instrumentation(carvera_firmware_boot_main)
 
 add_executable(firmware_boot_test
   tests/firmware_boot_test.cpp
@@ -231,3 +231,44 @@ add_custom_target(check
   DEPENDS ${SIM_TEST_TARGETS}
   USES_TERMINAL
 )
+
+if(CARVERA_SIM_ENABLE_COVERAGE)
+  set(CARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY
+    "${CMAKE_BINARY_DIR}/coverage"
+    CACHE PATH "Directory for generated coverage reports"
+  )
+  find_program(SIM_UV_EXECUTABLE uv REQUIRED)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(APPLE)
+      find_program(SIM_XCRUN_EXECUTABLE xcrun REQUIRED)
+      execute_process(
+        COMMAND ${SIM_XCRUN_EXECUTABLE} --find llvm-cov
+        OUTPUT_VARIABLE SIM_GCOV_EXECUTABLE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+      )
+    else()
+      find_program(SIM_GCOV_EXECUTABLE llvm-cov REQUIRED)
+    endif()
+    set(SIM_GCOV_COMMAND "${SIM_GCOV_EXECUTABLE} gcov")
+  else()
+    find_program(SIM_GCOV_EXECUTABLE gcov REQUIRED)
+    set(SIM_GCOV_COMMAND "${SIM_GCOV_EXECUTABLE}")
+  endif()
+
+  add_custom_target(coverage
+    COMMAND
+      ${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_coverage_report.sh
+      ${CMAKE_CURRENT_SOURCE_DIR}
+      ${CMAKE_BINARY_DIR}
+      ${CARVERA_FIRMWARE_ROOT}
+      ${CARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY}
+      ${CMAKE_CTEST_COMMAND}
+      ${SIM_TEST_JOBS}
+      ${SIM_UV_EXECUTABLE}
+      "${SIM_GCOV_COMMAND}"
+    DEPENDS ${SIM_TEST_TARGETS}
+    USES_TERMINAL
+    VERBATIM
+  )
+endif()

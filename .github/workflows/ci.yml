@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
   push:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -86,8 +87,11 @@ jobs:
               uv run ruff format --check gui
               uv run ruff check gui
               uv run mypy gui
-              cmake -S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
-              cmake --build build --target check --parallel "$JOBS"
+              cmake -S . -B build -G Ninja \
+                -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
+                -DCARVERA_SIM_ENABLE_COVERAGE=ON \
+                -DCARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY=/work/coverage
+              cmake --build build --target coverage --parallel "$JOBS"
               uv run pytest gui/tests
             '
 
@@ -163,3 +167,15 @@ jobs:
       - name: Run GUI tests
         if: runner.os == 'macOS'
         run: uv run pytest gui/tests
+
+      - name: Add coverage summary
+        if: runner.os == 'Linux' && always() && hashFiles('coverage/summary.md') != ''
+        run: cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: runner.os == 'Linux' && always() && hashFiles('coverage/summary.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ubuntu-24.04
+          path: coverage
+          if-no-files-found: error

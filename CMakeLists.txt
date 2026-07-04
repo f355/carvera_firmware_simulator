@@ -184,7 +184,7 @@ target_compile_definitions(carvera_firmware_objects PRIVATE
   ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
 )
 sim_force_include(carvera_firmware_objects ${HOST_PRELUDE})
-sim_enable_sanitizers(carvera_firmware_objects)
+sim_enable_instrumentation(carvera_firmware_objects)
 
 add_library(carvera_sim_host_objects OBJECT
   ${SIM_FIRMWARE_FACADE_SOURCES}
@@ -208,7 +208,7 @@ add_library(carvera_firmware_sim STATIC
 target_include_directories(carvera_firmware_sim PUBLIC include)
 target_include_directories(carvera_firmware_sim SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
 target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
-sim_enable_sanitizers(carvera_firmware_sim)
+sim_enable_instrumentation(carvera_firmware_sim)
 
 set_property(
   SOURCE
@@ -235,7 +235,7 @@ if(SIM_PROTOBUF_INCLUDE_DIRS)
   target_include_directories(carvera_sim_proto SYSTEM PUBLIC ${SIM_PROTOBUF_INCLUDE_DIRS})
 endif()
 target_link_libraries(carvera_sim_proto PUBLIC ${SIM_PROTOBUF_LIBRARY})
-sim_enable_sanitizers(carvera_sim_proto)
+sim_enable_instrumentation(carvera_sim_proto)
 
 add_library(carvera_sim_api
   src/protocol/api_conversions.cpp
