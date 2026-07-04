@@ -21,8 +21,6 @@ jobs:
             name: ubuntu-24.04
           - os: macos-15
             name: macos-15 / ARM64
-          - os: windows-latest
-            name: windows-latest / WSL
 
     steps:
       - uses: actions/checkout@v5
@@ -36,23 +34,6 @@ jobs:
         if: runner.os == 'macOS'
         with:
           enable-cache: true
-
-      - uses: Vampire/setup-wsl@v7
-        if: runner.os == 'Windows'
-        with:
-          distribution: Ubuntu-24.04
-          update: "true"
-          additional-packages: >
-            build-essential
-            ca-certificates
-            cmake
-            curl
-            git
-            libprotobuf-dev
-            ninja-build
-            protobuf-compiler
-            python3
-            python3-venv
 
       - name: Build and test on Ubuntu 24.04
         if: runner.os == 'Linux'
@@ -132,38 +113,6 @@ jobs:
         if: runner.os == 'macOS'
         run: cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
 
-      - name: Build and test under WSL
-        if: runner.os == 'Windows'
-        shell: wsl-bash {0}
-        run: |
-          WSL_WORKSPACE="$(mktemp -d /tmp/carvera_firmware_simulator_ci_XXXXXX)"
-          tar \
-            --exclude='./.git' \
-            --exclude='./.mypy_cache' \
-            --exclude='./.pytest_cache' \
-            --exclude='./.ruff_cache' \
-            --exclude='./.venv' \
-            --exclude='./build' \
-            --exclude='./firmware/Carvera_Community_Firmware' \
-            -cf - . | tar -C "$WSL_WORKSPACE" -xf -
-          cd "$WSL_WORKSPACE"
-          pwd
-          df -T . || true
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v uv >/dev/null; then
-            curl -LsSf https://astral.sh/uv/install.sh | sh
-          fi
-          JOBS="$(python3 -c 'import os; print(os.cpu_count() or 4)')"
-          FIRMWARE_ROOT="$(bash scripts/ensure_firmware_checkout.sh)"
-          uv sync --python "$(command -v python3)"
-          uv run python -m gui.protocol.proto_codegen
-          uv run ruff format --check gui
-          uv run ruff check gui
-          uv run mypy gui
-          cmake -S . -B build -G Ninja -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
-          cmake --build build --target check --parallel "$JOBS"
-          uv run pytest gui/tests -m "not integration" --ignore=gui/tests/app_runtime_page_test.py
-
       - name: Run GUI tests
         if: runner.os == 'macOS'
         run: uv run pytest gui/tests
@@ -192,6 +141,80 @@ jobs:
         with:
           name: coverage-ubuntu-24.04
           path: coverage
+          if-no-files-found: error
+
+  windows-app:
+    name: Windows 10-compatible desktop app / x64
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-protobuf
+
+      - name: Check native Windows Python code
+        shell: pwsh
+        run: |
+          uv sync --locked --python 3.13
+          uv run ruff format --check gui
+          uv run ruff check gui
+          uv run mypy gui
+          uv run pytest gui/tests -m "not integration" `
+            --ignore=gui/tests/app_runtime_page_test.py `
+            --ignore=gui/tests/firmware_checkout_test.py `
+            --ignore=gui/tests/linux_appimage_packaging_test.py `
+            --ignore=gui/tests/sim_client_stream_reader_test.py
+
+      - name: Build native Windows desktop app
+        shell: pwsh
+        env:
+          CARVERA_SIM_MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+          CARVERA_SIM_PACKAGE_BUILD_DIR: ${{ github.workspace }}\build-windows
+        run: scripts\build_windows_app.ps1
+
+      - name: Test native and packaged Windows backends
+        shell: pwsh
+        run: |
+          $SystemPath = $env:Path
+          $env:Path = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$SystemPath"
+          uv run pytest gui/tests/stream_integration_test.py -q
+          $env:Path = $SystemPath
+          $env:CARVERA_SIMULATOR_BINARY = "${{ github.workspace }}\dist\windows\Carvera Simulator\_internal\bin\carvera_sim_stream_stdio.exe"
+          uv run pytest gui/tests/stream_integration_test.py -q
+
+      - name: Create Windows desktop archive
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "dist\windows\Carvera Simulator" `
+            -DestinationPath "dist\windows\Carvera-Simulator-Windows-x64.zip" `
+            -CompressionLevel Optimal
+
+      - name: Upload Windows desktop app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Carvera-Simulator-Windows-x64
+          path: dist/windows/Carvera-Simulator-Windows-x64.zip
           if-no-files-found: error
 
   linux-appimage:
@@ -228,7 +251,7 @@ jobs:
   release-dev:
     name: Publish development release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, linux-appimage]
+    needs: [test, linux-appimage, windows-app]
     runs-on: ubuntu-latest
     permissions:
       actions: read

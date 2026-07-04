@@ -40,3 +40,16 @@ def test_windows_packaging_has_an_isolated_dependency_group() -> None:
 
     assert "package-windows = [" in project
     assert '"pyinstaller>=6.20.0"' in project
+
+
+def test_ci_builds_and_publishes_the_native_windows_app() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+
+    assert "windows-2022" in workflow
+    assert "msys2/setup-msys2@" in workflow
+    assert "msystem: UCRT64" in workflow
+    assert "mingw-w64-ucrt-x86_64-gcc" in workflow
+    assert "build_windows_app.ps1" in workflow
+    assert "Carvera-Simulator-Windows-x64.zip" in workflow
+    assert "needs: [test, linux-appimage, windows-app]" in workflow
+    assert "Vampire/setup-wsl" not in workflow

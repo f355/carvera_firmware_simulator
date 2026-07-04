@@ -158,4 +158,4 @@ def test_ci_packages_both_linux_architectures_for_the_development_release() -> N
     assert "ubuntu-24.04-arm" in workflow
     assert "Carvera-Simulator-Linux-arm64.AppImage" in workflow
     assert "Carvera-Simulator-Linux-amd64.AppImage" in workflow
-    assert "needs: [test, linux-appimage]" in workflow
+    assert "needs: [test, linux-appimage, windows-app]" in workflow

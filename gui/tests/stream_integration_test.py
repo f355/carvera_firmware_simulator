@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import os
+import socket
 import tempfile
 import threading
 from pathlib import Path
@@ -22,6 +24,7 @@ from typing import Any
 
 import pytest
 
+from gui.core.app_config import default_stream_simulator
 from gui.protocol.sim_client import SimulatorClient
 
 TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
@@ -68,9 +71,10 @@ def _wait_for_stream_startup(
 
 def test_stream_client_receives_live_simulator_state() -> None:
     root = Path(__file__).resolve().parents[2]
-    simulator_binary = root / "build" / "carvera_sim_stream_stdio"
+    configured_binary = os.environ.get("CARVERA_SIMULATOR_BINARY")
+    simulator_binary = Path(configured_binary) if configured_binary else default_stream_simulator(root)
     if not simulator_binary.exists():
-        pytest.skip("build/carvera_sim_stream_stdio is not built")
+        pytest.skip(f"{simulator_binary} is not built")
 
     events = []
     snapshots = []
@@ -115,5 +119,14 @@ def test_stream_client_receives_live_simulator_state() -> None:
             assert event_count > 5
             assert len(latest_event.axes) > 0
             assert latest_io.front_panel.power_rails.v24 is True
+            endpoint = transport.tcp_endpoints[0]
+            with socket.create_connection((endpoint.host, endpoint.port), timeout=5.0) as connection:
+                connection.settimeout(5.0)
+                connection.sendall(b"?\n")
+                status = b""
+                while b"MPos:" not in status:
+                    chunk = connection.recv(4096)
+                    assert chunk, "TCP transport closed before returning machine status"
+                    status += chunk
         finally:
             simulator.stop()
