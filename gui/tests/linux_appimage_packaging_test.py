@@ -118,10 +118,7 @@ def test_linux_builder_copies_a_system_library_omitted_by_pyinstaller(tmp_path: 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     ldconfig = bin_dir / "ldconfig"
-    ldconfig.write_text(
-        "#!/usr/bin/env bash\n"
-        f"printf '\\tliblcms2.so.2 (libc6,x86-64) => {system_library}\\n'\n"
-    )
+    ldconfig.write_text(f"#!/usr/bin/env bash\nprintf '\\tliblcms2.so.2 (libc6,x86-64) => {system_library}\\n'\n")
     ldconfig.chmod(0o755)
 
     bundle_root = tmp_path / "AppDir" / "usr" / "lib" / "carvera-simulator"
