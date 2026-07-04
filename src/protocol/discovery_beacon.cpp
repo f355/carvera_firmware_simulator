@@ -21,9 +21,6 @@
 
 #include "sim/platform_io.hpp"
 
-#include <netinet/in.h>
-#include <sys/socket.h>
-
 namespace sim {
 
 LocalhostDiscoveryBeacon::LocalhostDiscoveryBeacon() = default;
@@ -34,15 +31,10 @@ bool LocalhostDiscoveryBeacon::start() {
   if (socket_fd_ != platform_io::kInvalidHandle) {
     return true;
   }
-  if (!platform_io::ensure_socket_runtime()) {
+  socket_fd_ = platform_io::open_udp_socket();
+  if (socket_fd_ == platform_io::kInvalidHandle) {
     return false;
   }
-
-  const auto socket_fd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (socket_fd < 0) {
-    return false;
-  }
-  socket_fd_ = static_cast<platform_io::IoHandle>(socket_fd);
   next_send_ = std::chrono::steady_clock::now();
   return true;
 }
@@ -77,11 +69,7 @@ void LocalhostDiscoveryBeacon::send_payload(std::string_view payload) const {
     return;
   }
 
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  address.sin_port = htons(3333);
-  ::sendto(socket_fd_, payload.data(), payload.size(), 0, reinterpret_cast<sockaddr*>(&address), sizeof(address));
+  platform_io::send_udp_loopback(socket_fd_, 3333, payload);
 }
 
 }  // namespace sim

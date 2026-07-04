@@ -31,13 +31,19 @@
 int BootModule::loaded_count = 0;
 int SDFileSystem::disk_status = 1;
 SimMemoryPool simulator_ahb;
-SDFAT mounter __attribute__((weak)) ("sd", nullptr);
-GPIO leds[4] __attribute__((weak)) = {
+#ifdef _WIN32
+#define SIM_WEAK_FIRMWARE_GLOBAL
+#else
+#define SIM_WEAK_FIRMWARE_GLOBAL __attribute__((weak))
+#endif
+SDFAT mounter SIM_WEAK_FIRMWARE_GLOBAL ("sd", nullptr);
+GPIO leds[4] SIM_WEAK_FIRMWARE_GLOBAL = {
     GPIO(P4_29),
     GPIO(P4_28),
     GPIO(P0_4),
     GPIO(P1_17),
 };
+#undef SIM_WEAK_FIRMWARE_GLOBAL
 
 namespace sim::boot {
 

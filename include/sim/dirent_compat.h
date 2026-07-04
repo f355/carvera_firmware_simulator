@@ -27,7 +27,14 @@
 // Smoothie/FatFs dirent exposes metadata that host POSIX dirent does not.
 // SimpleShell only needs this for decorated listings, so provide harmless
 // member-name aliases for the host build.
+#ifdef _WIN32
+#ifndef NAME_MAX
+#define NAME_MAX 260
+#endif
+#define d_isdir d_reclen != 0
+#else
 #define d_isdir d_type == DT_DIR
+#endif
 #define d_fsize d_reclen
 #define d_date d_reclen
 #define d_time d_reclen

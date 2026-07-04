@@ -18,21 +18,27 @@
 #ifndef SIMULATOR_SIM_PLATFORM_IO_HPP
 #define SIMULATOR_SIM_PLATFORM_IO_HPP
 
+#include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace sim::platform_io {
 
-using IoHandle = int;
+using IoHandle = std::uintptr_t;
 
-constexpr IoHandle kInvalidHandle = -1;
+constexpr IoHandle kInvalidHandle = ~IoHandle{0};
 
-bool ensure_socket_runtime();
 void set_nonblocking(IoHandle fd);
 void close_fd(IoHandle& fd);
 std::string read_available(IoHandle fd, bool* still_open = nullptr);
 bool write_all(IoHandle fd, const std::string& bytes);
 bool drain_write_buffer(IoHandle fd, std::string& bytes);
 void set_raw_terminal(const std::string& path);
+
+IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port);
+IoHandle accept_pending_client(IoHandle listener);
+IoHandle open_udp_socket();
+bool send_udp_loopback(IoHandle socket, std::uint16_t port, std::string_view payload);
 
 }  // namespace sim::platform_io
 

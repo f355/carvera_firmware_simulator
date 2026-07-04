@@ -20,6 +20,8 @@
 
 #define MRI_ENABLE 0
 
+#ifndef _WIN32
 inline void __debugbreak() {}
+#endif
 
 #endif

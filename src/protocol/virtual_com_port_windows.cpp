@@ -15,20 +15,28 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMULATOR_SIM_HOST_PRELUDE_HPP
-#define SIMULATOR_SIM_HOST_PRELUDE_HPP
+#include "sim/interactive_io.hpp"
 
-#include <stdint.h>
+#include "sim/runtime_io.hpp"
 
-#include <algorithm>
-#include <cstring>
-#include <vector>
+namespace sim {
 
-#include "fastmath.h"
+VirtualComPort::VirtualComPort(RuntimeIo& io) : runtime_io_(io) {}
 
-#ifdef _WIN32
-using caddr_t = char*;
-#define __end__ sim_firmware_heap_start
-#endif
+VirtualComPort::~VirtualComPort() = default;
 
-#endif
+bool VirtualComPort::supported() const { return false; }
+
+bool VirtualComPort::start() { return false; }
+
+void VirtualComPort::stop() {}
+
+void VirtualComPort::poll() {}
+
+std::string VirtualComPort::poll_input() { return {}; }
+
+void VirtualComPort::write_output(const std::string&) {}
+
+void VirtualComPort::service_io_locked() {}
+
+}  // namespace sim

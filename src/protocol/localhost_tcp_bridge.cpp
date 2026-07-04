@@ -22,9 +22,6 @@
 #include "sim/platform_io.hpp"
 #include "sim/runtime_io.hpp"
 
-#include <netinet/in.h>
-#include <sys/socket.h>
-
 namespace sim {
 
 namespace {
@@ -83,38 +80,10 @@ bool LocalhostTcpBridge::start(std::uint16_t requested_port) {
   if (listen_fd_ != platform_io::kInvalidHandle) {
     return true;
   }
-  if (!platform_io::ensure_socket_runtime()) {
+  listen_fd_ = platform_io::open_loopback_tcp_listener(requested_port, port_);
+  if (listen_fd_ == platform_io::kInvalidHandle) {
     return false;
   }
-
-  const auto listen_socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (listen_socket < 0) {
-    return false;
-  }
-  listen_fd_ = static_cast<platform_io::IoHandle>(listen_socket);
-
-  int yes = 1;
-  ::setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-
-  sockaddr_in address{};
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  address.sin_port = htons(requested_port);
-  if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
-    stop();
-    return false;
-  }
-  if (::listen(listen_fd_, 4) != 0) {
-    stop();
-    return false;
-  }
-
-  sockaddr_in bound{};
-  socklen_t bound_len = sizeof(bound);
-  if (::getsockname(listen_fd_, reinterpret_cast<sockaddr*>(&bound), &bound_len) == 0) {
-    port_ = ntohs(bound.sin_port);
-  }
-  platform_io::set_nonblocking(listen_fd_);
   worker_.start([this]() {
     accept_pending_clients();
     std::lock_guard<std::mutex> lock(mutex_);
@@ -204,18 +173,13 @@ void LocalhostTcpBridge::update_firmware_connection_state(bool connected) {
 
 void LocalhostTcpBridge::accept_pending_clients() {
   for (;;) {
-    const auto client = ::accept(listen_fd_, nullptr, nullptr);
-    if (client < 0) {
+    const auto client = platform_io::accept_pending_client(listen_fd_);
+    if (client == platform_io::kInvalidHandle) {
       break;
     }
-#ifdef SO_NOSIGPIPE
-    int yes = 1;
-    ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes));
-#endif
-    platform_io::set_nonblocking(client);
 
     Client state;
-    state.io.reset(static_cast<platform_io::IoHandle>(client));
+    state.io.reset(client);
     std::lock_guard<std::mutex> lock(mutex_);
     clients_.push_back(std::move(state));
   }

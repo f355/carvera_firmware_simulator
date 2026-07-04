@@ -15,14 +15,15 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-if(CMAKE_HOST_WIN32)
-  message(FATAL_ERROR "Native Windows builds are not supported. Build and run the simulator inside WSL2 instead.")
-endif()
-
 project(CarveraFirmwareSimulator LANGUAGES C CXX)
 
 if(WIN32)
-  message(FATAL_ERROR "Windows-targeted builds are not supported. Build and run the simulator inside WSL2 instead.")
+  add_compile_definitions(
+    WINVER=0x0A00
+    _WIN32_WINNT=0x0A00
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+  )
 endif()
 
 set(CARVERA_FIRMWARE_ROOT "" CACHE PATH "Path to the Carvera firmware checkout")
@@ -213,7 +214,9 @@ sim_enable_instrumentation(carvera_firmware_sim)
 set_property(
   SOURCE
   ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
-  APPEND PROPERTY COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
+  APPEND PROPERTY COMPILE_OPTIONS
+  "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
+  "$<$<PLATFORM_ID:Windows>:-fpermissive>"
 )
 
 add_library(carvera_sim_runtime
@@ -237,6 +240,20 @@ endif()
 target_link_libraries(carvera_sim_proto PUBLIC ${SIM_PROTOBUF_LIBRARY})
 sim_enable_instrumentation(carvera_sim_proto)
 
+if(WIN32)
+  set(SIM_PLATFORM_API_SOURCES
+    src/protocol/platform_io_windows.cpp
+    src/protocol/stream_request_pump_windows.cpp
+    src/protocol/virtual_com_port_windows.cpp
+  )
+else()
+  set(SIM_PLATFORM_API_SOURCES
+    src/protocol/platform_io_posix.cpp
+    src/protocol/stream_request_pump_posix.cpp
+    src/protocol/virtual_com_port.cpp
+  )
+endif()
+
 add_library(carvera_sim_api
   src/protocol/api_conversions.cpp
   src/protocol/api_harness_commands.cpp
@@ -252,12 +269,13 @@ add_library(carvera_sim_api
   src/protocol/nonblocking_fd_pump.cpp
   src/protocol/api_service.cpp
   src/protocol/framed_proto.cpp
-  src/protocol/platform_io.cpp
-  src/protocol/stream_request_pump_posix.cpp
-  src/protocol/virtual_com_port.cpp
+  ${SIM_PLATFORM_API_SOURCES}
 )
 target_include_directories(carvera_sim_api PUBLIC include)
 target_link_libraries(carvera_sim_api PUBLIC carvera_sim_runtime carvera_sim_proto)
+if(WIN32)
+  target_link_libraries(carvera_sim_api PRIVATE ws2_32)
+endif()
 sim_force_include(carvera_sim_api ${HOST_PRELUDE})
 sim_enable_project_diagnostics(carvera_sim_api)
 
