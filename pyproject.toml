@@ -39,3 +39,6 @@ package-linux = [
     "pyinstaller>=6.20.0",
     "pywebview[pyside6]>=6.2.1",
 ]
+package-windows = [
+    "pyinstaller>=6.20.0",
+]
