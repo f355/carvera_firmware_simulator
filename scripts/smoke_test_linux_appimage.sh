@@ -85,7 +85,13 @@ fi
 cleanup
 APP_PID=""
 trap - EXIT
-sleep 0.5
+
+for _ in $(seq 1 20); do
+  if ! pgrep -f '[C]arvera Simulator|[c]arvera_sim_stream_stdio' >/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
 
 if pgrep -f '[C]arvera Simulator|[c]arvera_sim_stream_stdio' >/dev/null; then
   echo "error: packaged application left child processes running" >&2
