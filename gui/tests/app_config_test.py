@@ -83,7 +83,20 @@ def test_packaged_simulator_binary_takes_precedence(tmp_path: Path) -> None:
     packaged_binary.parent.mkdir()
     packaged_binary.touch()
 
-    assert default_stream_simulator(tmp_path) == packaged_binary
+    assert default_stream_simulator(tmp_path, platform="linux") == packaged_binary
+
+
+def test_windows_simulator_binary_uses_exe_name_and_native_build_directory(tmp_path: Path) -> None:
+    packaged_binary = tmp_path / "bin" / "carvera_sim_stream_stdio.exe"
+    packaged_binary.parent.mkdir()
+    packaged_binary.touch()
+
+    assert default_stream_simulator(tmp_path, platform="win32") == packaged_binary
+
+    packaged_binary.unlink()
+    assert default_stream_simulator(tmp_path, platform="win32") == (
+        tmp_path / "build-windows" / "carvera_sim_stream_stdio.exe"
+    )
 
 
 def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
@@ -98,7 +111,7 @@ def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
 
 
 def test_parser_uses_platform_data_for_writable_sd_root(tmp_path: Path) -> None:
-    parser = build_arg_parser(tmp_path)
+    parser = build_arg_parser(tmp_path, platform="linux")
     args = parser.parse_args([])
 
     assert args.simulator == tmp_path / "build" / "carvera_sim_stream_stdio"

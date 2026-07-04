@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from shutil import copy2
@@ -25,11 +26,14 @@ from .defaults import DEFAULT_SD_CONFIG
 from .platform_paths import user_data_root
 
 
-def default_stream_simulator(simulator_root: Path) -> Path:
-    packaged_binary = simulator_root / "bin" / "carvera_sim_stream_stdio"
+def default_stream_simulator(simulator_root: Path, *, platform: str | None = None) -> Path:
+    platform = sys.platform if platform is None else platform
+    executable_name = "carvera_sim_stream_stdio.exe" if platform == "win32" else "carvera_sim_stream_stdio"
+    packaged_binary = simulator_root / "bin" / executable_name
     if packaged_binary.exists():
         return packaged_binary
-    return simulator_root / "build" / "carvera_sim_stream_stdio"
+    build_directory = "build-windows" if platform == "win32" else "build"
+    return simulator_root / build_directory / executable_name
 
 
 def default_sd_root() -> Path:
@@ -118,9 +122,9 @@ def prepare_model_sd_root(sd_root: Path, seed_root: Path | None, machine_model: 
     return model_sd_root
 
 
-def build_arg_parser(simulator_root: Path) -> argparse.ArgumentParser:
+def build_arg_parser(simulator_root: Path, *, platform: str | None = None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Carvera simulator GUI")
-    parser.add_argument("--simulator", type=Path, default=default_stream_simulator(simulator_root))
+    parser.add_argument("--simulator", type=Path, default=default_stream_simulator(simulator_root, platform=platform))
     parser.add_argument("--firmware-root", type=Path, default=default_firmware_root(simulator_root))
     parser.add_argument("--sd-root", type=Path, default=default_sd_root())
     parser.add_argument("--model", choices=["c1", "ca1"], default="c1")

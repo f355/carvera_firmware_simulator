@@ -33,6 +33,13 @@ def test_user_data_root_honors_xdg_data_home(tmp_path: Path) -> None:
     )
 
 
+def test_user_data_root_uses_windows_local_app_data(tmp_path: Path) -> None:
+    local_app_data = tmp_path / "LocalAppData"
+    assert user_data_root(platform="win32", home=tmp_path, env={"LOCALAPPDATA": str(local_app_data)}) == (
+        local_app_data / "Carvera Simulator"
+    )
+
+
 def test_open_in_file_manager_creates_directory_and_uses_finder(tmp_path: Path) -> None:
     sd_root = tmp_path / "sdcard"
     calls: list[tuple[list[str], bool]] = []
@@ -44,3 +51,16 @@ def test_open_in_file_manager_creates_directory_and_uses_finder(tmp_path: Path) 
 
     assert sd_root.is_dir()
     assert calls == [(["open", str(sd_root)], True)]
+
+
+def test_open_in_file_manager_uses_windows_explorer(tmp_path: Path) -> None:
+    sd_root = tmp_path / "sdcard"
+    calls: list[tuple[list[str], bool]] = []
+
+    def run(command: list[str], *, check: bool) -> None:
+        calls.append((command, check))
+
+    open_in_file_manager(sd_root, platform="win32", run=run)
+
+    assert sd_root.is_dir()
+    assert calls == [(["explorer", str(sd_root)], True)]
