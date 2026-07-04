@@ -253,6 +253,7 @@ add_library(carvera_sim_api
   src/protocol/api_service.cpp
   src/protocol/framed_proto.cpp
   src/protocol/platform_io.cpp
+  src/protocol/stream_request_pump_posix.cpp
   src/protocol/virtual_com_port.cpp
 )
 target_include_directories(carvera_sim_api PUBLIC include)

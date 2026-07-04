@@ -15,11 +15,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -33,116 +31,9 @@
 #include "sim/motion_telemetry.hpp"
 #include "sim/simulation_instance.hpp"
 #include "sim/simulator_context.hpp"
-
-#include <cerrno>
-#include <fcntl.h>
-#include <poll.h>
-#include <unistd.h>
+#include "sim/stream_request_pump.hpp"
 
 namespace {
-
-constexpr std::uint32_t max_frame_size = 16 * 1024 * 1024;
-
-std::uint32_t decode_frame_size(const std::string& buffer) {
-  return static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[0])) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[1])) << 8) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[2])) << 16) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[3])) << 24);
-}
-
-class StreamRequestPump {
- public:
-  using Handler = std::function<carvera::sim::v1::Response(const carvera::sim::v1::Request&)>;
-
-  StreamRequestPump() {
-    const int flags = ::fcntl(STDIN_FILENO, F_GETFL, 0);
-    if (flags >= 0) {
-      ::fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
-    }
-  }
-
-  bool closed() const { return closed_; }
-
-  bool drain_available(const Handler& handler) {
-    if (!read_available()) {
-      return false;
-    }
-
-    while (buffer_.size() >= 4) {
-      const auto size = decode_frame_size(buffer_);
-      if (size > max_frame_size) {
-        return false;
-      }
-      if (buffer_.size() < 4 + size) {
-        break;
-      }
-
-      carvera::sim::v1::Request request;
-      if (!request.ParseFromArray(buffer_.data() + 4, static_cast<int>(size))) {
-        return false;
-      }
-      buffer_.erase(0, 4 + size);
-
-      carvera::sim::v1::StreamFrame frame;
-      frame.mutable_response()->CopyFrom(handler(request));
-      if (!sim::proto_framing::write_message(std::cout, frame)) {
-        return false;
-      }
-      std::cout.flush();
-    }
-    return true;
-  }
-
- private:
-  bool read_available() {
-    pollfd fd{};
-    fd.fd = STDIN_FILENO;
-    fd.events = POLLIN;
-    bool read_any = false;
-    for (;;) {
-      const int ready = ::poll(&fd, 1, 0);
-      if (ready == 0) {
-        return true;
-      }
-      if (ready < 0) {
-        if (errno == EINTR) {
-          continue;
-        }
-        return false;
-      }
-      if ((fd.revents & (POLLHUP | POLLERR)) != 0 && (fd.revents & POLLIN) == 0) {
-        closed_ = true;
-        return false;
-      }
-      if ((fd.revents & POLLIN) == 0) {
-        return true;
-      }
-
-      std::array<char, 4096> chunk{};
-      const auto count = ::read(STDIN_FILENO, chunk.data(), chunk.size());
-      if (count > 0) {
-        read_any = true;
-        buffer_.append(chunk.data(), static_cast<std::size_t>(count));
-        continue;
-      }
-      if (count == 0) {
-        closed_ = true;
-        return false;
-      }
-      if (errno == EINTR) {
-        continue;
-      }
-      if (errno == EAGAIN || errno == EWOULDBLOCK) {
-        return true;
-      }
-      return false;
-    }
-    return read_any;
-  }
-
-  bool closed_{false};
-  std::string buffer_;
-};
 
 class PhysicalIoEventEmitter {
  public:
@@ -238,7 +129,7 @@ class MachineSnapshotEventEmitter {
 int main() {
   sim::SimulationInstance simulation;
   sim::ApiService api(simulation);
-  StreamRequestPump stream_requests;
+  sim::StreamRequestPump stream_requests(std::cout);
   MachineSnapshotEventEmitter machine_snapshot_events;
   PhysicalIoEventEmitter physical_io_events;
   bool stream_ok = true;
