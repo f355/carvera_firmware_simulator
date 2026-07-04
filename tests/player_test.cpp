@@ -15,8 +15,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <string>
+#include <string_view>
 
 #include "test_support.hpp"
 
@@ -37,6 +42,23 @@ namespace {
 
 using sim::test::MemoryConfigSource;
 using sim::test::require;
+
+constexpr std::string_view kDecompressedGcode =
+    "G90\n"
+    "G0 X0 Y0 Z5\n"
+    "G1 X10 Y10 F600\n"
+    "G1 X20 Y10 F600\n"
+    "G1 X20 Y20 F600\n"
+    "M5\n";
+
+// Production .lz upload format: big-endian block size, QuickLZ 1.5 level-3 data,
+// then a big-endian 16-bit additive checksum of the decompressed bytes.
+constexpr std::array<std::uint8_t, 58> kQuickLzFile = {
+    0x00, 0x00, 0x00, 0x34, 0x4d, 0x34, 0x43, 0x00, 0x00, 0x60, 0xec, 0x47, 0x39, 0x30, 0x0a,
+    0x47, 0x30, 0x20, 0x58, 0x30, 0x20, 0x59, 0x30, 0x20, 0x5a, 0x35, 0x0a, 0x47, 0x31, 0x20,
+    0x58, 0x31, 0x34, 0x10, 0x46, 0x36, 0x30, 0x70, 0x40, 0x32, 0x47, 0x08, 0x00, 0x10, 0x00,
+    0x00, 0x00, 0x80, 0x46, 0x36, 0x30, 0x30, 0x0a, 0x4d, 0x35, 0x0a, 0x0d, 0x5d,
+};
 
 }  // namespace
 
@@ -92,6 +114,21 @@ int main() {
   require(progress != nullptr, "Player last progress request should return a progress payload");
   require(!progress->is_playing, "Player last progress should report inactive playback after EOF");
   require(progress->played_lines == 2, "Player last progress should retain final line count");
+
+  {
+    std::ofstream compressed(root / "gcodes" / "demo.lz", std::ios::binary);
+    compressed.write(reinterpret_cast<const char*>(kQuickLzFile.data()),
+                     static_cast<std::streamsize>(kQuickLzFile.size()));
+  }
+  require(player.decompress("/sd/gcodes/demo.lz", "/sd/gcodes/decompressed.cnc", kQuickLzFile.size(),
+                            &StreamOutput::NullStream) == 1,
+          "Player should decompress the QuickLZ container used for uploaded G-code files");
+
+  std::ifstream decompressed(root / "gcodes" / "decompressed.cnc", std::ios::binary);
+  const std::string decompressed_gcode((std::istreambuf_iterator<char>(decompressed)),
+                                       std::istreambuf_iterator<char>());
+  require(decompressed_gcode == kDecompressedGcode,
+          "Player should preserve G-code contents while decompressing an uploaded file");
 
   return 0;
 }

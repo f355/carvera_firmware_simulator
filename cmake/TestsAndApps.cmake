@@ -95,6 +95,7 @@ set(SIM_RUNTIME_TESTS
   safety_lifecycle_test
   simulation_instance_test
   simpleshell_configurator_test
+  simpleshell_filesystem_test
   stock_z_probe_side_crash_test
   switch_api_test
   temperature_fault_runtime_test
