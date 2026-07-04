@@ -64,6 +64,7 @@ class SimulatorProcess:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=0,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0,
         )
         self._process = process
         log_gui_event(f"simulator process started pid={process.pid}")

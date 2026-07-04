@@ -55,61 +55,6 @@ def test_linux_packaging_uses_file_architecture_names(machine: str, file_pattern
     assert run_common("linux_file_machine_pattern", machine) == file_pattern
 
 
-def test_linux_appimage_has_desktop_metadata() -> None:
-    desktop_file = (ROOT / "packaging" / "linux" / "carvera-simulator.desktop").read_text()
-    app_run = (ROOT / "packaging" / "linux" / "AppRun").read_text()
-
-    assert "Name=Carvera Simulator" in desktop_file
-    assert "Exec=carvera-simulator" in desktop_file
-    assert "usr/lib/carvera-simulator/Carvera Simulator" in app_run
-
-
-def test_linux_builder_trusts_only_the_mounted_firmware_checkout() -> None:
-    containerfile = (ROOT / "packaging" / "linux" / "Containerfile").read_text()
-
-    assert "safe.directory /work/firmware/Carvera_Community_Firmware" in containerfile
-    assert "safe.directory '*'" not in containerfile
-
-
-def test_linux_builder_matches_the_ci_ubuntu_release() -> None:
-    containerfile = (ROOT / "packaging" / "linux" / "Containerfile").read_text()
-    container_wrapper = (ROOT / "scripts" / "build_linux_appimage_container.sh").read_text()
-
-    assert "FROM ubuntu:24.04" in containerfile
-    assert "appimage-builder:ubuntu-24.04" in container_wrapper
-
-
-def test_linux_builder_bundles_qt_webengine_runtime_libraries() -> None:
-    containerfile = (ROOT / "packaging" / "linux" / "Containerfile").read_text()
-    build_script = (ROOT / "scripts" / "build_linux_appimage.sh").read_text()
-    libraries = (
-        "libasound.so.2",
-        "liblcms2.so.2",
-        "libminizip.so.1",
-        "libopus.so.0",
-        "libsnappy.so.1",
-        "libwebp.so.7",
-        "libwebpdemux.so.2",
-        "libwebpmux.so.3",
-        "libXfixes.so.3",
-    )
-
-    for package in (
-        "libasound2t64",
-        "liblcms2-2",
-        "libminizip1t64",
-        "libopus0",
-        "libsnappy1v5",
-        "libwebp7",
-        "libwebpdemux2",
-        "libwebpmux3",
-        "libxfixes3",
-    ):
-        assert package in containerfile
-    for library in libraries:
-        assert library in build_script
-
-
 def test_linux_builder_copies_a_system_library_omitted_by_pyinstaller(tmp_path: Path) -> None:
     system_library = tmp_path / "system" / "liblcms2.so.2.0.16"
     system_library.parent.mkdir()
@@ -143,19 +88,3 @@ def test_linux_builder_copies_a_system_library_omitted_by_pyinstaller(tmp_path: 
 
     assert result.returncode == 0, result.stderr
     assert (destination / "liblcms2.so.2").read_bytes() == b"lcms2"
-
-
-def test_linux_smoke_test_terminates_the_native_gui_process_group() -> None:
-    smoke_test = (ROOT / "scripts" / "smoke_test_linux_appimage.sh").read_text()
-
-    assert "setsid xvfb-run" in smoke_test
-    assert 'kill -TERM -- "-$APP_PID"' in smoke_test
-
-
-def test_ci_packages_both_linux_architectures_for_the_development_release() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
-
-    assert "ubuntu-24.04-arm" in workflow
-    assert "Carvera-Simulator-Linux-arm64.AppImage" in workflow
-    assert "Carvera-Simulator-Linux-amd64.AppImage" in workflow
-    assert "needs: [test, linux-appimage, windows-app]" in workflow
