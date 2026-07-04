@@ -40,8 +40,10 @@
 
 extern "C" caddr_t _sbrk(int) { return 0; }
 
-extern "C" uint32_t __end__ = 0;
-extern "C" uint32_t __malloc_free_list = 0;
+extern "C" {
+uint32_t __end__ = 0;
+uint32_t __malloc_free_list = 0;
+}
 unsigned int g_maximumHeapAddress = 0;
 
 namespace {

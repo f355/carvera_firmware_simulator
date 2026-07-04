@@ -15,12 +15,38 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
 import pytest
 
 from gui.protocol import proto_codegen
+
+
+def test_generated_proto_freshness_uses_schema_content_not_checkout_timestamps(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    proto = tmp_path / "carvera_sim.proto"
+    generated = tmp_path / "generated"
+    module = generated / "carvera_sim_pb2.py"
+    stub = generated / "carvera_sim_pb2.pyi"
+    generated.mkdir()
+    proto.write_text('syntax = "proto3";\n', encoding="utf-8")
+    schema_hash = hashlib.sha256(proto.read_bytes()).hexdigest()
+    stamp = f"# source-schema-sha256: {schema_hash}\n"
+    module.write_text(stamp, encoding="utf-8")
+    stub.write_text(stamp, encoding="utf-8")
+
+    old = proto.stat().st_mtime - 10
+    os.utime(module, (old, old))
+    os.utime(stub, (old, old))
+
+    monkeypatch.setattr(proto_codegen, "PROTO_PATH", proto)
+    monkeypatch.setattr(proto_codegen, "GENERATED_MODULE", module)
+    monkeypatch.setattr(proto_codegen, "GENERATED_STUB", stub)
+
+    assert proto_codegen.generated_proto_is_current()
 
 
 def test_generated_proto_path_rejects_stale_bindings_without_running_protoc(

@@ -1,4 +1,5 @@
 # mypy: disable-error-code="var-annotated"
+# source-schema-sha256: 45b2ad7395a5892792df9cf99fa123e6e56b9faffab0e07cec9c093da54ea0e5
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor

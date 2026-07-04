@@ -15,11 +15,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 import subprocess
 import sys
-import os
-from shutil import which
 from pathlib import Path
+from shutil import which
 
 
 SIMULATOR_ROOT = Path(__file__).resolve().parents[2]
@@ -28,14 +29,16 @@ GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 GENERATED_MODULE = GENERATED_DIR / "carvera_sim_pb2.py"
 GENERATED_STUB = GENERATED_DIR / "carvera_sim_pb2.pyi"
 GENERATED_STUB_MYPY_HEADER = '# mypy: disable-error-code="var-annotated"\n'
+GENERATED_SCHEMA_HASH_PREFIX = "# source-schema-sha256: "
 
 
 def generated_proto_is_current() -> bool:
+    schema_stamp = _schema_stamp()
     return (
         GENERATED_MODULE.exists()
         and GENERATED_STUB.exists()
-        and GENERATED_MODULE.stat().st_mtime >= PROTO_PATH.stat().st_mtime
-        and GENERATED_STUB.stat().st_mtime >= PROTO_PATH.stat().st_mtime
+        and _has_schema_stamp(GENERATED_MODULE, schema_stamp)
+        and _has_schema_stamp(GENERATED_STUB, schema_stamp)
     )
 
 
@@ -73,6 +76,8 @@ def generate_proto() -> Path:
         ],
         check=True,
     )
+    _stamp_generated_file(GENERATED_MODULE)
+    _stamp_generated_file(GENERATED_STUB)
     _patch_generated_stub()
 
     return GENERATED_DIR
@@ -94,6 +99,24 @@ def _find_protoc() -> Path | None:
                 return candidate
 
     return None
+
+
+def _schema_stamp() -> str:
+    digest = hashlib.sha256(PROTO_PATH.read_bytes()).hexdigest()
+    return f"{GENERATED_SCHEMA_HASH_PREFIX}{digest}\n"
+
+
+def _has_schema_stamp(path: Path, expected: str) -> bool:
+    with path.open(encoding="utf-8") as generated_file:
+        return any(line == expected for _, line in zip(range(10), generated_file, strict=False))
+
+
+def _stamp_generated_file(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    lines = [line for line in text.splitlines(keepends=True) if not line.startswith(GENERATED_SCHEMA_HASH_PREFIX)]
+    insert_at = 1 if lines and ("coding" in lines[0] or lines[0] == GENERATED_STUB_MYPY_HEADER) else 0
+    lines.insert(insert_at, _schema_stamp())
+    path.write_text("".join(lines), encoding="utf-8")
 
 
 def _windows_path_candidates(path: str) -> list[Path]:
