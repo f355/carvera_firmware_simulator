@@ -1,6 +1,7 @@
 build/
 /build-coverage/
 /build-macos-app/
+/build-linux-appimage-*/
 /coverage/
 /dist/
 .DS_Store

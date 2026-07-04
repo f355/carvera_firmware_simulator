@@ -194,10 +194,41 @@ jobs:
           path: coverage
           if-no-files-found: error
 
+  linux-appimage:
+    name: Linux AppImage / ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+            artifact: Carvera-Simulator-Linux-amd64.AppImage
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            artifact: Carvera-Simulator-Linux-arm64.AppImage
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build and smoke-test native AppImage
+        env:
+          CARVERA_SIM_CONTAINER_ENGINE: docker
+          CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: ${{ matrix.architecture }}
+        run: scripts/build_linux_appimage_container.sh
+
+      - name: Upload Linux desktop app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Carvera-Simulator-Linux-${{ matrix.architecture }}
+          path: dist/linux/${{ matrix.artifact }}
+          if-no-files-found: error
+
   release-dev:
     name: Publish development release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [test, linux-appimage]
     runs-on: ubuntu-latest
     permissions:
       actions: read

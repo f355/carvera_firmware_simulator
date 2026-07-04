@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Carvera Simulator
+Comment=Run Carvera C1 and Carvera Air CA1 firmware in a simulated machine
+Exec=carvera-simulator
+Icon=carvera-simulator
+Terminal=false
+Categories=Development;Engineering;
+StartupNotify=true

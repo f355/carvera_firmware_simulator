@@ -134,6 +134,26 @@ with Finder's **Open** context-menu command the first time.
 CI builds the same DMG on its ARM64 macOS runner and publishes it as the
 `Carvera-Simulator-macOS-arm64` workflow artifact.
 
+### Linux desktop app
+
+Build and smoke-test the native ARM64 or AMD64 AppImage in a same-architecture
+Podman or Docker container with:
+
+```sh
+./scripts/build_linux_appimage_container.sh
+```
+
+The script prefers Podman when both engines are installed. It deliberately
+builds only for the host architecture, so an ARM64 host produces
+`dist/linux/Carvera-Simulator-Linux-arm64.AppImage` and an AMD64 host produces
+`dist/linux/Carvera-Simulator-Linux-amd64.AppImage`. The application uses an
+embedded Qt webview and stores its SD card under
+`${XDG_DATA_HOME:-~/.local/share}/carvera-simulator/sdcard`.
+
+CI builds both architectures on native Linux runners, smoke-tests their native
+windows under Xvfb, and publishes separate `Carvera-Simulator-Linux-arm64` and
+`Carvera-Simulator-Linux-amd64` workflow artifacts.
+
 The rolling [Development Build](https://github.com/f355/carvera_firmware_simulator/releases/tag/dev)
 prerelease contains the application artifacts from the latest successful CI run
 on `main`. Its `dev` tag and assets are replaced in place, so it is convenient

@@ -1,0 +1,59 @@
+FROM ghcr.io/astral-sh/uv:0.11.15 AS uv
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY --from=uv /uv /uvx /usr/local/bin/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        cmake \
+        curl \
+        file \
+        git \
+        libasound2t64 \
+        libdbus-1-3 \
+        libegl1 \
+        libfontconfig1 \
+        libgl1 \
+        libglib2.0-0 \
+        liblcms2-2 \
+        libminizip1t64 \
+        libnss3 \
+        libopus0 \
+        libprotobuf-dev \
+        libsnappy1v5 \
+        libwebp7 \
+        libwebpdemux2 \
+        libwebpmux3 \
+        libx11-xcb1 \
+        libxcb-cursor0 \
+        libxcb-icccm4 \
+        libxcb-image0 \
+        libxcb-keysyms1 \
+        libxcb-randr0 \
+        libxcb-render-util0 \
+        libxcb-shape0 \
+        libxcb-xinerama0 \
+        libxcb-xkb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxkbcommon-x11-0 \
+        libxrandr2 \
+        libxtst6 \
+        ninja-build \
+        procps \
+        protobuf-compiler \
+        xdg-utils \
+        xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN uv python install 3.13
+RUN git config --system --add safe.directory /work/firmware/Carvera_Community_Firmware
+
+ENV UV_PYTHON_PREFERENCE=only-managed
+WORKDIR /work
