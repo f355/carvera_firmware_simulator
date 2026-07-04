@@ -6,141 +6,67 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+  macos-app:
+    name: macOS 15 desktop app / ARM64
+    runs-on: macos-15
     timeout-minutes: 45
     defaults:
       run:
         shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            name: ubuntu-24.04
-          - os: macos-15
-            name: macos-15 / ARM64
 
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v6
-        if: runner.os == 'macOS'
         with:
           python-version: "3.13"
 
       - uses: astral-sh/setup-uv@v7
-        if: runner.os == 'macOS'
         with:
           enable-cache: true
 
-      - name: Build and test on Ubuntu 24.04
-        if: runner.os == 'Linux'
-        run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            -w /work \
-            ubuntu:24.04 \
-            bash -euxo pipefail -c '
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update
-              apt-get install -y --no-install-recommends \
-                build-essential \
-                ca-certificates \
-                cmake \
-                curl \
-                git \
-                libprotobuf-dev \
-                ninja-build \
-                protobuf-compiler \
-                python3 \
-                python3-venv
-              export PATH="$HOME/.local/bin:$PATH"
-              if ! command -v uv >/dev/null; then
-                curl -LsSf https://astral.sh/uv/install.sh | sh
-              fi
-              export PATH="$HOME/.local/bin:$PATH"
-              JOBS="$(python3 -c "import os; print(os.cpu_count() or 4)")"
-              FIRMWARE_ROOT="$(bash scripts/ensure_firmware_checkout.sh)"
-              uv sync --python "$(command -v python3)"
-              uv run python -m gui.protocol.proto_codegen
-              uv run ruff format --check gui
-              uv run ruff check gui
-              uv run mypy gui
-              cmake -S . -B build -G Ninja \
-                -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
-                -DCARVERA_SIM_ENABLE_COVERAGE=ON \
-                -DCARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY=/work/coverage
-              cmake --build build --target coverage --parallel "$JOBS"
-              uv run pytest gui/tests
-            '
-
       - name: Install macOS packages
-        if: runner.os == 'macOS'
         run: brew install cmake ninja protobuf
 
       - name: Fetch compatible firmware
-        if: runner.os == 'macOS'
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
 
       - name: Detect build parallelism
-        if: runner.os == 'macOS'
         run: python -c "import os; open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8').write(f'CMAKE_BUILD_PARALLEL_LEVEL={os.cpu_count() or 4}\n')"
 
       - name: Sync Python environment
-        if: runner.os == 'macOS'
         run: uv sync
 
       - name: Generate Python protobuf bindings
-        if: runner.os == 'macOS'
         run: uv run python -m gui.protocol.proto_codegen
 
       - name: Check Python
-        if: runner.os == 'macOS'
         run: |
           uv run ruff format --check gui
           uv run ruff check gui
           uv run mypy gui
 
       - name: Configure CMake
-        if: runner.os == 'macOS'
         run: |
           CMAKE_ARGS=(-S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
           cmake "${CMAKE_ARGS[@]}"
 
       - name: Build and run C++ tests
-        if: runner.os == 'macOS'
         run: cmake --build build --target check --parallel ${{ env.CMAKE_BUILD_PARALLEL_LEVEL }}
 
       - name: Run GUI tests
-        if: runner.os == 'macOS'
         run: uv run pytest gui/tests
 
       - name: Build macOS desktop app
-        if: runner.os == 'macOS'
         env:
           CARVERA_SIM_PACKAGE_BUILD_DIR: ${{ github.workspace }}/build
         run: scripts/build_macos_app.sh
 
       - name: Upload macOS desktop app
-        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: Carvera-Simulator-macOS-arm64
           path: dist/macos/Carvera-Simulator-macOS-arm64.dmg
-          if-no-files-found: error
-
-      - name: Add coverage summary
-        if: runner.os == 'Linux' && always() && hashFiles('coverage/summary.md') != ''
-        run: cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload coverage reports
-        if: runner.os == 'Linux' && always() && hashFiles('coverage/summary.md') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-ubuntu-24.04
-          path: coverage
           if-no-files-found: error
 
   windows-app:
@@ -217,20 +143,83 @@ jobs:
           path: dist/windows/Carvera-Simulator-Windows-x64.zip
           if-no-files-found: error
 
-  linux-appimage:
-    name: Linux AppImage / ${{ matrix.architecture }}
-    runs-on: ${{ matrix.runner }}
+  linux-appimage-amd64:
+    name: Linux tests and AppImage / AMD64
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            architecture: amd64
-            artifact: Carvera-Simulator-Linux-amd64.AppImage
-          - runner: ubuntu-24.04-arm
-            architecture: arm64
-            artifact: Carvera-Simulator-Linux-arm64.AppImage
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build and test on Ubuntu 24.04
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            ubuntu:24.04 \
+            bash -euxo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                build-essential \
+                ca-certificates \
+                cmake \
+                curl \
+                git \
+                libprotobuf-dev \
+                ninja-build \
+                protobuf-compiler \
+                python3 \
+                python3-venv
+              export PATH="$HOME/.local/bin:$PATH"
+              if ! command -v uv >/dev/null; then
+                curl -LsSf https://astral.sh/uv/install.sh | sh
+              fi
+              export PATH="$HOME/.local/bin:$PATH"
+              JOBS="$(python3 -c "import os; print(os.cpu_count() or 4)")"
+              FIRMWARE_ROOT="$(bash scripts/ensure_firmware_checkout.sh)"
+              uv sync --python "$(command -v python3)"
+              uv run python -m gui.protocol.proto_codegen
+              uv run ruff format --check gui
+              uv run ruff check gui
+              uv run mypy gui
+              cmake -S . -B build -G Ninja \
+                -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
+                -DCARVERA_SIM_ENABLE_COVERAGE=ON \
+                -DCARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY=/work/coverage
+              cmake --build build --target coverage --parallel "$JOBS"
+              uv run pytest gui/tests
+            '
+
+      - name: Build and smoke-test native AppImage
+        env:
+          CARVERA_SIM_CONTAINER_ENGINE: docker
+          CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: amd64
+        run: scripts/build_linux_appimage_container.sh
+
+      - name: Upload Linux desktop app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Carvera-Simulator-Linux-amd64
+          path: dist/linux/Carvera-Simulator-Linux-amd64.AppImage
+          if-no-files-found: error
+
+      - name: Add coverage summary
+        if: always() && hashFiles('coverage/summary.md') != ''
+        run: cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: always() && hashFiles('coverage/summary.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ubuntu-24.04
+          path: coverage
+          if-no-files-found: error
+
+  linux-appimage-arm64:
+    name: Linux AppImage / ARM64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -238,20 +227,20 @@ jobs:
       - name: Build and smoke-test native AppImage
         env:
           CARVERA_SIM_CONTAINER_ENGINE: docker
-          CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: ${{ matrix.architecture }}
+          CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: arm64
         run: scripts/build_linux_appimage_container.sh
 
       - name: Upload Linux desktop app
         uses: actions/upload-artifact@v4
         with:
-          name: Carvera-Simulator-Linux-${{ matrix.architecture }}
-          path: dist/linux/${{ matrix.artifact }}
+          name: Carvera-Simulator-Linux-arm64
+          path: dist/linux/Carvera-Simulator-Linux-arm64.AppImage
           if-no-files-found: error
 
   release-dev:
     name: Publish development release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, linux-appimage, windows-app]
+    needs: [macos-app, linux-appimage-amd64, linux-appimage-arm64, windows-app]
     runs-on: ubuntu-latest
     permissions:
       actions: read
