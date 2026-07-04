@@ -22,6 +22,7 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "test_support.hpp"
 
@@ -58,6 +59,23 @@ constexpr std::array<std::uint8_t, 58> kQuickLzFile = {
     0x47, 0x30, 0x20, 0x58, 0x30, 0x20, 0x59, 0x30, 0x20, 0x5a, 0x35, 0x0a, 0x47, 0x31, 0x20,
     0x58, 0x31, 0x34, 0x10, 0x46, 0x36, 0x30, 0x70, 0x40, 0x32, 0x47, 0x08, 0x00, 0x10, 0x00,
     0x00, 0x00, 0x80, 0x46, 0x36, 0x30, 0x30, 0x0a, 0x4d, 0x35, 0x0a, 0x0d, 0x5d,
+};
+
+struct SpindleCommand {
+  unsigned int code;
+  float rpm;
+};
+
+class SpindleCommandCapture : public Module {
+ public:
+  void on_gcode_received(void* argument) override {
+    auto* gcode = static_cast<Gcode*>(argument);
+    if (gcode->has_m && (gcode->m == 3 || gcode->m == 4 || gcode->m == 5)) {
+      commands.push_back({gcode->m, gcode->has_letter('S') ? gcode->get_value('S') : 0.0F});
+    }
+  }
+
+  std::vector<SpindleCommand> commands;
 };
 
 }  // namespace
@@ -129,6 +147,23 @@ int main() {
                                        std::istreambuf_iterator<char>());
   require(decompressed_gcode == kDecompressedGcode,
           "Player should preserve G-code contents while decompressing an uploaded file");
+
+  SpindleCommandCapture spindle_commands;
+  kernel.register_for_event(ON_GCODE_RECEIVED, &spindle_commands);
+
+  Gcode spindle_start("M4 S7200", &StreamOutput::NullStream);
+  kernel.call_event(ON_GCODE_RECEIVED, &spindle_start);
+  spindle_commands.commands.clear();
+
+  player.save_and_stop_spindle_on_suspend();
+  require(spindle_commands.commands.size() == 1 && spindle_commands.commands[0].code == 5,
+          "suspending should stop a spindle that was running during file playback");
+
+  spindle_commands.commands.clear();
+  player.restore_spindle_on_resume();
+  require(spindle_commands.commands.size() == 1 && spindle_commands.commands[0].code == 4,
+          "resuming should restore the saved spindle direction");
+  require(spindle_commands.commands[0].rpm == 7200.0F, "resuming should restore the saved spindle speed");
 
   return 0;
 }

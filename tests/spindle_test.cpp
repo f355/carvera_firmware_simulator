@@ -46,11 +46,13 @@ class ToolStatusModule : public Module {
     }
 
     auto* status = static_cast<tool_status*>(request->get_data_ptr());
-    status->active_tool = 1;
-    status->target_tool = 1;
+    status->active_tool = active_tool;
+    status->target_tool = active_tool;
     status->tool_offset = 0.0F;
     request->set_taken();
   }
+
+  int active_tool{1};
 };
 
 }  // namespace
@@ -95,6 +97,33 @@ int main() {
   require(status.state, "published spindle state should be on after M3");
   require(status.target_rpm == 6000.0F, "published spindle target should reflect M3 S value");
 
+  Gcode capped_speed("M3 S50000", &StreamOutput::NullStream);
+  kernel.call_event(ON_GCODE_RECEIVED, &capped_speed);
+  status = {};
+  require(PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status),
+          "PWM spindle status should remain available after a speed change");
+  require(status.target_rpm == 12000.0F, "spindle target should clamp to its configured maximum RPM");
+
+  Gcode minimum_override("M223 S5", &StreamOutput::NullStream);
+  kernel.call_event(ON_GCODE_RECEIVED, &minimum_override);
+  status = {};
+  PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status);
+  require(status.factor == 10.0F, "spindle override should clamp to its ten-percent minimum");
+
+  Gcode maximum_override("M223 S500", &StreamOutput::NullStream);
+  kernel.call_event(ON_GCODE_RECEIVED, &maximum_override);
+  status = {};
+  PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status);
+  require(status.factor == 300.0F, "spindle override should clamp to its three-hundred-percent maximum");
+
+  spindle_status requested_status{};
+  requested_status.factor = 125.0F;
+  require(PublicData::set_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &requested_status),
+          "other firmware modules should be able to set spindle override through PublicData");
+  status = {};
+  PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status);
+  require(status.factor == 125.0F, "PublicData spindle override should update the published factor");
+
   for (int i = 0; i < 25; ++i) {
     TIMER2_IRQHandler();
   }
@@ -109,6 +138,26 @@ int main() {
   require(PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status),
           "PWM spindle should continue publishing status after M5");
   require(!status.state, "published spindle state should be off after M5");
+
+  kernel.call_event(ON_GCODE_RECEIVED, &start);
+  require(kernel.spindleon, "spindle should restart after a normal stop");
+  require(PublicData::set_value(pwm_spindle_control_checksum, turn_off_spindle_checksum, nullptr),
+          "ATC-style PublicData request should turn the spindle off");
+  require(!kernel.spindleon, "PublicData spindle shutdown should update the kernel spindle state");
+
+  kernel.call_event(ON_GCODE_RECEIVED, &start);
+  kernel.call_event(ON_HALT, nullptr);
+  require(!kernel.spindleon, "entering a firmware halt should stop a running spindle");
+
+  kernel.set_halted(false);
+  tool_status.active_tool = 0;
+  kernel.call_event(ON_GCODE_RECEIVED, &start);
+  require(kernel.is_halted(), "firmware should halt rather than start the spindle without a valid tool");
+  require(kernel.get_halt_reason() == MANUAL, "invalid-tool spindle start should report the manual halt reason");
+
+  status = {};
+  PublicData::get_value(pwm_spindle_control_checksum, get_spindle_status_checksum, &status);
+  require(!status.state, "invalid-tool protection should leave the spindle stopped");
 
   return 0;
 }
