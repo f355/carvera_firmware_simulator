@@ -105,7 +105,7 @@ def test_stream_client_receives_live_simulator_state() -> None:
             simulator.set_machine_model("c1")
             simulator.set_realtime()
             transport = simulator.start_interactive_transport(enable_uart=True, tcp_ports=[0])
-            assert transport.tcp_endpoints[0].host == "127.0.0.1"
+            assert transport.tcp_endpoints[0].host == "0.0.0.0"
             assert transport.tcp_endpoints[0].port > 0
             _wait_for_stream_startup(events, snapshots, io_events, stream_condition)
             with stream_condition:
@@ -120,7 +120,7 @@ def test_stream_client_receives_live_simulator_state() -> None:
             assert len(latest_event.axes) > 0
             assert latest_io.front_panel.power_rails.v24 is True
             endpoint = transport.tcp_endpoints[0]
-            with socket.create_connection((endpoint.host, endpoint.port), timeout=5.0) as connection:
+            with socket.create_connection(("127.0.0.1", endpoint.port), timeout=5.0) as connection:
                 connection.settimeout(5.0)
                 connection.sendall(b"?\n")
                 status = b""

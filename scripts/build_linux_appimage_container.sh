@@ -37,24 +37,42 @@ ARTIFACT_ARCHITECTURE="$(linux_artifact_architecture "$HOST_MACHINE")"
 PLATFORM="linux/$ARTIFACT_ARCHITECTURE"
 EXPECTED_ARCHITECTURE="${CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE:-$ARTIFACT_ARCHITECTURE}"
 IMAGE_NAME="carvera-simulator-appimage-builder:ubuntu-24.04"
+SMOKE_IMAGE_NAME="carvera-simulator-appimage-smoke:ubuntu-24.04"
 
 "$CONTAINER_ENGINE" build \
   --platform "$PLATFORM" \
   --file "$ROOT_DIR/packaging/linux/Containerfile" \
+  --target builder \
   --tag "$IMAGE_NAME" \
+  "$ROOT_DIR"
+
+"$CONTAINER_ENGINE" build \
+  --platform "$PLATFORM" \
+  --file "$ROOT_DIR/packaging/linux/Containerfile" \
+  --target smoke \
+  --tag "$SMOKE_IMAGE_NAME" \
   "$ROOT_DIR"
 
 "$CONTAINER_ENGINE" run --rm \
   --platform "$PLATFORM" \
   --env CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE="$EXPECTED_ARCHITECTURE" \
+  --env CARVERA_SIM_PACKAGE_WORK_DIR=/tmp/carvera-simulator-package \
   --volume "$ROOT_DIR:/work" \
   --workdir /work \
   "$IMAGE_NAME" \
-  bash -euxo pipefail -c './scripts/build_linux_appimage.sh && ./scripts/smoke_test_linux_appimage.sh'
+  ./scripts/build_linux_appimage.sh
 
 APPIMAGE_PATH="$ROOT_DIR/dist/linux/Carvera-Simulator-Linux-$ARTIFACT_ARCHITECTURE.AppImage"
 if [[ ! -f "$APPIMAGE_PATH" ]]; then
   echo "error: container did not create $APPIMAGE_PATH" >&2
   exit 1
 fi
-[[ -x "$APPIMAGE_PATH" ]] || chmod +x "$APPIMAGE_PATH"
+chmod 755 "$APPIMAGE_PATH"
+
+"$CONTAINER_ENGINE" run --rm \
+  --platform "$PLATFORM" \
+  --env CARVERA_SIM_PACKAGE_SMOKE_DIR=/tmp/carvera-simulator-smoke \
+  --volume "$ROOT_DIR:/work:ro" \
+  --workdir /work \
+  "$SMOKE_IMAGE_NAME" \
+  ./scripts/smoke_test_linux_appimage.sh "/work/dist/linux/Carvera-Simulator-Linux-$ARTIFACT_ARCHITECTURE.AppImage"

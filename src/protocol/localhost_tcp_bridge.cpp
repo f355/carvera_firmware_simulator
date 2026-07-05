@@ -80,7 +80,7 @@ bool LocalhostTcpBridge::start(std::uint16_t requested_port) {
   if (listen_fd_ != platform_io::kInvalidHandle) {
     return true;
   }
-  listen_fd_ = platform_io::open_loopback_tcp_listener(requested_port, port_);
+  listen_fd_ = platform_io::open_tcp_listener(requested_port, port_);
   if (listen_fd_ == platform_io::kInvalidHandle) {
     return false;
   }

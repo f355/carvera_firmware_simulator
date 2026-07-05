@@ -227,7 +227,9 @@ int main(int argc, char** argv) {
 
   int client = -1;
   const auto port = static_cast<std::uint16_t>(response.interactive_transport().tcp_endpoints(0).port());
-  if (!expect(port != 0, "TCP endpoint should expose a nonzero port")) {
+  if (!expect(response.interactive_transport().tcp_endpoints(0).host() == "0.0.0.0",
+              "TCP endpoint should listen on every IPv4 interface") ||
+      !expect(port != 0, "TCP endpoint should expose a nonzero port")) {
     return 1;
   }
   DiscoveryListener discovery_listener;

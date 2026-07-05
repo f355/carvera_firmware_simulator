@@ -32,6 +32,7 @@ APPIMAGE_PATH="${1:-"$ROOT_DIR/dist/linux/Carvera-Simulator-Linux-$ARTIFACT_ARCH
 SMOKE_ROOT="${CARVERA_SIM_PACKAGE_SMOKE_DIR:-"$ROOT_DIR/build-linux-appimage-$ARTIFACT_ARCHITECTURE/smoke"}"
 PORT="${CARVERA_SIM_PACKAGE_SMOKE_PORT:-18771}"
 LOG_PATH="$SMOKE_ROOT/appimage.log"
+PROCESS_PATTERN='[c]arvera-simulator|[C]arvera Backend|[c]arvera_sim_stream_stdio'
 
 for command in curl file pgrep setsid xvfb-run; do
   command -v "$command" >/dev/null || { echo "error: $command is required" >&2; exit 2; }
@@ -60,7 +61,6 @@ trap cleanup EXIT
 
 HOME="$SMOKE_ROOT/home" \
 XDG_DATA_HOME="$SMOKE_ROOT/data" \
-QTWEBENGINE_DISABLE_SANDBOX=1 \
 APPIMAGE_EXTRACT_AND_RUN=1 \
 setsid xvfb-run -a "$APPIMAGE_PATH" --host 127.0.0.1 --port "$PORT" --no-log-transport >"$LOG_PATH" 2>&1 &
 APP_PID=$!
@@ -82,20 +82,38 @@ if (( ! READY )); then
   exit 1
 fi
 
+WEBGL_READY=0
+for _ in $(seq 1 120); do
+  if grep -Fq 'WebGL2 renderer:' "$LOG_PATH"; then
+    WEBGL_READY=1
+    break
+  fi
+  if ! kill -0 "$APP_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+if (( ! WEBGL_READY )); then
+  echo "error: packaged native GUI did not create a WebGL2 renderer" >&2
+  cat "$LOG_PATH" >&2
+  exit 1
+fi
+grep -F 'WebGL2 renderer:' "$LOG_PATH" | tail -1
+
 cleanup
 APP_PID=""
 trap - EXIT
 
 for _ in $(seq 1 20); do
-  if ! pgrep -f '[C]arvera Simulator|[c]arvera_sim_stream_stdio' >/dev/null; then
+  if ! pgrep -f "$PROCESS_PATTERN" >/dev/null; then
     break
   fi
   sleep 0.25
 done
 
-if pgrep -f '[C]arvera Simulator|[c]arvera_sim_stream_stdio' >/dev/null; then
+if pgrep -f "$PROCESS_PATTERN" >/dev/null; then
   echo "error: packaged application left child processes running" >&2
-  pgrep -af '[C]arvera Simulator|[c]arvera_sim_stream_stdio' >&2 || true
+  pgrep -af "$PROCESS_PATTERN" >&2 || true
   exit 1
 fi
 

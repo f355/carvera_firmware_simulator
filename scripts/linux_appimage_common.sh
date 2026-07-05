@@ -25,12 +25,12 @@ linux_artifact_architecture() {
   esac
 }
 
-linux_appimage_architecture() {
+linux_electron_architecture() {
   case "$1" in
-    aarch64 | arm64) printf 'aarch64\n' ;;
-    x86_64 | amd64) printf 'x86_64\n' ;;
+    aarch64 | arm64) printf 'arm64\n' ;;
+    x86_64 | amd64) printf 'x64\n' ;;
     *)
-      printf 'error: unsupported Linux architecture: %s\n' "$1" >&2
+      printf 'error: unsupported Electron architecture: %s\n' "$1" >&2
       return 2
       ;;
   esac
@@ -56,40 +56,4 @@ linux_file_machine_pattern() {
       return 2
       ;;
   esac
-}
-
-linux_appimagetool_sha256() {
-  case "$1" in
-    aarch64) printf '1b00524ba8c6b678dc15ef88a5c25ec24def36cdfc7e3abb32ddcd068e8007fe\n' ;;
-    x86_64) printf 'a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0\n' ;;
-    *)
-      printf 'error: unsupported appimagetool architecture: %s\n' "$1" >&2
-      return 2
-      ;;
-  esac
-}
-
-linux_bundle_shared_library() {
-  local library="$1"
-  local bundle_root="$2"
-  local destination="$3"
-  local system_library
-
-  if [[ -n "$(find "$bundle_root" -name "$library" -print -quit)" ]]; then
-    return 0
-  fi
-
-  system_library="$(
-    ldconfig -p | awk -v library="$library" '
-      $1 == library && path == "" { path = $NF }
-      END { print path }
-    '
-  )"
-  if [[ -z "$system_library" || ! -f "$system_library" ]]; then
-    printf 'error: required system library is unavailable: %s\n' "$library" >&2
-    return 1
-  fi
-
-  mkdir -p "$destination"
-  cp -L "$system_library" "$destination/$library"
 }

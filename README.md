@@ -213,9 +213,10 @@ firmware startup path.
 ## Controller connections
 
 While powered on, the GUI shows the fake Wi-Fi address and POSIX virtual COM
-port path. The fake Wi-Fi endpoint is also advertised on the
-controller discovery port, so the Makera controller should be able to find it by
-scan or connect to `127.0.0.1:<port>` manually.
+port path. The fake Wi-Fi endpoint listens on every IPv4 interface. A controller
+on another machine can connect manually to `<simulator-host-ip>:<port>`; for
+example, `192.168.1.50:2222`. Local discovery remains
+available on the simulator host.
 
 The fake Wi-Fi/TCP endpoint is the recommended controller connection on all
 platforms. The serial endpoint is a POSIX pseudo-terminal on macOS, Linux, and
@@ -237,11 +238,11 @@ It prints endpoints like:
 
 ```text
 UART /dev/ttys123
-WIFI 127.0.0.1:54321
+WIFI 0.0.0.0:54321
 ```
 
 The UART endpoint is a POSIX pseudo-terminal on macOS/Linux. The Wi-Fi endpoint
-is a localhost TCP bridge through the real firmware `WifiProvider` path.
+is an all-interface TCP bridge through the real firmware `WifiProvider` path.
 
 ## Persistent machine state
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "NiceGUI front end for the Carvera firmware simulator"
 requires-python = ">=3.11"
 dependencies = [
-    "nicegui[native]>=3.12.1",
+    "nicegui>=3.12.1",
     "protobuf>=7.35.0",
 ]
 
@@ -34,11 +34,12 @@ dev = [
 ]
 package = [
     "pyinstaller>=6.20.0",
+    "pywebview>=6.2.1",
 ]
 package-linux = [
     "pyinstaller>=6.20.0",
-    "pywebview[pyside6]>=6.2.1",
 ]
 package-windows = [
     "pyinstaller>=6.20.0",
+    "pywebview>=6.2.1",
 ]

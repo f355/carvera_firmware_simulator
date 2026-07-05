@@ -131,7 +131,7 @@ bool drain_write_buffer(IoHandle fd, std::string& bytes) {
 
 void set_raw_terminal(const std::string&) {}
 
-IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {
+IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {
   if (!ensure_socket_runtime()) {
     return kInvalidHandle;
   }
@@ -145,7 +145,7 @@ IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t&
 
   sockaddr_in address{};
   address.sin_family = AF_INET;
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  address.sin_addr.s_addr = htonl(INADDR_ANY);
   address.sin_port = htons(requested_port);
   if (::bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR ||
       ::listen(listener, 4) == SOCKET_ERROR) {

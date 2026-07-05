@@ -25,7 +25,10 @@
 #include <thread>
 
 #include <cerrno>
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -210,7 +213,7 @@ std::string read_until_pumping(int fd, const std::string& needle, Pump&& pump,
   return output;
 }
 
-inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50) {
+inline bool connect_ipv4(const char* host, std::uint16_t port, int& client, int attempts = 50) {
   client = ::socket(AF_INET, SOCK_STREAM, 0);
   if (client < 0) {
     return false;
@@ -219,7 +222,11 @@ inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50)
   sockaddr_in address{};
   address.sin_family = AF_INET;
   address.sin_port = htons(port);
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  if (::inet_pton(AF_INET, host, &address.sin_addr) != 1) {
+    ::close(client);
+    client = -1;
+    return false;
+  }
   for (int i = 0; i < attempts; ++i) {
     if (::connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0) {
       return true;
@@ -229,6 +236,33 @@ inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50)
   ::close(client);
   client = -1;
   return false;
+}
+
+inline bool connect_loopback(std::uint16_t port, int& client, int attempts = 50) {
+  return connect_ipv4("127.0.0.1", port, client, attempts);
+}
+
+inline std::string non_loopback_ipv4_address() {
+  ifaddrs* interfaces = nullptr;
+  if (::getifaddrs(&interfaces) != 0) {
+    return {};
+  }
+
+  std::string result;
+  for (auto* interface = interfaces; interface != nullptr; interface = interface->ifa_next) {
+    if (interface->ifa_addr == nullptr || interface->ifa_addr->sa_family != AF_INET ||
+        (interface->ifa_flags & IFF_UP) == 0 || (interface->ifa_flags & IFF_LOOPBACK) != 0) {
+      continue;
+    }
+    char address[INET_ADDRSTRLEN]{};
+    const auto* ipv4 = reinterpret_cast<const sockaddr_in*>(interface->ifa_addr);
+    if (::inet_ntop(AF_INET, &ipv4->sin_addr, address, sizeof(address)) != nullptr) {
+      result = address;
+      break;
+    }
+  }
+  ::freeifaddrs(interfaces);
+  return result;
 }
 
 inline bool localhost_accepts_tcp(std::uint32_t port) {

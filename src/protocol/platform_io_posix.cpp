@@ -121,7 +121,7 @@ void set_raw_terminal(const std::string& path) {
   ::close(fd);
 }
 
-IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {
+IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {
   const int listener = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (listener < 0) {
     return kInvalidHandle;
@@ -132,7 +132,7 @@ IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t&
 
   sockaddr_in address{};
   address.sin_family = AF_INET;
-  address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  address.sin_addr.s_addr = htonl(INADDR_ANY);
   address.sin_port = htons(requested_port);
   if (::bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0 || ::listen(listener, 4) != 0) {
     ::close(listener);

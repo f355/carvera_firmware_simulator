@@ -27,7 +27,7 @@ fi
 
 MACHINE="$(uname -m)"
 ARTIFACT_ARCHITECTURE="$(linux_artifact_architecture "$MACHINE")"
-APPIMAGE_ARCHITECTURE="$(linux_appimage_architecture "$MACHINE")"
+ELECTRON_ARCHITECTURE="$(linux_electron_architecture "$MACHINE")"
 ELF_MACHINE_PATTERN="$(linux_elf_machine_pattern "$MACHINE")"
 FILE_MACHINE_PATTERN="$(linux_file_machine_pattern "$MACHINE")"
 EXPECTED_ARCHITECTURE="${CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE:-$ARTIFACT_ARCHITECTURE}"
@@ -36,32 +36,18 @@ if [[ "$EXPECTED_ARCHITECTURE" != "$ARTIFACT_ARCHITECTURE" ]]; then
   exit 2
 fi
 
-APP_NAME="Carvera Simulator"
+BACKEND_NAME="Carvera Backend"
 BUILD_DIR="${CARVERA_SIM_PACKAGE_BUILD_DIR:-"$ROOT_DIR/build-linux-appimage-$ARTIFACT_ARCHITECTURE"}"
 OUTPUT_DIR="${CARVERA_SIM_PACKAGE_OUTPUT_DIR:-"$ROOT_DIR/dist/linux"}"
 PACKAGE_WORK_DIR="${CARVERA_SIM_PACKAGE_WORK_DIR:-"$BUILD_DIR/package"}"
 PYINSTALLER_DIST="$PACKAGE_WORK_DIR/pyinstaller-dist"
 PYINSTALLER_WORK="$PACKAGE_WORK_DIR/pyinstaller-work"
 SPEC_DIR="$PACKAGE_WORK_DIR/spec"
-APP_DIR="$PACKAGE_WORK_DIR/Carvera-Simulator.AppDir"
-TOOLS_DIR="$BUILD_DIR/tools"
+ELECTRON_APP_DIR="$PACKAGE_WORK_DIR/electron"
+ELECTRON_OUTPUT_DIR="$PACKAGE_WORK_DIR/electron-dist"
 APPIMAGE_PATH="$OUTPUT_DIR/Carvera-Simulator-Linux-$ARTIFACT_ARCHITECTURE.AppImage"
-APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGE_ARCHITECTURE.AppImage"
-APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$APPIMAGE_ARCHITECTURE.AppImage"
-APPIMAGETOOL_SHA256="$(linux_appimagetool_sha256 "$APPIMAGE_ARCHITECTURE")"
-REQUIRED_QTWEBENGINE_LIBRARIES=(
-  libasound.so.2
-  liblcms2.so.2
-  libminizip.so.1
-  libopus.so.0
-  libsnappy.so.1
-  libwebp.so.7
-  libwebpdemux.so.2
-  libwebpmux.so.3
-  libXfixes.so.3
-)
 
-for command in awk cmake curl file git ldconfig ninja readelf sha256sum uv; do
+for command in cmake file git ninja readelf rsvg-convert uv; do
   command -v "$command" >/dev/null || { echo "error: $command is required" >&2; exit 2; }
 done
 
@@ -85,15 +71,14 @@ if ! readelf -h "$SIMULATOR_BINARY" | grep -Fq "Machine:                        
 fi
 
 rm -rf "$PACKAGE_WORK_DIR"
-mkdir -p "$PYINSTALLER_DIST" "$PYINSTALLER_WORK" "$SPEC_DIR" "$OUTPUT_DIR" "$TOOLS_DIR"
+mkdir -p "$PYINSTALLER_DIST" "$PYINSTALLER_WORK" "$SPEC_DIR" "$OUTPUT_DIR"
 rm -f "$APPIMAGE_PATH"
 
 uv run --project "$ROOT_DIR" --no-sync python -m PyInstaller \
-  --name "$APP_NAME" \
+  --name "$BACKEND_NAME" \
   --onedir \
   --noconfirm \
   --clean \
-  --hidden-import webview.platforms.qt \
   --paths "$ROOT_DIR" \
   --add-binary "$SIMULATOR_BINARY:bin" \
   --add-data "$ROOT_DIR/machine_models:machine_models" \
@@ -101,44 +86,27 @@ uv run --project "$ROOT_DIR" --no-sync python -m PyInstaller \
   --distpath "$PYINSTALLER_DIST" \
   --workpath "$PYINSTALLER_WORK" \
   --specpath "$SPEC_DIR" \
-  "$ROOT_DIR/gui/desktop.py"
+  "$ROOT_DIR/gui/app.py"
 
-PYINSTALLER_APP="$PYINSTALLER_DIST/$APP_NAME"
-if [[ ! -x "$PYINSTALLER_APP/$APP_NAME" ]]; then
-  echo "error: PyInstaller did not create $PYINSTALLER_APP/$APP_NAME" >&2
+PYINSTALLER_APP="$PYINSTALLER_DIST/$BACKEND_NAME"
+if [[ ! -x "$PYINSTALLER_APP/$BACKEND_NAME" ]]; then
+  echo "error: PyInstaller did not create $PYINSTALLER_APP/$BACKEND_NAME" >&2
   exit 1
 fi
 
-mkdir -p \
-  "$APP_DIR/usr/bin" \
-  "$APP_DIR/usr/lib/carvera-simulator" \
-  "$APP_DIR/usr/share/applications" \
-  "$APP_DIR/usr/share/icons/hicolor/scalable/apps"
-cp -a --no-preserve=xattr "$PYINSTALLER_APP/." "$APP_DIR/usr/lib/carvera-simulator/"
-BUNDLED_LIBRARY_DIR="$APP_DIR/usr/lib/carvera-simulator/_internal"
-for library in "${REQUIRED_QTWEBENGINE_LIBRARIES[@]}"; do
-  linux_bundle_shared_library \
-    "$library" \
-    "$APP_DIR/usr/lib/carvera-simulator" \
-    "$BUNDLED_LIBRARY_DIR"
-done
-for library in "${REQUIRED_QTWEBENGINE_LIBRARIES[@]}"; do
-  if [[ -z "$(find "$APP_DIR/usr/lib/carvera-simulator" -name "$library" -print -quit)" ]]; then
-    echo "error: packaged Qt WebEngine dependency is missing: $library" >&2
-    exit 1
-  fi
-done
-install -m 755 "$ROOT_DIR/packaging/linux/AppRun" "$APP_DIR/AppRun"
-install -m 644 "$ROOT_DIR/packaging/linux/carvera-simulator.desktop" "$APP_DIR/carvera-simulator.desktop"
-install -m 644 "$ROOT_DIR/packaging/linux/carvera-simulator.desktop" \
-  "$APP_DIR/usr/share/applications/carvera-simulator.desktop"
-install -m 644 "$ROOT_DIR/packaging/linux/carvera-simulator.svg" "$APP_DIR/carvera-simulator.svg"
-install -m 644 "$ROOT_DIR/packaging/linux/carvera-simulator.svg" \
-  "$APP_DIR/usr/share/icons/hicolor/scalable/apps/carvera-simulator.svg"
-ln -s ../lib/carvera-simulator/Carvera\ Simulator "$APP_DIR/usr/bin/carvera-simulator"
-ln -s carvera-simulator.svg "$APP_DIR/.DirIcon"
+mkdir -p "$ELECTRON_APP_DIR/resources/backend"
+cp -a "$ROOT_DIR/packaging/linux/electron/." "$ELECTRON_APP_DIR/"
+if [[ ! -d /opt/carvera-electron/node_modules ]]; then
+  echo "error: Electron packaging dependencies are missing from the builder image" >&2
+  exit 1
+fi
+cp -a /opt/carvera-electron/node_modules "$ELECTRON_APP_DIR/"
+cp -a "$PYINSTALLER_APP" "$ELECTRON_APP_DIR/resources/backend/"
+rsvg-convert --width 512 --height 512 \
+  --output "$ELECTRON_APP_DIR/icon.png" \
+  "$ROOT_DIR/packaging/linux/carvera-simulator.svg"
 
-PACKAGED_SIMULATOR="$(find "$APP_DIR/usr/lib/carvera-simulator" -type f -name carvera_sim_stream_stdio -print -quit)"
+PACKAGED_SIMULATOR="$(find "$ELECTRON_APP_DIR/resources/backend" -type f -name carvera_sim_stream_stdio -print -quit)"
 if [[ -z "$PACKAGED_SIMULATOR" ]]; then
   echo "error: packaged simulator binary is missing" >&2
   exit 1
@@ -149,18 +117,22 @@ if ! readelf -h "$PACKAGED_SIMULATOR" | grep -Fq "Machine:                      
   exit 1
 fi
 
-if [[ ! -f "$APPIMAGETOOL" ]] || ! printf '%s  %s\n' "$APPIMAGETOOL_SHA256" "$APPIMAGETOOL" | sha256sum --check --status; then
-  curl --fail --location --retry 3 --output "$APPIMAGETOOL" "$APPIMAGETOOL_URL"
-fi
-printf '%s  %s\n' "$APPIMAGETOOL_SHA256" "$APPIMAGETOOL" | sha256sum --check
-chmod +x "$APPIMAGETOOL"
+(
+  cd "$ELECTRON_APP_DIR"
+  ./node_modules/.bin/electron-builder \
+    --linux AppImage \
+    --"$ELECTRON_ARCHITECTURE" \
+    --publish never \
+    --config.directories.output="$ELECTRON_OUTPUT_DIR"
+)
 
-ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" \
-  --no-appstream \
-  --mksquashfs-opt=-no-xattrs \
-  "$APP_DIR" \
-  "$APPIMAGE_PATH"
-chmod +x "$APPIMAGE_PATH"
+BUILT_APPIMAGE="$(find "$ELECTRON_OUTPUT_DIR" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+if [[ -z "$BUILT_APPIMAGE" ]]; then
+  echo "error: electron-builder did not create an AppImage" >&2
+  exit 1
+fi
+mv "$BUILT_APPIMAGE" "$APPIMAGE_PATH"
+chmod 755 "$APPIMAGE_PATH"
 
 if ! file "$APPIMAGE_PATH" | grep -Fq "$FILE_MACHINE_PATTERN"; then
   echo "error: AppImage has the wrong architecture" >&2

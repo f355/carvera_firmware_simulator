@@ -122,14 +122,15 @@ SPI, DMA, or USB mass-storage emulation below it.
 protobuf API:
 
 * `enable_uart`: create a POSIX pty-backed virtual COM port where supported
-* `tcp_ports`: create localhost TCP endpoints for the fake Wi-Fi link; `0`
+* `tcp_ports`: create all-interface TCP endpoints for the fake Wi-Fi link; `0`
   asks the OS for an ephemeral port
 * `log_traffic`: mirror sanitized UART/Wi-Fi RX/TX bytes to stderr
 
 The response payload is `InteractiveTransport`, containing the pty path and
-bound TCP endpoints. On macOS, Linux, and WSL, the UART path is a PTY path such as
-`/dev/ttys123` or `/dev/pts/7`. The TCP endpoints are localhost sockets and are
-the preferred controller path on every platform. Native Windows builds and
+bound TCP endpoints. A `0.0.0.0` host means the bridge accepts connections
+through any IPv4 address assigned to the simulator host. On macOS, Linux, and
+WSL, the UART path is a PTY path such as `/dev/ttys123` or `/dev/pts/7`. The TCP
+endpoints are the preferred controller path on every platform. Native Windows builds and
 native `COMx` devices are intentionally unsupported; run the simulator inside
 WSL2 on Windows.
 

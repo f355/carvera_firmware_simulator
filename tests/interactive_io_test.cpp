@@ -95,8 +95,11 @@ int main() {
   require(wifi.port() != 0, "localhost WiFi bridge should report the bound port");
   const auto initial_tcp_x_steps = tcp_simulator.axis_position_steps(0);
 
+  const auto non_loopback_address = sim::test::non_loopback_ipv4_address();
+  require(!non_loopback_address.empty(), "test host should expose a non-loopback IPv4 address");
   int client = -1;
-  require(sim::test::connect_loopback(wifi.port(), client), "TCP client should connect to localhost WiFi bridge");
+  require(sim::test::connect_ipv4(non_loopback_address.c_str(), wifi.port(), client),
+          "TCP client should connect to the WiFi bridge through any local IPv4 address");
   const char tcp_jog[] = "$H\n$J=G91 X1 F1500\n";
   require(::write(client, tcp_jog, std::strlen(tcp_jog)) == static_cast<ssize_t>(std::strlen(tcp_jog)),
           "TCP client write should succeed");

@@ -100,7 +100,7 @@ InteractiveTransportStartResult InteractiveTransportManager::start(
       }
       auto bridge = std::make_unique<LocalhostTcpBridge>(runtime_io_, uploading_);
       if (!bridge->start(static_cast<std::uint16_t>(requested_port))) {
-        return start_error("failed to start localhost TCP bridge");
+        return start_error("failed to start TCP bridge");
       }
       tcp_bridges_.push_back(std::move(bridge));
     }
@@ -205,7 +205,7 @@ void InteractiveTransportManager::fill(carvera::sim::v1::InteractiveTransport& t
   }
   for (const auto& bridge : tcp_bridges_) {
     auto* endpoint = transport.add_tcp_endpoints();
-    endpoint->set_host("127.0.0.1");
+    endpoint->set_host("0.0.0.0");
     endpoint->set_port(bridge->port());
   }
 }

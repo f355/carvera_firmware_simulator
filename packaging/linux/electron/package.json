@@ -1,0 +1,40 @@
+{
+  "name": "carvera-simulator-linux",
+  "version": "0.1.0",
+  "description": "Native Linux shell for the Carvera firmware simulator",
+  "author": "Konstantin Tcepliaev <f355@f355.org>",
+  "desktopName": "carvera-simulator.desktop",
+  "main": "main.cjs",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "devDependencies": {
+    "electron": "43.0.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.carvera.community.simulator",
+    "productName": "Carvera Simulator",
+    "asar": true,
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/backend",
+        "to": "backend"
+      }
+    ],
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Development",
+      "executableName": "carvera-simulator",
+      "icon": "icon.png",
+      "syncDesktopName": true,
+      "synopsis": "Simulate Carvera C1 and Carvera Air CA1 firmware"
+    }
+  }
+}

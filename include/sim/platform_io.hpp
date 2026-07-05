@@ -35,7 +35,7 @@ bool write_all(IoHandle fd, const std::string& bytes);
 bool drain_write_buffer(IoHandle fd, std::string& bytes);
 void set_raw_terminal(const std::string& path);
 
-IoHandle open_loopback_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port);
+IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port);
 IoHandle accept_pending_client(IoHandle listener);
 IoHandle open_udp_socket();
 bool send_udp_loopback(IoHandle socket, std::uint16_t port, std::string_view payload);
