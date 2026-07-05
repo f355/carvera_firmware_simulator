@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -23,6 +25,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMON_SCRIPT = ROOT / "scripts" / "linux_appimage_common.sh"
+APP_RUN = ROOT / "packaging" / "linux" / "AppRun"
 
 
 def run_common(function: str, value: str) -> str:
@@ -88,3 +91,33 @@ def test_linux_builder_copies_a_system_library_omitted_by_pyinstaller(tmp_path: 
 
     assert result.returncode == 0, result.stderr
     assert (destination / "liblcms2.so.2").read_bytes() == b"lcms2"
+
+
+def test_appimage_launcher_selects_qt_and_enables_blocklisted_webgl(tmp_path: Path) -> None:
+    app_dir = tmp_path / "Carvera-Simulator.AppDir"
+    launcher = app_dir / "AppRun"
+    executable = app_dir / "usr" / "lib" / "carvera-simulator" / "Carvera Simulator"
+    executable.parent.mkdir(parents=True)
+    shutil.copy2(APP_RUN, launcher)
+    executable.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' \"$PYWEBVIEW_GUI\"\n"
+        "printf '%s\\n' \"$QTWEBENGINE_CHROMIUM_FLAGS\"\n"
+        "printf '%s\\n' \"$*\"\n"
+    )
+    executable.chmod(0o755)
+
+    result = subprocess.run(
+        [launcher, "--host", "127.0.0.1"],
+        env={**os.environ, "QTWEBENGINE_CHROMIUM_FLAGS": "--disable-logging"},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "qt",
+        "--disable-logging --ignore-gpu-blocklist",
+        "--host 127.0.0.1",
+    ]

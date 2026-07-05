@@ -2,4 +2,12 @@
 set -euo pipefail
 
 APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYWEBVIEW_GUI=qt
+
+case " ${QTWEBENGINE_CHROMIUM_FLAGS:-} " in
+  *" --ignore-gpu-blocklist "*) ;;
+  *) QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:+$QTWEBENGINE_CHROMIUM_FLAGS }--ignore-gpu-blocklist" ;;
+esac
+export QTWEBENGINE_CHROMIUM_FLAGS
+
 exec "$APPDIR/usr/lib/carvera-simulator/Carvera Simulator" "$@"
