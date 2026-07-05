@@ -67,7 +67,6 @@ if [[ ! -f "$APPIMAGE_PATH" ]]; then
   echo "error: container did not create $APPIMAGE_PATH" >&2
   exit 1
 fi
-chmod 755 "$APPIMAGE_PATH"
 
 "$CONTAINER_ENGINE" run --rm \
   --platform "$PLATFORM" \
