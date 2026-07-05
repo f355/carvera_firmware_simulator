@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
@@ -134,9 +135,14 @@ class EepromPanelView:
     @staticmethod
     def _number_control(name: str, value: float | int, *, integer: bool = False) -> Any:
         ui.label(name).classes("table-cell eeprom-field-name")
+        if integer:
+            display_value: float | int | None = int(value)
+        else:
+            float_value = float(value)
+            display_value = float_value if math.isfinite(float_value) else None
         return (
             ui.number(
-                value=int(value) if integer else float(value),
+                value=display_value,
                 format="%d" if integer else "%.6f",
                 step=1 if integer else 0.001,
             )

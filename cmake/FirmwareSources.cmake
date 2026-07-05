@@ -27,6 +27,22 @@ configure_file(
   @ONLY
 )
 
+# Player stores std::string search results in a 32-bit integer. That happens to
+# match size_type on the MCU, but truncates npos on 64-bit simulator hosts and
+# makes every uncompressed upload look like an .lz upload. Compile a corrected
+# build-tree copy while the pinned firmware still contains that assumption.
+set(_player_source "${FIRMWARE_SRC}/modules/utils/player/Player.cpp")
+set(_player_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/Player.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_player_source}")
+file(READ "${_player_source}" _player_contents)
+set(_player_npos_32bit "unsigned int start_pos = filename.find(\".lz\");")
+set(_player_npos_native "string::size_type start_pos = filename.find(\".lz\");")
+string(REPLACE "${_player_npos_32bit}" "${_player_npos_native}" _player_host_contents "${_player_contents}")
+if(_player_host_contents STREQUAL _player_contents)
+  message(FATAL_ERROR "Pinned Player.cpp no longer contains the expected 32-bit upload position")
+endif()
+file(WRITE "${_player_host_source}" "${_player_host_contents}")
+
 set(SIM_FIRMWARE_FACADE_SOURCES
   src/compat/active_context.cpp
   src/firmware/firmware_boot_stubs.cpp
@@ -116,7 +132,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/utils/configurator/Configurator.cpp
   ${FIRMWARE_SRC}/modules/utils/mainbutton/MainButton.cpp
   ${FIRMWARE_SRC}/modules/utils/player/OCodeHandler.cpp
-  ${FIRMWARE_SRC}/modules/utils/player/Player.cpp
+  ${_player_host_source}
   ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
   ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
   ${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp

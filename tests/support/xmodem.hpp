@@ -21,6 +21,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include "posix_io.hpp"
 
 namespace sim::test {
@@ -112,6 +113,70 @@ std::string receive_xmodem_download(int fd, Pump&& pump) {
 
 inline std::string receive_xmodem_download(int fd) {
   return receive_xmodem_download(fd, [] {});
+}
+
+template <typename Pump>
+bool send_xmodem_upload(int fd, std::string_view contents, Pump&& pump) {
+  constexpr char stx = '\x02';
+  constexpr char eot = '\x04';
+  constexpr char ack = '\x06';
+  constexpr std::size_t packet_size = 8192;
+
+  char response = 0;
+  for (int attempts = 0; attempts < 80 && response != 'C'; ++attempts) {
+    if (!read_exact_timeout_pumping(fd, &response, 1, std::chrono::milliseconds(500), pump)) {
+      response = 0;
+    }
+  }
+  if (response != 'C') {
+    return false;
+  }
+
+  const auto send_packet = [&](unsigned sequence, std::string_view payload) {
+    if (payload.size() > packet_size) {
+      return false;
+    }
+    std::string crc_input;
+    crc_input.reserve(2 + packet_size);
+    crc_input.push_back(static_cast<char>((payload.size() >> 8) & 0xffu));
+    crc_input.push_back(static_cast<char>(payload.size() & 0xffu));
+    crc_input.append(payload);
+    crc_input.resize(2 + packet_size, '\x1a');
+
+    std::string packet;
+    packet.reserve(3 + crc_input.size() + 2);
+    packet.push_back(stx);
+    packet.push_back(static_cast<char>(sequence));
+    packet.push_back(static_cast<char>(0xffu - sequence));
+    packet.append(crc_input);
+    const auto packet_crc = crc16_xmodem(crc_input);
+    packet.push_back(static_cast<char>(packet_crc >> 8));
+    packet.push_back(static_cast<char>(packet_crc & 0xffu));
+
+    for (int attempts = 0; attempts < 16; ++attempts) {
+      if (!write_exact(fd, packet.data(), packet.size())) {
+        return false;
+      }
+      for (int responses = 0; responses < 80; ++responses) {
+        if (!read_exact_timeout_pumping(fd, &response, 1, std::chrono::milliseconds(500), pump)) {
+          break;
+        }
+        if (response == ack) {
+          return true;
+        }
+        if (response == '\x15') {
+          break;
+        }
+      }
+    }
+    return false;
+  };
+
+  constexpr std::string_view placeholder_md5 = "00000000000000000000000000000000";
+  if (!send_packet(0, placeholder_md5) || !send_packet(1, contents) || !write_exact(fd, &eot, 1)) {
+    return false;
+  }
+  return read_exact_timeout_pumping(fd, &response, 1, std::chrono::seconds(2), pump) && response == ack;
 }
 
 }  // namespace sim::test

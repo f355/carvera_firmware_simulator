@@ -18,6 +18,8 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <thread>
 
@@ -101,6 +103,19 @@ int main() {
   const auto download_done = sim::test::read_until_pumping(client, "download success", wait_for_bridge_io);
   require(download_done.find("download success") != std::string::npos,
           "firmware should finish config download cleanly");
+
+  constexpr char upload_command[] = "upload /sd/gcodes/controller-upload.nc\n";
+  constexpr std::string_view upload_contents = "G0 X1 Y2\nM2\n";
+  require(sim::test::write_exact(client, upload_command, std::strlen(upload_command)),
+          "plain-file upload command should write");
+  require(sim::test::send_xmodem_upload(client, upload_contents, wait_for_bridge_io),
+          "firmware should accept an uncompressed upload on a 64-bit host");
+  const auto upload_done = sim::test::read_until_pumping(client, "upload success", wait_for_bridge_io);
+  require(upload_done.find("upload success") != std::string::npos,
+          "firmware should finish an uncompressed upload cleanly");
+  std::ifstream uploaded_file(sd.path() / "gcodes/controller-upload.nc");
+  const std::string uploaded_contents{std::istreambuf_iterator<char>(uploaded_file), std::istreambuf_iterator<char>()};
+  require(uploaded_contents == upload_contents, "uncompressed upload should be written to the requested SD path");
 
   const auto sync_response = send_and_read_until(client, "time\nmodel\nversion\n", "version =", wait_for_bridge_io);
   require(sync_response.find("time =") != std::string::npos, "controller sync should return firmware time");

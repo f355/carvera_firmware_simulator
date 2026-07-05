@@ -15,14 +15,38 @@
 
 from __future__ import annotations
 
+import math
 from types import SimpleNamespace
 
 from gui.protocol.model import EepromContents, PersistentVariable, WorkCoordinateSystem
+from gui.views import eeprom_panel
 from gui.views.eeprom_panel import EepromPanelView, WorkCoordinateSystemControls
 
 
 def control(value):
     return SimpleNamespace(value=value)
+
+
+class FluentControl(SimpleNamespace):
+    def classes(self, _classes: str):
+        return self
+
+    def props(self, _props: str):
+        return self
+
+
+def test_eeprom_panel_displays_unset_firmware_values_as_blank(monkeypatch) -> None:
+    captured = {}
+    monkeypatch.setattr(eeprom_panel.ui, "label", lambda _name: FluentControl())
+    monkeypatch.setattr(
+        eeprom_panel.ui,
+        "number",
+        lambda **kwargs: captured.update(kwargs) or FluentControl(value=kwargs["value"]),
+    )
+
+    EepromPanelView._number_control("501", math.nan)
+
+    assert captured["value"] is None
 
 
 def test_eeprom_panel_builds_structured_contents_without_parsing_labels() -> None:
