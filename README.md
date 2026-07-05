@@ -143,11 +143,12 @@ Podman or Docker container with:
 ./scripts/build_linux_appimage_container.sh
 ```
 
-The script prefers Podman when both engines are installed. It deliberately
-builds only for the host architecture, so an ARM64 host produces
+The container reproduces the native Ubuntu 24.04 CI environment locally. The
+script prefers Podman when both engines are installed and deliberately builds
+only for the host architecture, so an ARM64 host produces
 `dist/linux/Carvera-Simulator-Linux-arm64.AppImage` and an AMD64 host produces
 `dist/linux/Carvera-Simulator-Linux-amd64.AppImage`. The application uses an
-embedded Qt webview and stores its SD card under
+Electron window and stores its SD card under
 `${XDG_DATA_HOME:-~/.local/share}/carvera-simulator/sdcard`.
 
 CI builds both architectures on native Linux runners, smoke-tests their native

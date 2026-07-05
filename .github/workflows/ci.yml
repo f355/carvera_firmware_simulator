@@ -151,51 +151,76 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build and test on Ubuntu 24.04
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packaging/linux/electron/package-lock.json
+
+      - name: Install Ubuntu packages
         run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            -w /work \
-            ubuntu:24.04 \
-            bash -euxo pipefail -c '
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update
-              apt-get install -y --no-install-recommends \
-                build-essential \
-                ca-certificates \
-                cmake \
-                curl \
-                git \
-                libprotobuf-dev \
-                ninja-build \
-                protobuf-compiler \
-                python3 \
-                python3-venv
-              export PATH="$HOME/.local/bin:$PATH"
-              if ! command -v uv >/dev/null; then
-                curl -LsSf https://astral.sh/uv/install.sh | sh
-              fi
-              export PATH="$HOME/.local/bin:$PATH"
-              JOBS="$(python3 -c "import os; print(os.cpu_count() or 4)")"
-              FIRMWARE_ROOT="$(bash scripts/ensure_firmware_checkout.sh)"
-              uv sync --python "$(command -v python3)"
-              uv run python -m gui.protocol.proto_codegen
-              uv run ruff format --check gui
-              uv run ruff check gui
-              uv run mypy gui
-              cmake -S . -B build -G Ninja \
-                -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
-                -DCARVERA_SIM_ENABLE_COVERAGE=ON \
-                -DCARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY=/work/coverage
-              cmake --build build --target coverage --parallel "$JOBS"
-              uv run pytest gui/tests
-            '
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            file \
+            libasound2t64 \
+            libgbm1 \
+            libgl1-mesa-dri \
+            libgtk-3-0t64 \
+            libnss3 \
+            libprotobuf-dev \
+            librsvg2-bin \
+            ninja-build \
+            procps \
+            protobuf-compiler \
+            xvfb
+
+      - name: Fetch compatible firmware
+        run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
+
+      - name: Detect build parallelism
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)" >> "$GITHUB_ENV"
+
+      - name: Sync Python environment
+        run: uv sync --locked --python 3.13
+
+      - name: Generate Python protobuf bindings
+        run: uv run python -m gui.protocol.proto_codegen
+
+      - name: Check Python
+        run: |
+          uv run ruff format --check gui
+          uv run ruff check gui
+          uv run mypy gui
+
+      - name: Configure coverage build
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
+            -DCARVERA_SIM_ENABLE_COVERAGE=ON \
+            -DCARVERA_SIM_COVERAGE_OUTPUT_DIRECTORY="$GITHUB_WORKSPACE/coverage"
+
+      - name: Build, test, and generate coverage
+        run: cmake --build build --target coverage --parallel "$CMAKE_BUILD_PARALLEL_LEVEL"
+
+      - name: Run GUI tests
+        run: uv run pytest gui/tests
 
       - name: Build and smoke-test native AppImage
         env:
-          CARVERA_SIM_CONTAINER_ENGINE: docker
           CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: amd64
-        run: scripts/build_linux_appimage_container.sh
+        run: |
+          scripts/build_linux_appimage.sh
+          scripts/smoke_test_linux_appimage.sh
 
       - name: Upload Linux desktop app
         uses: actions/upload-artifact@v4
@@ -224,11 +249,45 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packaging/linux/electron/package-lock.json
+
+      - name: Install Ubuntu packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            file \
+            libasound2t64 \
+            libgbm1 \
+            libgl1-mesa-dri \
+            libgtk-3-0t64 \
+            libnss3 \
+            libprotobuf-dev \
+            librsvg2-bin \
+            ninja-build \
+            procps \
+            protobuf-compiler \
+            xvfb
+
       - name: Build and smoke-test native AppImage
         env:
-          CARVERA_SIM_CONTAINER_ENGINE: docker
           CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE: arm64
-        run: scripts/build_linux_appimage_container.sh
+        run: |
+          scripts/build_linux_appimage.sh
+          scripts/smoke_test_linux_appimage.sh
 
       - name: Upload Linux desktop app
         uses: actions/upload-artifact@v4

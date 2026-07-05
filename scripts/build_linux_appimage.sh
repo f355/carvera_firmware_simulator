@@ -47,7 +47,7 @@ ELECTRON_APP_DIR="$PACKAGE_WORK_DIR/electron"
 ELECTRON_OUTPUT_DIR="$PACKAGE_WORK_DIR/electron-dist"
 APPIMAGE_PATH="$OUTPUT_DIR/Carvera-Simulator-Linux-$ARTIFACT_ARCHITECTURE.AppImage"
 
-for command in cmake file git ninja readelf rsvg-convert uv; do
+for command in cmake file git ninja npm readelf rsvg-convert uv; do
   command -v "$command" >/dev/null || { echo "error: $command is required" >&2; exit 2; }
 done
 
@@ -95,12 +95,18 @@ if [[ ! -x "$PYINSTALLER_APP/$BACKEND_NAME" ]]; then
 fi
 
 mkdir -p "$ELECTRON_APP_DIR/resources/backend"
-cp -a "$ROOT_DIR/packaging/linux/electron/." "$ELECTRON_APP_DIR/"
-if [[ ! -d /opt/carvera-electron/node_modules ]]; then
-  echo "error: Electron packaging dependencies are missing from the builder image" >&2
-  exit 1
+install -m 644 "$ROOT_DIR/packaging/linux/electron/main.cjs" "$ELECTRON_APP_DIR/main.cjs"
+install -m 644 "$ROOT_DIR/packaging/linux/electron/package.json" "$ELECTRON_APP_DIR/package.json"
+install -m 644 "$ROOT_DIR/packaging/linux/electron/package-lock.json" "$ELECTRON_APP_DIR/package-lock.json"
+if [[ -n "${CARVERA_SIM_ELECTRON_NODE_MODULES:-}" ]]; then
+  if [[ ! -d "$CARVERA_SIM_ELECTRON_NODE_MODULES" ]]; then
+    echo "error: Electron packaging dependencies are missing: $CARVERA_SIM_ELECTRON_NODE_MODULES" >&2
+    exit 1
+  fi
+  cp -a "$CARVERA_SIM_ELECTRON_NODE_MODULES" "$ELECTRON_APP_DIR/node_modules"
+else
+  npm ci --prefix "$ELECTRON_APP_DIR"
 fi
-cp -a /opt/carvera-electron/node_modules "$ELECTRON_APP_DIR/"
 cp -a "$PYINSTALLER_APP" "$ELECTRON_APP_DIR/resources/backend/"
 rsvg-convert --width 512 --height 512 \
   --output "$ELECTRON_APP_DIR/icon.png" \

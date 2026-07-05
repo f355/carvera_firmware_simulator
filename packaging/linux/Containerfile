@@ -49,4 +49,5 @@ COPY packaging/linux/electron/package.json packaging/linux/electron/package-lock
 RUN npm ci --prefix /opt/carvera-electron
 
 ENV UV_PYTHON_PREFERENCE=only-managed
+ENV CARVERA_SIM_ELECTRON_NODE_MODULES=/opt/carvera-electron/node_modules
 WORKDIR /work
