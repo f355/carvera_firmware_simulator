@@ -334,8 +334,11 @@ Known gaps worth remembering:
   CA1 manual tool changes, ETS touch-off, stock probing, and 3D probe side
   contact. More failure/recovery cases still need tests.
 * Things unused by Makera machines are not covered: SCARA, rotary-delta,
-  non-Cartesian kinematics, non-CartGrid leveling, Modbus spindle, PID autotune,
-  and B-axis machine behavior.
+  non-Cartesian kinematics, non-CartGrid leveling, Modbus spindle, VESC USB
+  spindle, PID autotune, and B-axis machine behavior.
+* Serial/Wi-Fi text I/O defaults to Smoothie protocol in the simulator. The
+  pinned firmware's stock `protocol makera` framing can be selected via config,
+  but host tools and tests currently expect Smoothie text.
 * Canned drilling cycles are linked when configured by the firmware, but stock
   C1/CA1 configs do not enable them and the simulator does not spend much effort
   there.

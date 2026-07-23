@@ -95,6 +95,7 @@ inline std::string cartesian_config(const CartesianConfigOptions& options = {}) 
   if (options.sd_ok) {
     config << "sd_ok true\n";
   }
+  config << "protocol smoothie\n";
   config << "soft_endstop.enable " << (options.soft_endstop ? "true" : "false") << "\n";
   config << options.extra;
   return config.str();

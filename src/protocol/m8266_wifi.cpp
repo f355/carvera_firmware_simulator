@@ -232,6 +232,18 @@ void Module::connect_sta(std::string ssid, std::string password) {
 
 void Module::disconnect_sta() { sta_connected_ = false; }
 
+std::int8_t Module::sta_rssi() const {
+  if (!sta_connected_) {
+    return 31;  // driver convention for "error / not connected"
+  }
+  for (const auto& ap : scanned_access_points_) {
+    if (ap.ssid == sta_ssid_) {
+      return ap.rssi;
+    }
+  }
+  return -40;
+}
+
 Module& active() { return compat::active_context().m8266_wifi(); }
 
 }  // namespace sim::m8266_wifi
@@ -383,6 +395,32 @@ u8 M8266WIFI_SPI_STA_DisConnect_Ap(u16* status) {
 u8 M8266WIFI_SPI_Get_STA_IP_Addr(char* sta_ip, u16* status) {
   const auto ip = sim::m8266_wifi::active().sta_param(STA_PARAM_TYPE_IP_ADDR);
   std::strcpy(sta_ip, ip.c_str());
+  if (status != nullptr) {
+    *status = 0;
+  }
+  return 1;
+}
+
+u8 M8266WIFI_SPI_STA_Query_Current_SSID_And_RSSI(u8 ssid[32], s8* rssi, u16* status) {
+  auto& wifi = sim::m8266_wifi::active();
+  if (!wifi.sta_connection_status()) {
+    if (rssi != nullptr) {
+      *rssi = 31;
+    }
+    if (status != nullptr) {
+      *status = 0x0100;
+    }
+    return 0;
+  }
+
+  const auto current_ssid = wifi.sta_ssid();
+  if (ssid != nullptr) {
+    std::memset(ssid, 0, 32);
+    std::memcpy(ssid, current_ssid.data(), std::min<std::size_t>(current_ssid.size(), 31));
+  }
+  if (rssi != nullptr) {
+    *rssi = wifi.sta_rssi();
+  }
   if (status != nullptr) {
     *status = 0;
   }

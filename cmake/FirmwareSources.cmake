@@ -19,8 +19,26 @@ function(sim_config_bytes input_path output_var)
   set(${output_var} "${_config_bytes}" PARENT_SCOPE)
 endfunction()
 
-sim_config_bytes("${FIRMWARE_SRC}/config.default" SIM_CONFIG_DEFAULT_BYTES)
-sim_config_bytes("${FIRMWARE_SRC}/config2.default" SIM_CONFIG2_DEFAULT_BYTES)
+# Stock firmware now defaults to Makera framed serial. The simulator host tools
+# and tests speak Smoothie text, so rewrite the embedded firm defaults.
+function(sim_host_protocol_config input_path output_path)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${input_path}")
+  file(READ "${input_path}" _config_contents)
+  set(_protocol_makera "protocol \t\t\t\t\tmakera")
+  set(_protocol_smoothie "protocol \t\t\t\t\tsmoothie")
+  string(REPLACE "${_protocol_makera}" "${_protocol_smoothie}" _host_config "${_config_contents}")
+  if(_host_config STREQUAL _config_contents)
+    message(FATAL_ERROR "Pinned ${input_path} no longer contains the expected Makera protocol default")
+  endif()
+  file(WRITE "${output_path}" "${_host_config}")
+endfunction()
+
+set(_config_default_host "${CMAKE_CURRENT_BINARY_DIR}/generated/config.default")
+set(_config2_default_host "${CMAKE_CURRENT_BINARY_DIR}/generated/config2.default")
+sim_host_protocol_config("${FIRMWARE_SRC}/config.default" "${_config_default_host}")
+sim_host_protocol_config("${FIRMWARE_SRC}/config2.default" "${_config2_default_host}")
+sim_config_bytes("${_config_default_host}" SIM_CONFIG_DEFAULT_BYTES)
+sim_config_bytes("${_config2_default_host}" SIM_CONFIG2_DEFAULT_BYTES)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/firmware/firm_config_data.cpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/firm_config_data.cpp
@@ -42,6 +60,20 @@ if(_player_host_contents STREQUAL _player_contents)
   message(FATAL_ERROR "Pinned Player.cpp no longer contains the expected 32-bit upload position")
 endif()
 file(WRITE "${_player_host_source}" "${_player_host_contents}")
+
+# WifiProvider pins a buffer into LPC AHBSRAM with an ELF-only section name.
+# Mach-O rejects that form, so compile a host copy that drops the placement.
+set(_wifi_source "${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp")
+set(_wifi_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/WifiProvider.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_wifi_source}")
+file(READ "${_wifi_source}" _wifi_contents)
+set(_wifi_ahbsram_attr "__attribute__((section(\"AHBSRAM1\"), aligned(4)))")
+set(_wifi_host_attr "alignas(4)")
+string(REPLACE "${_wifi_ahbsram_attr}" "${_wifi_host_attr}" _wifi_host_contents "${_wifi_contents}")
+if(_wifi_host_contents STREQUAL _wifi_contents)
+  message(FATAL_ERROR "Pinned WifiProvider.cpp no longer contains the expected AHBSRAM1 section attribute")
+endif()
+file(WRITE "${_wifi_host_source}" "${_wifi_host_contents}")
 
 set(SIM_FIRMWARE_FACADE_SOURCES
   src/compat/active_context.cpp
@@ -135,7 +167,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${_player_host_source}
   ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
   ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
-  ${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp
+  ${_wifi_host_source}
   ${FIRMWARE_SRC}/modules/robot/Block.cpp
   ${FIRMWARE_SRC}/modules/robot/BlockQueue.cpp
   ${FIRMWARE_SRC}/modules/robot/Conveyor.cpp
