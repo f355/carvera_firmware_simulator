@@ -17,6 +17,7 @@
 
 #include "test_support.hpp"
 
+#include "CartesianSolution.h"
 #include "sim/lpc_memory_accounting.hpp"
 
 namespace {
@@ -157,6 +158,24 @@ void accounting_service_keeps_host_success_separate_from_lpc_capacity() {
   require(memory.snapshot().ahb.live_payload_bytes == 0, "released AHB payload should no longer be live");
 }
 
+void generic_allocations_are_only_charged_when_the_lpc_layout_is_known() {
+  const auto cartesian =
+      sim::lpc_memory::resolve_generic_main_allocation(sizeof(CartesianSolution), false, "Robot::load_config()+0x40");
+  require(cartesian.target_size_exact, "known firmware object allocation should have an exact LPC charge");
+  require(cartesian.type_name == "CartesianSolution", "known allocation should report its firmware type");
+
+  const auto command_buffer =
+      sim::lpc_memory::resolve_generic_main_allocation(128, true, "ZProbe::coordinated_move()+0x20");
+  require(command_buffer.target_size_exact, "known byte-array allocation should preserve its exact byte count");
+  require(command_buffer.target_payload_bytes == 128, "byte arrays should occupy the requested bytes on the LPC");
+  require(command_buffer.type_name == "char[]", "known byte-array allocation should report its element type");
+
+  const auto unresolved = sim::lpc_memory::resolve_generic_main_allocation(37, false, "UnknownFirmwareFunction()+0x10");
+  require(!unresolved.target_size_exact, "unknown ABI-dependent allocations must remain outside LPC totals");
+  require(unresolved.type_name == "ABI-unresolved @ UnknownFirmwareFunction()+0x10",
+          "unknown allocations should still identify their firmware origin");
+}
+
 }  // namespace
 
 int main() {
@@ -165,5 +184,6 @@ int main() {
   main_sram_tracks_fragmentation_without_shrinking_the_break();
   ahb_pool_uses_lpc_headers_and_reports_fragmentation();
   accounting_service_keeps_host_success_separate_from_lpc_capacity();
+  generic_allocations_are_only_charged_when_the_lpc_layout_is_known();
   return 0;
 }

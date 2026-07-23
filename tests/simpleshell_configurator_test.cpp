@@ -67,10 +67,19 @@ int main() {
                                                  std::to_string(memory.main.heap_committed_bytes) + ", failed=" +
                                                  std::to_string(memory.main.failed_allocation_count) + ")\n" + serial);
   require(memory.ahb.failed_allocation_count == 0, "normal C1 boot should fit in the modeled AHB pool");
+  bool saw_attributed_unresolved_allocation = false;
+  bool saw_tracked_string_allocation = false;
   for (const auto& group : memory.allocation_groups) {
     require(group.region != sim::lpc_memory::MemoryRegion::AhbSram || group.target_size_exact,
             "all AHB allocations in the pinned firmware should have exact LPC byte counts");
+    saw_attributed_unresolved_allocation |=
+        group.type_name.starts_with("ABI-unresolved @ ") && group.type_name.find("::") != std::string::npos;
+    saw_tracked_string_allocation |=
+        group.type_name == "strdup char[]" && group.target_size_exact && group.total_count > 0;
   }
+  require(saw_attributed_unresolved_allocation,
+          "memory details should identify the firmware origin of ABI-dependent allocations");
+  require(saw_tracked_string_allocation, "firmware strdup buffers should be charged to the LPC heap exactly");
 
   runtime.io().write_serial_command("config-get alpha_steps_per_mm\n");
   runtime.runner().run_main_loop(8);

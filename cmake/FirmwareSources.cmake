@@ -43,6 +43,45 @@ if(_player_host_contents STREQUAL _player_contents)
 endif()
 file(WRITE "${_player_host_source}" "${_player_host_contents}")
 
+# The firmware uses strdup for command/file-name buffers. Route those few C
+# allocations through the same LPC heap model as C++ allocations.
+set(_gcode_source "${FIRMWARE_SRC}/modules/communication/utils/Gcode.cpp")
+set(_gcode_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/Gcode.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_gcode_source}")
+file(READ "${_gcode_source}" _gcode_contents)
+string(REPLACE "strdup(" "sim::lpc_memory::tracked_strdup(" _gcode_host_contents "${_gcode_contents}")
+string(REPLACE "free(" "sim::lpc_memory::tracked_free(" _gcode_host_contents "${_gcode_host_contents}")
+if(_gcode_host_contents STREQUAL _gcode_contents)
+  message(FATAL_ERROR "Pinned Gcode.cpp no longer contains the expected strdup/free calls")
+endif()
+string(PREPEND _gcode_host_contents "#include \"sim/lpc_memory_accounting.hpp\"\n")
+file(WRITE "${_gcode_host_source}" "${_gcode_host_contents}")
+
+set(_firmware_override_include "${CMAKE_CURRENT_BINARY_DIR}/generated/firmware_overrides")
+file(MAKE_DIRECTORY "${_firmware_override_include}")
+set(_append_file_stream_source "${FIRMWARE_SRC}/libs/AppendFileStream.h")
+set(_append_file_stream_implementation "${FIRMWARE_SRC}/libs/AppendFileStream.cpp")
+set(_append_file_stream_host_header "${_firmware_override_include}/AppendFileStream.h")
+set(_append_file_stream_host_implementation "${CMAKE_CURRENT_BINARY_DIR}/generated/AppendFileStream.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${_append_file_stream_source}"
+  "${_append_file_stream_implementation}"
+)
+file(READ "${_append_file_stream_source}" _append_file_stream_contents)
+string(REPLACE "strdup(filename)" "sim::lpc_memory::tracked_strdup(filename)"
+  _append_file_stream_host_contents "${_append_file_stream_contents}")
+string(REPLACE "free(fn)" "sim::lpc_memory::tracked_free(fn)"
+  _append_file_stream_host_contents "${_append_file_stream_host_contents}")
+if(_append_file_stream_host_contents STREQUAL _append_file_stream_contents)
+  message(FATAL_ERROR "Pinned AppendFileStream.h no longer contains the expected strdup/free calls")
+endif()
+string(REPLACE "#include \"StreamOutput.h\""
+  "#include \"StreamOutput.h\"\n#include \"sim/lpc_memory_accounting.hpp\""
+  _append_file_stream_host_contents "${_append_file_stream_host_contents}")
+file(WRITE "${_append_file_stream_host_header}" "${_append_file_stream_host_contents}")
+file(READ "${_append_file_stream_implementation}" _append_file_stream_implementation_contents)
+file(WRITE "${_append_file_stream_host_implementation}" "${_append_file_stream_implementation_contents}")
+
 # WifiProvider pins a buffer into LPC AHBSRAM with an ELF-only section name.
 # Mach-O rejects that form, so compile a host copy that drops the placement.
 set(_wifi_source "${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp")
@@ -55,6 +94,9 @@ string(REPLACE "${_wifi_ahbsram_attr}" "${_wifi_host_attr}" _wifi_host_contents 
 if(_wifi_host_contents STREQUAL _wifi_contents)
   message(FATAL_ERROR "Pinned WifiProvider.cpp no longer contains the expected AHBSRAM1 section attribute")
 endif()
+string(REPLACE "strdup(" "sim::lpc_memory::tracked_strdup(" _wifi_host_contents "${_wifi_host_contents}")
+string(REPLACE "free(" "sim::lpc_memory::tracked_free(" _wifi_host_contents "${_wifi_host_contents}")
+string(PREPEND _wifi_host_contents "#include \"sim/lpc_memory_accounting.hpp\"\n")
 file(WRITE "${_wifi_host_source}" "${_wifi_host_contents}")
 
 # The target SimpleShell walks newlib-nano's in-memory chunk headers. Host
@@ -105,6 +147,7 @@ set(SIM_FIRMWARE_FACADE_SOURCES
   src/firmware/firmware_allocation_hooks.cpp
   src/firmware/host_filesystem.cpp
   src/firmware/i2c_sim.cpp
+  src/firmware/lpc_allocation_resolver.cpp
   src/firmware/lpc_memory_accounting.cpp
   src/firmware/main_button_led_stub.cpp
   src/firmware/mri_hooks_stub.cpp
@@ -163,7 +206,7 @@ set(SIM_RUNTIME_SUPPORT_SOURCES
 set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/version.cpp
   ${FIRMWARE_SRC}/libs/Adc.cpp
-  ${FIRMWARE_SRC}/libs/AppendFileStream.cpp
+  ${_append_file_stream_host_implementation}
   ${FIRMWARE_SRC}/libs/Config.cpp
   ${FIRMWARE_SRC}/libs/ConfigCache.cpp
   ${FIRMWARE_SRC}/libs/ConfigSource.cpp
@@ -186,7 +229,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/communication/GcodeDispatch.cpp
   ${FIRMWARE_SRC}/modules/communication/SerialConsole.cpp
   ${FIRMWARE_SRC}/modules/communication/SerialConsole2.cpp
-  ${FIRMWARE_SRC}/modules/communication/utils/Gcode.cpp
+  ${_gcode_host_source}
   ${FIRMWARE_SRC}/modules/utils/configurator/Configurator.cpp
   ${FIRMWARE_SRC}/modules/utils/mainbutton/MainButton.cpp
   ${FIRMWARE_SRC}/modules/utils/player/OCodeHandler.cpp

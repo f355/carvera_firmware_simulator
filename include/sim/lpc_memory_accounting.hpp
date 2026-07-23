@@ -23,6 +23,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -180,6 +181,15 @@ struct MemoryAccountingSnapshot {
   std::vector<AllocationGroupSnapshot> allocation_groups;
 };
 
+struct ResolvedAllocation {
+  std::size_t target_payload_bytes{};
+  std::string type_name;
+  bool target_size_exact{};
+};
+
+ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_bytes, bool array_allocation,
+                                                   std::string_view origin);
+
 class MemoryAccounting {
  public:
   MemoryAccounting();
@@ -220,8 +230,10 @@ void enter_firmware_function(void* function_address) noexcept;
 void exit_firmware_function() noexcept;
 bool firmware_allocation_active() noexcept;
 void config_cache_storage_acquired() noexcept;
-void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes) noexcept;
+void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept;
 bool release_host_allocation(void* pointer) noexcept;
+char* tracked_strdup(const char* source) noexcept;
+void tracked_free(void* pointer) noexcept;
 void print_memory_report(StreamOutput* stream, bool verbose);
 
 }  // namespace sim::lpc_memory

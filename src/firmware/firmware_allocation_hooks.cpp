@@ -37,7 +37,7 @@ SIM_NO_INSTRUMENT void* operator new(std::size_t bytes) {
   if (pointer == nullptr) {
     throw std::bad_alloc();
   }
-  sim::lpc_memory::record_host_main_allocation(pointer, bytes);
+  sim::lpc_memory::record_host_main_allocation(pointer, bytes, false);
   return pointer;
 }
 
@@ -46,19 +46,19 @@ SIM_NO_INSTRUMENT void* operator new[](std::size_t bytes) {
   if (pointer == nullptr) {
     throw std::bad_alloc();
   }
-  sim::lpc_memory::record_host_main_allocation(pointer, bytes);
+  sim::lpc_memory::record_host_main_allocation(pointer, bytes, true);
   return pointer;
 }
 
 SIM_NO_INSTRUMENT void* operator new(std::size_t bytes, const std::nothrow_t&) noexcept {
   void* pointer = std::malloc(bytes == 0 ? 1 : bytes);
-  sim::lpc_memory::record_host_main_allocation(pointer, bytes);
+  sim::lpc_memory::record_host_main_allocation(pointer, bytes, false);
   return pointer;
 }
 
 SIM_NO_INSTRUMENT void* operator new[](std::size_t bytes, const std::nothrow_t&) noexcept {
   void* pointer = std::malloc(bytes == 0 ? 1 : bytes);
-  sim::lpc_memory::record_host_main_allocation(pointer, bytes);
+  sim::lpc_memory::record_host_main_allocation(pointer, bytes, true);
   return pointer;
 }
 

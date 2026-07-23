@@ -131,9 +131,10 @@ foreach(layout_value IN ITEMS region_start region_end dynamic_start)
   string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
 endforeach()
 foreach(type_name IN ITEMS
-    ATCHandler Block Config ConfigCache Configurator Conveyor Drillingcycles Endstops GcodeDispatch Kernel
-    Laser MainButton Planner Player Robot SerialConsole SerialConsole2 SimpleShell SlowTicker StepTicker
-    StepperMotor TemperatureSwitch Watchdog WifiProvider ZProbe)
+    AD8495 ATCHandler Adc AppendFileStream Block CartesianSolution Config ConfigCache Configurator Conveyor
+    Drillingcycles Endstops Gcode GcodeDispatch Kernel Laser MainButton Max31855 Pin Planner Player PT100_E3D Pwm
+    Robot SerialConsole SerialConsole2 SimpleShell SlowTicker SoftPWM StepTicker StepperMotor StreamOutputPool Switch
+    TemperatureControl TemperatureSwitch Thermistor Watchdog WifiProvider ZProbe)
   string(JSON SIM_LPC_TYPE_${type_name} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_name})
 endforeach()
 configure_file(
@@ -146,6 +147,7 @@ include(cmake/FirmwareSources.cmake)
 include(cmake/CompilerDiagnostics.cmake)
 
 set(CARVERA_FIRMWARE_INCLUDE_DIRS
+  ${_firmware_override_include}
   ${CARVERA_FIRMWARE_ROOT}/mbed/src/capi
   ${FIRMWARE_SRC}
   ${FIRMWARE_SRC}/libs
@@ -251,6 +253,15 @@ add_library(carvera_firmware_sim STATIC
 )
 target_include_directories(carvera_firmware_sim PUBLIC include)
 target_include_directories(carvera_firmware_sim SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_link_libraries(carvera_firmware_sim PUBLIC ${CMAKE_DL_LIBS})
+if(WIN32)
+  target_link_libraries(carvera_firmware_sim PUBLIC dbghelp)
+  if(MINGW)
+    target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-all-symbols)
+  endif()
+elseif(NOT APPLE)
+  target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-dynamic)
+endif()
 target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
 sim_enable_instrumentation(carvera_firmware_sim)
 

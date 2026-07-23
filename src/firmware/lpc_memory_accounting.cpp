@@ -18,6 +18,9 @@
 #include "sim/lpc_memory_accounting.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -36,10 +39,20 @@ constexpr std::uint32_t kAhbHeaderBytes = 4;
 constexpr std::uint32_t kAhbAlignment = 4;
 
 struct FirmwareCallStack {
+  static constexpr std::size_t kMaximumTrackedDepth = 128;
+
+  std::array<void*, kMaximumTrackedDepth> functions{};
   std::size_t depth{};
   void* pending_config_cache_owner{};
   std::size_t pending_config_cache_depth{};
   bool accounting_suppressed{};
+
+  void* current_function() const {
+    if (depth == 0) {
+      return nullptr;
+    }
+    return functions[std::min(depth, functions.size()) - 1];
+  }
 };
 
 thread_local FirmwareCallStack firmware_calls;
@@ -84,6 +97,8 @@ void rebuild_allocation_index(const std::vector<Chunk>& chunks,
 }  // namespace
 
 namespace sim::lpc_memory {
+
+std::string describe_firmware_function(void* function_address);
 
 MainSramLayout firmware_main_sram_layout() {
   return {
@@ -299,7 +314,12 @@ MemoryAccountingSnapshot MemoryAccounting::snapshot() const {
   };
 }
 
-void enter_firmware_function(void*) noexcept { ++firmware_calls.depth; }
+void enter_firmware_function(void* function_address) noexcept {
+  if (firmware_calls.depth < firmware_calls.functions.size()) {
+    firmware_calls.functions[firmware_calls.depth] = function_address;
+  }
+  ++firmware_calls.depth;
+}
 
 void exit_firmware_function() noexcept {
   if (firmware_calls.depth > 0) {
@@ -326,7 +346,7 @@ void config_cache_storage_acquired() noexcept {
   }
 }
 
-void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes) noexcept {
+void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept {
   if (pointer == nullptr || !firmware_allocation_active()) {
     return;
   }
@@ -337,7 +357,10 @@ void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes) 
     if (context == nullptr) {
       return;
     }
-    context->memory_accounting().record_main(pointer, host_payload_bytes, host_payload_bytes, "ABI-unresolved", false);
+    const auto origin = describe_firmware_function(firmware_calls.current_function());
+    auto resolved = resolve_generic_main_allocation(host_payload_bytes, array_allocation, origin);
+    context->memory_accounting().record_main(pointer, host_payload_bytes, resolved.target_payload_bytes,
+                                             std::move(resolved.type_name), resolved.target_size_exact);
     if (host_payload_bytes == sizeof(ConfigCache)) {
       firmware_calls.pending_config_cache_owner = pointer;
       firmware_calls.pending_config_cache_depth = firmware_calls.depth;
@@ -359,6 +382,35 @@ bool release_host_allocation(void* pointer) noexcept {
   } catch (...) {
   }
   return false;
+}
+
+char* tracked_strdup(const char* source) noexcept {
+  if (source == nullptr) {
+    return nullptr;
+  }
+  const auto bytes = std::strlen(source) + 1;
+  auto* copy = static_cast<char*>(std::malloc(bytes));
+  if (copy == nullptr) {
+    return nullptr;
+  }
+  std::memcpy(copy, source, bytes);
+
+  if (!firmware_allocation_active()) {
+    return copy;
+  }
+  AccountingSuppression suppression;
+  try {
+    if (auto* context = compat::try_active_context(); context != nullptr) {
+      context->memory_accounting().record_main(copy, bytes, bytes, "strdup char[]", true);
+    }
+  } catch (...) {
+  }
+  return copy;
+}
+
+void tracked_free(void* pointer) noexcept {
+  release_host_allocation(pointer);
+  std::free(pointer);
 }
 
 void print_memory_report(StreamOutput* stream, bool verbose) {
