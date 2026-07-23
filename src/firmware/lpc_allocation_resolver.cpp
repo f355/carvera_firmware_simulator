@@ -17,24 +17,10 @@
 
 #include "sim/lpc_memory_accounting.hpp"
 
-#include <array>
-#include <cstdio>
 #include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
-
-#if defined(_WIN32)
-#include <windows.h>
-#include <dbghelp.h>
-#else
-#include <dlfcn.h>
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
-#include <cxxabi.h>
-#include <cstdlib>
-#endif
 
 #include "AD8495.h"
 #include "Adc.h"
@@ -77,24 +63,6 @@ std::optional<sim::lpc_memory::ResolvedAllocation> resolve_object(std::size_t ho
       .type_name = std::string(type_name),
       .target_size_exact = true,
   };
-}
-
-std::string demangle(const char* name) {
-  if (name == nullptr) {
-    return {};
-  }
-#if defined(__GNUC__) || defined(__clang__)
-  int status = 0;
-  char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-  if (status != 0 || demangled == nullptr) {
-    return name;
-  }
-  std::string result(demangled);
-  std::free(demangled);
-  return result;
-#else
-  return name;
-#endif
 }
 
 }  // namespace
@@ -203,56 +171,6 @@ ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_byte
 
 bool is_allocation_runtime_function(std::string_view function_name) {
   return contains_any(function_name, {"std::", "__gnu_cxx::", "operator new(", "operator new[]("});
-}
-
-std::string describe_firmware_function(void* function_address) {
-  if (function_address == nullptr) {
-    return "unknown firmware function";
-  }
-
-#if defined(_WIN32)
-  const auto process = GetCurrentProcess();
-  static const bool symbols_initialized = [] {
-    SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
-    return SymInitialize(GetCurrentProcess(), nullptr, TRUE) != FALSE;
-  }();
-  if (symbols_initialized) {
-    struct SymbolBuffer {
-      SYMBOL_INFO symbol;
-      std::array<char, MAX_SYM_NAME> name;
-    } storage{};
-    auto* symbol = &storage.symbol;
-    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-    symbol->MaxNameLen = MAX_SYM_NAME;
-    DWORD64 displacement = 0;
-    if (SymFromAddr(process, reinterpret_cast<DWORD64>(function_address), &displacement, symbol) != FALSE) {
-      auto result = demangle(symbol->Name);
-      if (displacement != 0) {
-        char offset[32]{};
-        std::snprintf(offset, sizeof(offset), "+0x%llx", static_cast<unsigned long long>(displacement));
-        result += offset;
-      }
-      return result;
-    }
-  }
-#elif defined(__GNUC__) || defined(__clang__)
-  Dl_info info{};
-  if (dladdr(function_address, &info) != 0 && info.dli_sname != nullptr) {
-    auto result = demangle(info.dli_sname);
-    const auto address = reinterpret_cast<std::uintptr_t>(function_address);
-    const auto symbol = reinterpret_cast<std::uintptr_t>(info.dli_saddr);
-    if (address > symbol) {
-      char offset[32]{};
-      std::snprintf(offset, sizeof(offset), "+0x%llx", static_cast<unsigned long long>(address - symbol));
-      result += offset;
-    }
-    return result;
-  }
-#endif
-
-  char address[32]{};
-  std::snprintf(address, sizeof(address), "%p", function_address);
-  return address;
 }
 
 }  // namespace sim::lpc_memory

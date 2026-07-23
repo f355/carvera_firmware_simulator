@@ -767,7 +767,9 @@ AhbPoolSnapshot AhbPoolModel::snapshot() const {
       continue;
     }
     const auto free_payload = chunk.span_bytes > kAhbHeaderBytes ? chunk.span_bytes - kAhbHeaderBytes : 0;
-    result.total_free_bytes += free_payload;
+    // Match MemoryPool::free(): the target firmware counts the entire span of
+    // every free block, including the header which will be reused on allocation.
+    result.total_free_bytes += chunk.span_bytes;
     result.largest_free_block_bytes = std::max(result.largest_free_block_bytes, free_payload);
   }
   return result;

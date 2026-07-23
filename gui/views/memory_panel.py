@@ -95,13 +95,17 @@ class MemoryPanelView:
     ahb_largest_label: Any
     status_label: Any
     details_label: Any
+    copy_details_button: Any
 
     def update_summary(self, summary: MemorySummary) -> None:
         self.main_live_label.text = _usage_text(summary.main.live_payload_bytes, summary.main.capacity_bytes)
         self.main_peak_label.text = format_bytes(summary.main.peak_live_payload_bytes)
         self.main_free_label.text = format_bytes(summary.main.total_free_bytes)
         self.main_margin_label.text = format_bytes(summary.main.minimum_margin_bytes)
-        self.ahb_live_label.text = _usage_text(summary.ahb.live_payload_bytes, summary.ahb.capacity_bytes)
+        ahb_used_bytes = (
+            summary.ahb.static_bytes + summary.ahb.live_payload_bytes + summary.ahb.allocator_overhead_bytes
+        )
+        self.ahb_live_label.text = _usage_text(ahb_used_bytes, summary.ahb.capacity_bytes)
         self.ahb_peak_label.text = format_bytes(summary.ahb.peak_live_payload_bytes)
         self.ahb_free_label.text = format_bytes(summary.ahb.total_free_bytes)
         self.ahb_largest_label.text = format_bytes(summary.ahb.largest_free_block_bytes)
@@ -110,6 +114,10 @@ class MemoryPanelView:
     def set_details(self, details: MemoryDetails) -> None:
         self.update_summary(details.summary)
         self.details_label.text = _details_text(details)
+        self.copy_details_button.enable()
+
+    def copy_details(self) -> None:
+        ui.clipboard.write(str(self.details_label.text))
 
     def reset(self) -> None:
         for label in (
@@ -125,6 +133,7 @@ class MemoryPanelView:
             label.text = "--"
         self.status_label.text = "Power on to view LPC1768 memory usage."
         self.details_label.text = "Request allocation details to inspect tracked types."
+        self.copy_details_button.disable()
 
 
 def _metric(name: str) -> Any:
@@ -141,17 +150,20 @@ def build_memory_panel(*, refresh_details: Callable[[], Awaitable[None]]) -> Mem
             main_peak_label = _metric("Main SRAM peak")
             main_free_label = _metric("Main SRAM free")
             main_margin_label = _metric("Minimum stack margin")
-            ahb_live_label = _metric("AHB SRAM live")
-            ahb_peak_label = _metric("AHB SRAM peak")
+            ahb_live_label = _metric("AHB SRAM used")
+            ahb_peak_label = _metric("AHB pool peak")
             ahb_free_label = _metric("AHB SRAM free")
             ahb_largest_label = _metric("Largest AHB block")
         status_label = ui.label("Power on to view LPC1768 memory usage.").classes("section-subtle")
-        ui.button("Allocation details", icon="memory", on_click=refresh_details).props("dense outline")
+        with ui.row().classes("items-center"):
+            ui.button("Allocation details", icon="memory", on_click=refresh_details).props("dense outline")
+            copy_details_button = ui.button("Copy details", icon="content_copy").props("dense outline")
+            copy_details_button.disable()
         details_label = ui.label("Request allocation details to inspect tracked types.").classes(
             "section-subtle memory-details"
         )
 
-    return MemoryPanelView(
+    panel = MemoryPanelView(
         main_live_label=main_live_label,
         main_peak_label=main_peak_label,
         main_free_label=main_free_label,
@@ -162,4 +174,7 @@ def build_memory_panel(*, refresh_details: Callable[[], Awaitable[None]]) -> Mem
         ahb_largest_label=ahb_largest_label,
         status_label=status_label,
         details_label=details_label,
+        copy_details_button=copy_details_button,
     )
+    copy_details_button.on_click(panel.copy_details)
+    return panel

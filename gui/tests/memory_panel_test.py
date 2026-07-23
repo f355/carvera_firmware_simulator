@@ -23,7 +23,7 @@ from gui.protocol.model import (
     MemoryRegion,
     MemorySummary,
 )
-from gui.tests.fakes import FakeLabel
+from gui.tests.fakes import FakeControl, FakeLabel
 from gui.views.memory_panel import MemoryPanelView
 
 
@@ -70,6 +70,8 @@ def memory_summary() -> MemorySummary:
 
 
 def memory_panel() -> MemoryPanelView:
+    copy_details_button = FakeControl()
+    copy_details_button.disable()
     return MemoryPanelView(
         main_live_label=FakeLabel(),
         main_peak_label=FakeLabel(),
@@ -81,6 +83,7 @@ def memory_panel() -> MemoryPanelView:
         ahb_largest_label=FakeLabel(),
         status_label=FakeLabel(),
         details_label=FakeLabel(),
+        copy_details_button=copy_details_button,
     )
 
 
@@ -91,7 +94,7 @@ def test_memory_panel_updates_periodic_summary_and_resets() -> None:
 
     assert panel.main_live_label.text == "5,120 / 32,568 B"
     assert panel.main_margin_label.text == "9,216 B"
-    assert panel.ahb_live_label.text == "12,288 / 32,768 B"
+    assert panel.ahb_live_label.text == "20,736 / 32,768 B"
     assert panel.ahb_largest_label.text == "3,072 B"
     assert panel.status_label.text == "Config cache 2,048 B · no allocation failures"
 
@@ -100,6 +103,18 @@ def test_memory_panel_updates_periodic_summary_and_resets() -> None:
     assert panel.main_live_label.text == "--"
     assert panel.ahb_live_label.text == "--"
     assert panel.status_label.text == "Power on to view LPC1768 memory usage."
+    assert panel.copy_details_button.disabled
+
+
+def test_memory_panel_copies_loaded_allocation_details(monkeypatch) -> None:
+    panel = memory_panel()
+    copied: list[str] = []
+    monkeypatch.setattr("gui.views.memory_panel.ui.clipboard.write", copied.append)
+    panel.details_label.text = "Main SRAM\n64 B · Robot"
+
+    panel.copy_details()
+
+    assert copied == ["Main SRAM\n64 B · Robot"]
 
 
 def test_memory_panel_renders_allocation_groups_only_after_details_arrive() -> None:
@@ -160,6 +175,7 @@ def test_memory_panel_renders_allocation_groups_only_after_details_arrive() -> N
 
     panel.set_details(details)
 
+    assert not panel.copy_details_button.disabled
     assert panel.details_label.text.splitlines() == [
         "Main SRAM",
         "552 B · Planner · 3 live × 184 B · peak 736 B (4) · 5 allocations",

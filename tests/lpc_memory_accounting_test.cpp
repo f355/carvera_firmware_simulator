@@ -131,7 +131,7 @@ void ahb_pool_uses_lpc_headers_and_reports_fragmentation() {
   memory.deallocate(1);
   memory.deallocate(2);
   snapshot = memory.snapshot();
-  require(snapshot.total_free_bytes == 188, "coalesced empty pool should expose capacity minus its first header");
+  require(snapshot.total_free_bytes == 192, "AHB free bytes should match the firmware's whole-free-span accounting");
   require(snapshot.largest_free_block_bytes == 188, "adjacent AHB frees should coalesce");
 }
 
