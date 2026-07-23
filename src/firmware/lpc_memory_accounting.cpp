@@ -46,13 +46,6 @@ struct FirmwareCallStack {
   void* pending_config_cache_owner{};
   std::size_t pending_config_cache_depth{};
   bool accounting_suppressed{};
-
-  void* current_function() const {
-    if (depth == 0) {
-      return nullptr;
-    }
-    return functions[std::min(depth, functions.size()) - 1];
-  }
 };
 
 thread_local FirmwareCallStack firmware_calls;
@@ -99,6 +92,7 @@ void rebuild_allocation_index(const std::vector<Chunk>& chunks,
 namespace sim::lpc_memory {
 
 std::string describe_firmware_function(void* function_address);
+bool is_allocation_runtime_function(std::string_view function_name);
 
 MainSramLayout firmware_main_sram_layout() {
   return {
@@ -357,8 +351,24 @@ void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, 
     if (context == nullptr) {
       return;
     }
-    const auto origin = describe_firmware_function(firmware_calls.current_function());
-    auto resolved = resolve_generic_main_allocation(host_payload_bytes, array_allocation, origin);
+    std::string allocation_implementation;
+    std::string origin;
+    const auto tracked_depth = std::min(firmware_calls.depth, firmware_calls.functions.size());
+    for (std::size_t index = tracked_depth; index > 0; --index) {
+      auto function = describe_firmware_function(firmware_calls.functions[index - 1]);
+      if (allocation_implementation.empty()) {
+        allocation_implementation = function;
+      }
+      if (!is_allocation_runtime_function(function)) {
+        origin = std::move(function);
+        break;
+      }
+    }
+    if (origin.empty()) {
+      origin = allocation_implementation;
+    }
+    auto resolved =
+        resolve_generic_main_allocation(host_payload_bytes, array_allocation, origin, allocation_implementation);
     context->memory_accounting().record_main(pointer, host_payload_bytes, resolved.target_payload_bytes,
                                              std::move(resolved.type_name), resolved.target_size_exact);
     if (host_payload_bytes == sizeof(ConfigCache)) {

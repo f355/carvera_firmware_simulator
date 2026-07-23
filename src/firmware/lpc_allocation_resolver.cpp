@@ -102,8 +102,21 @@ std::string demangle(const char* name) {
 namespace sim::lpc_memory {
 
 ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_bytes, bool array_allocation,
-                                                   std::string_view origin) {
+                                                   std::string_view origin,
+                                                   std::string_view allocation_implementation) {
   using namespace generated;
+
+  const bool float_storage =
+      contains_any(allocation_implementation,
+                   {"__libcpp_allocate", "std::allocator<float>::allocate", "std::__new_allocator<float>::allocate"}) &&
+      contains_any(allocation_implementation, {"<float>", "allocator<float>"});
+  if (float_storage && contains_any(origin, {"Endstops::test_endstop_repeatability("})) {
+    return {
+        .target_payload_bytes = host_payload_bytes,
+        .type_name = "std::vector<float> storage @ " + std::string(origin),
+        .target_size_exact = true,
+    };
+  }
 
   if (array_allocation &&
       contains_any(origin, {"StreamOutput::printf(", "StreamOutput::printfcmd(", "WifiProvider::printf(",
@@ -182,9 +195,14 @@ ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_byte
 
   return {
       .target_payload_bytes = host_payload_bytes,
-      .type_name = "ABI-unresolved @ " + std::string(origin.empty() ? "unknown firmware function" : origin),
+      .type_name = "ABI-unresolved" + std::string(float_storage ? " float storage" : "") + " @ " +
+                   std::string(origin.empty() ? "unknown firmware function" : origin),
       .target_size_exact = false,
   };
+}
+
+bool is_allocation_runtime_function(std::string_view function_name) {
+  return contains_any(function_name, {"std::", "__gnu_cxx::", "operator new(", "operator new[]("});
 }
 
 std::string describe_firmware_function(void* function_address) {

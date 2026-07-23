@@ -170,6 +170,17 @@ void generic_allocations_are_only_charged_when_the_lpc_layout_is_known() {
   require(command_buffer.target_payload_bytes == 128, "byte arrays should occupy the requested bytes on the LPC");
   require(command_buffer.type_name == "char[]", "known byte-array allocation should report its element type");
 
+  const auto reserved_float_storage = sim::lpc_memory::resolve_generic_main_allocation(
+      4096, false, "Endstops::test_endstop_repeatability(Gcode*)",
+      "float* std::__1::__libcpp_allocate<float>(std::__1::__element_count, unsigned long)");
+  require(reserved_float_storage.target_size_exact,
+          "explicitly reserved float-vector storage should have an exact LPC charge");
+  require(reserved_float_storage.target_payload_bytes == 4096,
+          "float-vector storage should occupy the same bytes on host and LPC");
+  require(
+      reserved_float_storage.type_name == "std::vector<float> storage @ Endstops::test_endstop_repeatability(Gcode*)",
+      "float-vector storage should report the owning firmware function");
+
   const auto unresolved = sim::lpc_memory::resolve_generic_main_allocation(37, false, "UnknownFirmwareFunction()+0x10");
   require(!unresolved.target_size_exact, "unknown ABI-dependent allocations must remain outside LPC totals");
   require(unresolved.type_name == "ABI-unresolved @ UnknownFirmwareFunction()+0x10",

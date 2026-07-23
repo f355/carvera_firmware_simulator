@@ -188,7 +188,8 @@ struct ResolvedAllocation {
 };
 
 ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_bytes, bool array_allocation,
-                                                   std::string_view origin);
+                                                   std::string_view origin,
+                                                   std::string_view allocation_implementation = {});
 
 class MemoryAccounting {
  public:
