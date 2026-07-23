@@ -67,6 +67,8 @@ class Module {
   void connect_sta(std::string ssid, std::string password);
   void disconnect_sta();
   std::uint8_t sta_connection_status() const { return sta_connected_ ? 5 : 0; }
+  std::string sta_ssid() const { return sta_ssid_; }
+  std::int8_t sta_rssi() const;
 
   const std::vector<AccessPoint>& scanned_access_points() const { return scanned_access_points_; }
 

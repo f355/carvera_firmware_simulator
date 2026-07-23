@@ -22,12 +22,14 @@
 #include <string>
 
 #include "sim/interactive_io.hpp"
+#include "sim/makera_protocol.hpp"
 #include "sim/simulation_instance.hpp"
-#include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
+#include "support/temp_sdcard.hpp"
 
 #include <unistd.h>
+#include "StreamOutput.h"
 #include "support/assertions.hpp"
 
 using sim::test::require;
@@ -46,16 +48,28 @@ bool wait_pumping(Predicate&& predicate, Pump&& pump, std::chrono::milliseconds 
   return predicate();
 }
 
+std::string decode_payloads(sim::makera::FrameDecoder& decoder, std::string bytes) {
+  decoder.append(bytes);
+  std::string output;
+  for (auto& frame : decoder.take_frames()) {
+    output += frame.payload;
+  }
+  return output;
+}
+
 }  // namespace
 
 int main() {
   sim::test::TempDirectory temp_root("carvera_sim_interactive_io_test");
   const auto& root = temp_root.path();
-  sim::test::write_cartesian_config(root);
+  sim::test::CartesianConfigOptions config;
+  config.protocol = sim::test::TestProtocol::Makera;
+  sim::test::write_cartesian_config(root, config);
   sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
   runtime.boot();
+  require(communication_protocol == PROTOCOL_MAKERA, "virtual COM test should boot with Makera protocol");
 
   sim::VirtualComPort uart(runtime.io());
   require(uart.start(), "virtual COM port should start on POSIX");
@@ -64,16 +78,17 @@ int main() {
 
   const int serial_fd = sim::test::open_virtual_com_slave(uart.device_path());
   require(serial_fd >= 0, "virtual COM slave path should open");
-  const char serial_jog[] = "$H\n$J=G91 X1 F1500\n";
-  require(::write(serial_fd, serial_jog, std::strlen(serial_jog)) == static_cast<ssize_t>(std::strlen(serial_jog)),
+  const auto serial_jog = sim::makera::encode_console_input("$H\n$J=G91 X1 F1500\n");
+  require(::write(serial_fd, serial_jog.data(), serial_jog.size()) == static_cast<ssize_t>(serial_jog.size()),
           "virtual COM write should succeed");
 
+  sim::makera::FrameDecoder serial_decoder;
   std::string serial_output;
   auto pump_serial = [&] {
     uart.poll();
     runtime.runner().pump_free_running();
     uart.poll();
-    serial_output += sim::test::read_available(serial_fd, 256);
+    serial_output += decode_payloads(serial_decoder, sim::test::read_available(serial_fd, 256));
   };
   wait_pumping(
       [&] {
@@ -86,11 +101,13 @@ int main() {
           "virtual COM bridge should accept controller homing and jog commands");
   ::close(serial_fd);
 
-  sim::SimulationInstance tcp_simulation;
+  sim::test::TempDirectory tcp_temp_root("carvera_sim_interactive_io_tcp_test");
+  sim::test::write_cartesian_config(tcp_temp_root.path(), config);
+  sim::SimulationInstance tcp_simulation(sim::test::persistent_sd_config(tcp_temp_root.path()));
   auto& tcp_simulator = tcp_simulation.machine();
   auto& tcp_runtime = tcp_simulation.firmware();
   tcp_runtime.boot();
-  sim::LocalhostTcpBridge wifi(tcp_runtime.io(), [&tcp_runtime]() { return tcp_runtime.is_uploading(); });
+  sim::LocalhostTcpBridge wifi(tcp_runtime.io());
   require(wifi.start(0), "localhost WiFi bridge should start on an ephemeral port");
   require(wifi.port() != 0, "localhost WiFi bridge should report the bound port");
   const auto initial_tcp_x_steps = tcp_simulator.axis_position_steps(0);
@@ -100,17 +117,18 @@ int main() {
   int client = -1;
   require(sim::test::connect_ipv4(non_loopback_address.c_str(), wifi.port(), client),
           "TCP client should connect to the WiFi bridge through any local IPv4 address");
-  const char tcp_jog[] = "$H\n$J=G91 X1 F1500\n";
-  require(::write(client, tcp_jog, std::strlen(tcp_jog)) == static_cast<ssize_t>(std::strlen(tcp_jog)),
+  const auto tcp_jog = sim::makera::encode_console_input("$H\n$J=G91 X1 F1500\n");
+  require(::write(client, tcp_jog.data(), tcp_jog.size()) == static_cast<ssize_t>(tcp_jog.size()),
           "TCP client write should succeed");
   require(sim::test::set_nonblocking(client), "TCP client should switch to nonblocking reads");
 
+  sim::makera::FrameDecoder tcp_decoder;
   std::string tcp_output;
   auto pump_tcp = [&] {
     wifi.poll();
     tcp_runtime.runner().pump_free_running();
     wifi.poll();
-    tcp_output += sim::test::read_available(client, 256);
+    tcp_output += decode_payloads(tcp_decoder, sim::test::read_available(client, 256));
   };
   wait_pumping(
       [&] {
@@ -126,8 +144,7 @@ int main() {
   sim::SimulationInstance backlog_simulation;
   auto& backlog_runtime = backlog_simulation.firmware();
   backlog_runtime.boot();
-  sim::LocalhostTcpBridge backlog_wifi(backlog_runtime.io(),
-                                       [&backlog_runtime]() { return backlog_runtime.is_uploading(); });
+  sim::LocalhostTcpBridge backlog_wifi(backlog_runtime.io());
   require(backlog_wifi.start(0), "backlog WiFi bridge should start");
 
   int backlog_client = -1;

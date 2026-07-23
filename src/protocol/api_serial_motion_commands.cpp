@@ -53,14 +53,13 @@ std::optional<ApiService::Response> ApiService::handle_serial_motion_command(con
         return error(request.id(), "invalid jog command");
       }
 
-      io_.write_serial("G91\n");
-      io_.write_serial(command);
+      io_.write_serial_command("G91\n" + command);
       const auto max_step_ticks = request.jog().max_step_ticks() == 0 ? 100000 : request.jog().max_step_ticks();
       const bool idle = runner_.run_until_motion_idle(static_cast<std::size_t>(max_step_ticks)).motion_idle;
       auto response = ok(request.id());
       auto* result = response.mutable_jog_result();
       result->set_idle(idle);
-      result->set_serial_data(io_.read_serial());
+      result->set_serial_data(io_.read_serial_text());
       if (!idle) {
         response.set_ok(false);
         response.set_error("jog did not reach idle");

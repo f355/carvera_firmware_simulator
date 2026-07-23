@@ -53,7 +53,13 @@ bool VirtualComPort::start() {
     return false;
   }
   device_path_ = slave;
-  platform_io::set_raw_terminal(device_path_);
+  slave_anchor_fd_ = ::open(device_path_.c_str(), O_RDWR | O_NOCTTY);
+  if (slave_anchor_fd_ == platform_io::kInvalidHandle) {
+    platform_io::close_fd(master_fd);
+    stop();
+    return false;
+  }
+  platform_io::set_raw_terminal(slave_anchor_fd_);
   platform_io::set_nonblocking(master_fd);
   io_.reset(master_fd);
   worker_.start([this]() {
@@ -69,6 +75,7 @@ void VirtualComPort::stop() {
     std::lock_guard<std::mutex> lock(mutex_);
     io_.close();
   }
+  platform_io::close_fd(slave_anchor_fd_);
   device_path_.clear();
 }
 

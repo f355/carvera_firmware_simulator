@@ -30,9 +30,7 @@ constexpr std::size_t kMaxDrainBytesPerService = 16 * 1024;
 
 SOCKET native_socket(IoHandle fd) { return static_cast<SOCKET>(fd); }
 
-IoHandle io_handle(SOCKET socket) {
-  return socket == INVALID_SOCKET ? kInvalidHandle : static_cast<IoHandle>(socket);
-}
+IoHandle io_handle(SOCKET socket) { return socket == INVALID_SOCKET ? kInvalidHandle : static_cast<IoHandle>(socket); }
 
 bool ensure_socket_runtime() {
   static std::once_flag once;
@@ -129,7 +127,7 @@ bool drain_write_buffer(IoHandle fd, std::string& bytes) {
   return true;
 }
 
-void set_raw_terminal(const std::string&) {}
+void set_raw_terminal(IoHandle) {}
 
 IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {
   if (!ensure_socket_runtime()) {

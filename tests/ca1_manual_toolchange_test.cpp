@@ -53,7 +53,7 @@ void press_front_button(sim::FirmwareRuntime& runtime) {
 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_ca1_manual_toolchange");
-  sd.write_config_txt("");
+  sd.write_config_txt("protocol makera\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),
@@ -63,13 +63,13 @@ int main() {
   (void)runtime.boot();
   require(runtime.is_homed(), "CA1 manual tool-change test should start from a homed machine");
 
-  runtime.io().write_serial("M6 T2\n");
+  runtime.io().write_serial_command("M6 T2\n");
   std::string serial;
   for (int i = 0; i < 120 && (serial.find("Please change the tool to: T2") == std::string::npos ||
                               !runtime.boot().is_tool_waiting());
        ++i) {
     runtime.runner().pump_free_running(8, 100'000);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (serial.find("Please change the tool to: T2") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -87,7 +87,7 @@ int main() {
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
     runtime.runner().pump_free_running(8, 100'000);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';

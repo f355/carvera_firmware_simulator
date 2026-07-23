@@ -232,6 +232,18 @@ void Module::connect_sta(std::string ssid, std::string password) {
 
 void Module::disconnect_sta() { sta_connected_ = false; }
 
+std::int8_t Module::sta_rssi() const {
+  if (!sta_connected_) {
+    return 31;  // driver convention for "error / not connected"
+  }
+  for (const auto& ap : scanned_access_points_) {
+    if (ap.ssid == sta_ssid_) {
+      return ap.rssi;
+    }
+  }
+  return -40;
+}
+
 Module& active() { return compat::active_context().m8266_wifi(); }
 
 }  // namespace sim::m8266_wifi
@@ -389,6 +401,32 @@ u8 M8266WIFI_SPI_Get_STA_IP_Addr(char* sta_ip, u16* status) {
   return 1;
 }
 
+u8 M8266WIFI_SPI_STA_Query_Current_SSID_And_RSSI(u8 ssid[32], s8* rssi, u16* status) {
+  auto& wifi = sim::m8266_wifi::active();
+  if (!wifi.sta_connection_status()) {
+    if (rssi != nullptr) {
+      *rssi = 31;
+    }
+    if (status != nullptr) {
+      *status = 0x0100;
+    }
+    return 0;
+  }
+
+  const auto current_ssid = wifi.sta_ssid();
+  if (ssid != nullptr) {
+    std::memset(ssid, 0, 32);
+    std::memcpy(ssid, current_ssid.data(), std::min<std::size_t>(current_ssid.size(), 31));
+  }
+  if (rssi != nullptr) {
+    *rssi = wifi.sta_rssi();
+  }
+  if (status != nullptr) {
+    *status = 0;
+  }
+  return 1;
+}
+
 u8 M8266WIFI_SPI_STA_ScanSignals(struct ScannedSigs[], u8, u8, u8, u8, u32, u32, u8, u16* status) {
   if (status != nullptr) {
     *status = 0;
@@ -413,8 +451,13 @@ u8 M8266WIFI_SPI_STA_Fetch_Last_Scanned_Signals(struct ScannedSigs scanned_signa
 
 u8 M8266WIFI_SPI_Has_DataReceived(void) { return sim::m8266_wifi::active().has_received_data() ? 1 : 0; }
 
-u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t, u8* link_no, u16* status) {
-  return sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u16* status) {
+  const auto received = sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+  auto& clock = sim::compat::active_context().clock();
+  if (received == 0 && max_wait_in_ms != 0 && !clock.is_realtime()) {
+    clock.advance_us(static_cast<std::uint64_t>(max_wait_in_ms) * 1'000);
+  }
+  return received;
 }
 
 u16 M8266WIFI_SPI_RecvData_ex(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u8[4], u16*, u16* status) {

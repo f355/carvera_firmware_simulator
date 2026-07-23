@@ -26,7 +26,8 @@ namespace sim::test {
 inline void write_api_snapshot_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);
   std::ofstream config(root / "config");
-  config << "arm_solution cartesian\n"
+  config << "protocol makera\n"
+         << "arm_solution cartesian\n"
          << "alpha_step_pin 1.28\n"
          << "alpha_dir_pin 1.29\n"
          << "alpha_en_pin nc\n"

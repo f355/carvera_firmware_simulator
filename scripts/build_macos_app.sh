@@ -19,7 +19,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Carvera Simulator"
 BUNDLE_IDENTIFIER="org.f355.carvera-simulator"
-BUILD_DIR="${CARVERA_SIM_PACKAGE_BUILD_DIR:-"$ROOT_DIR/build-macos-app"}"
+BUILD_DIR="${CARVERA_SIM_PACKAGE_BUILD_DIR:-"$ROOT_DIR/build"}"
 OUTPUT_DIR="${CARVERA_SIM_PACKAGE_OUTPUT_DIR:-"$ROOT_DIR/dist/macos"}"
 PACKAGE_WORK_DIR="${CARVERA_SIM_PACKAGE_WORK_DIR:-"$BUILD_DIR/package"}"
 PYINSTALLER_DIST="$PACKAGE_WORK_DIR/dist"
@@ -46,6 +46,7 @@ uv sync --project "$ROOT_DIR" --group package
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCARVERA_SIM_ENABLE_COVERAGE=OFF \
   -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
 cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$JOBS"
 

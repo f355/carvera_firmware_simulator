@@ -15,6 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "sim/makera_protocol.hpp"
 #include "support/api_service_harness.hpp"
 #include "support/api_snapshot_config.hpp"
 #include "support/assertions.hpp"
@@ -23,6 +24,7 @@
 int main() {
   using sim::test::require;
 
+  sim::makera::FrameDecoder serial_decoder;
   sim::test::TempSdCard sd("carvera_sim_api_safety_test");
   sim::test::write_api_snapshot_config(sd.path());
   sim::test::ApiHarness api(sd.persistent_config());
@@ -79,7 +81,8 @@ int main() {
   response = api.request([](auto& request) { request.mutable_set_e_stop_pressed()->set_pressed(true); });
   require(response.ok(), "set_e_stop_pressed should succeed");
 
-  response = api.request([](auto& request) { request.mutable_write_serial()->set_data("?\n"); });
+  response = api.request(
+      [](auto& request) { request.mutable_write_serial()->set_data(sim::makera::encode_console_input("?")); });
   require(response.ok(), "status query after e-stop should enqueue");
 
   response = api.request([](auto& request) { request.mutable_run_until_idle()->set_max_step_ticks(0); });
@@ -87,7 +90,10 @@ int main() {
 
   response = api.request([](auto& request) { request.mutable_read_serial(); });
   require(response.ok(), "status query after e-stop should be readable");
-  require(response.serial_data().data().find("<Alarm") != std::string::npos,
+  serial_decoder.append(response.serial_data().data());
+  auto serial_text = serial_decoder.take_text();
+  (void)serial_decoder.take_frames();
+  require(serial_text.find("<Alarm") != std::string::npos,
           "pressing e-stop through the API should move firmware into Alarm state");
 
   response = api.request([](auto& request) { request.mutable_get_front_panel_state(); });

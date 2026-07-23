@@ -56,6 +56,7 @@ SMOKE_IMAGE_NAME="carvera-simulator-appimage-smoke:ubuntu-24.04"
 "$CONTAINER_ENGINE" run --rm \
   --platform "$PLATFORM" \
   --env CARVERA_SIM_EXPECTED_ARTIFACT_ARCHITECTURE="$EXPECTED_ARCHITECTURE" \
+  --env CARVERA_SIM_PACKAGE_BUILD_DIR=/tmp/carvera-simulator-build \
   --env CARVERA_SIM_PACKAGE_WORK_DIR=/tmp/carvera-simulator-package \
   --volume "$ROOT_DIR:/work" \
   --workdir /work \

@@ -125,11 +125,11 @@ int main() {
   require(kernel.is_halted(), "real runtime MainButton should halt firmware when e-stop is pressed");
   require(kernel.get_halt_reason() == E_STOP, "runtime MainButton should report E_STOP as the halt reason");
 
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "M999 should not clear the alarm while the physical e-stop remains pressed");
   runtime.inputs().set_e_stop_pressed(false);
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear the e-stop alarm after the physical switch is released");
 
@@ -200,10 +200,10 @@ int main() {
   sim::SimulationInstance repeat_simulation(sim::test::persistent_sd_config(repeat_root));
   auto& repeat_runtime = repeat_simulation.firmware();
   auto& repeat_kernel = repeat_runtime.boot();
-  repeat_runtime.io().write_serial("play /sd/gcodes/repeat.cnc\n");
+  repeat_runtime.io().write_serial_command("play /sd/gcodes/repeat.cnc\n");
   repeat_runtime.runner().run_main_loop(8);
   require(player_is_playing(), "test job should be playing before aborting");
-  repeat_runtime.io().write_serial("abort\n");
+  repeat_runtime.io().write_serial_command("abort\n");
   repeat_runtime.runner().run_until_motion_idle(20'000);
   require(!player_is_playing(), "test job should be stopped before front-button repeat");
   press_front_button(repeat_runtime, 2);

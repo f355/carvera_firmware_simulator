@@ -28,6 +28,7 @@ using sim::test::require;
 namespace {
 
 constexpr char kCa1SpeedConfig[] =
+    "protocol makera\n"
     "arm_solution cartesian\n"
     "default_feed_rate 1000\n"
     "default_seek_rate 3000\n"
@@ -119,7 +120,7 @@ MeasuredMove run_long_diagonal(double realtime_speed) {
 
   simulator.start_realtime();
   require(simulator.set_realtime_speed(realtime_speed), "test realtime speed should be accepted");
-  runtime.io().write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
+  runtime.io().write_wifi_command("G91\nG1 X-260 Y-180 F3000\n");
 
   auto result = measure_mid_move(runtime, simulator, -52.0, -152.0);
   runtime.runner().run_until_motion_idle(400'000);
@@ -140,7 +141,7 @@ MeasuredMove run_long_diagonal_after_mid_move_speed_change() {
 
   simulator.start_realtime();
   require(simulator.set_realtime_speed(1.0), "1x realtime speed should be accepted");
-  runtime.io().write_wifi_tcp("G91\nG1 X-260 Y-180 F3000\n");
+  runtime.io().write_wifi_command("G91\nG1 X-260 Y-180 F3000\n");
   while (simulator.axis_position_mm(0) > -52.0) {
     runtime.runner().pump_free_running(4, 1'000);
   }

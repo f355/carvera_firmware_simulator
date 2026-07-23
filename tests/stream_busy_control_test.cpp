@@ -20,6 +20,7 @@
 #include <iostream>
 
 #include "carvera_sim.pb.h"
+#include "sim/makera_protocol.hpp"
 #include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
@@ -109,8 +110,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  const char probing_command[] = "G38.6 Z-118 F500\n";
-  if (!expect(sim::test::write_exact(controller, probing_command, sizeof(probing_command) - 1),
+  const auto probing_command = sim::makera::encode_console_input("G38.6 Z-118 F500\n");
+  if (!expect(sim::test::write_exact(controller, probing_command.data(), probing_command.size()),
               "failed to write probing command")) {
     return 1;
   }

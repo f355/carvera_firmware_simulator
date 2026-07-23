@@ -173,6 +173,7 @@ int main(int argc, char** argv) {
 
   sim::test::TempSdCard sd("carvera_sim_stream_interactive_test");
   sim::test::CartesianConfigOptions config_options;
+  config_options.protocol = sim::test::TestProtocol::Smoothie;
   config_options.extra = "spindle.delay_s 1\n";
   sim::test::write_cartesian_config(sd.path(), config_options);
   const std::string config_txt = "# Carvera simulator SD config.\n";
@@ -305,6 +306,10 @@ int main(int argc, char** argv) {
               "failed to write download command to TCP endpoint")) {
     return 1;
   }
+  // The controller starts XMODEM after the line command has reached the firmware.
+  // Keeping the phases separate also prevents TCP from coalescing the first raw
+  // handshake byte into the command parser's receive batch.
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto downloaded_config = sim::test::receive_xmodem_download(client);
   close(client);
   simulator.stop();

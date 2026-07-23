@@ -108,17 +108,12 @@ bool drain_write_buffer(IoHandle fd, std::string& bytes) {
   return true;
 }
 
-void set_raw_terminal(const std::string& path) {
-  const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY);
-  if (fd < 0) {
-    return;
-  }
+void set_raw_terminal(IoHandle fd) {
   termios tio{};
-  if (::tcgetattr(fd, &tio) == 0) {
+  if (::tcgetattr(native_fd(fd), &tio) == 0) {
     ::cfmakeraw(&tio);
-    ::tcsetattr(fd, TCSANOW, &tio);
+    ::tcsetattr(native_fd(fd), TCSANOW, &tio);
   }
-  ::close(fd);
 }
 
 IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port) {

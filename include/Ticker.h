@@ -15,48 +15,15 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef SIMULATOR_MBED_H
-#define SIMULATOR_MBED_H
+#ifndef SIMULATOR_TICKER_H
+#define SIMULATOR_TICKER_H
 
-#include <cstdint>
-
-#include "PinNames.h"
-#include "Ticker.h"
-#include "us_ticker_api.h"
-
-namespace mbed {
-
-class I2C {
- public:
-  I2C(PinName, PinName);
-  void frequency(int hz);
-  void start();
-  int write(int value);
-  int read(int ack);
-  void stop();
-
- private:
-  int frequency_hz_{100000};
-};
-
-class SPI {
- public:
-  SPI(PinName, PinName, PinName) {}
-  void format(int) {}
-  int write(int) { return 0; }
-};
-
-}  // namespace mbed
-
-class Timeout {
+class Ticker {
  public:
   template <typename T>
   void attach(T*, void (T::*)(), float) {}
 
   void detach() {}
 };
-
-inline void wait(float) {}
-inline void wait_us(int) {}
 
 #endif

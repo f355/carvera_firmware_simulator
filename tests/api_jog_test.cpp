@@ -27,7 +27,6 @@
 
 using sim::test::require;
 
-
 int main() {
   sim::test::TempDirectory temp_root("carvera_sim_api_jog_test");
   const auto& root = temp_root.path();
@@ -48,7 +47,20 @@ int main() {
   require(response.ok(), "mount_filesystem should succeed");
 
   request.Clear();
+  request.set_id(2);
+  request.mutable_get_machine_snapshot();
+  response = api.handle(request);
+  require(response.ok() && response.machine_snapshot().homed(), "firmware should boot and home before the jog");
+
+  request.Clear();
   request.set_id(3);
+  request.mutable_get_axis_position()->set_axis(0);
+  response = api.handle(request);
+  require(response.ok(), "initial get_axis_position should succeed");
+  const auto initial_x_steps = response.axis_position().steps();
+
+  request.Clear();
+  request.set_id(4);
   auto* jog = request.mutable_jog();
   auto* delta = jog->add_delta();
   delta->set_axis(carvera::sim::v1::AXIS_X);
@@ -62,10 +74,11 @@ int main() {
           "jog should return serial acknowledgements");
 
   request.Clear();
-  request.set_id(4);
+  request.set_id(5);
   request.mutable_get_axis_position()->set_axis(0);
   response = api.handle(request);
   require(response.ok(), "get_axis_position should succeed");
-  require(std::abs(response.axis_position().steps()) >= 100, "typed jog should move the physical X axis");
+  require(std::abs(response.axis_position().steps() - initial_x_steps) >= 100,
+          "typed jog should move the physical X axis from its starting position");
   return 0;
 }

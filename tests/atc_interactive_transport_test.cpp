@@ -15,13 +15,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <cerrno>
 #include <chrono>
-#include <cstring>
 #include <string>
 
 #include "sim/delay_hooks.hpp"
 #include "sim/interactive_io.hpp"
+#include "sim/makera_protocol.hpp"
 #include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
@@ -47,7 +46,7 @@ int main() {
   simulation.machine().context().physical_scene().set_atc_pocket_tool(2, 2, true, 62.0);
   auto& runtime = simulation.firmware();
   runtime.boot();
-  sim::LocalhostTcpBridge bridge(runtime.io(), [&runtime]() { return runtime.is_uploading(); });
+  sim::LocalhostTcpBridge bridge(runtime.io());
   require(bridge.start(0), "localhost WiFi bridge should start");
 
   auto pump_once = [&] {
@@ -63,14 +62,14 @@ int main() {
   require(sim::test::connect_loopback(bridge.port(), client),
           "controller client should connect to localhost WiFi bridge");
 
-  const char initial_status_poll[] = "?\n";
-  require(sim::test::write_exact(client, initial_status_poll, std::strlen(initial_status_poll)),
+  const auto initial_status_poll = sim::makera::encode_console_input("?");
+  require(sim::test::write_exact(client, initial_status_poll.data(), initial_status_poll.size()),
           "initial status poll should write");
   const auto initial_status = sim::test::read_until_pumping(client, "MPos:", pump_once, std::chrono::seconds(5));
   require(initial_status.find("<Idle") != std::string::npos, "initial controller status query should return Idle");
 
-  const char tool_change[] = "M6 T2\n";
-  require(sim::test::write_exact(client, tool_change, std::strlen(tool_change)),
+  const auto tool_change = sim::makera::encode_console_input("M6 T2\n");
+  require(sim::test::write_exact(client, tool_change.data(), tool_change.size()),
           "ATC tool-change command should write");
   const auto atc_started = sim::test::read_until_pumping(client, "Homing atc", pump_once, std::chrono::seconds(8));
   if (atc_started.find("Homing atc") == std::string::npos) {
@@ -78,8 +77,9 @@ int main() {
   }
   require(atc_started.find("Homing atc") != std::string::npos, "C1 ATC should enter the clamp-homing phase");
 
-  const char status_poll[] = "?\n";
-  require(sim::test::write_exact(client, status_poll, std::strlen(status_poll)), "status poll during ATC should write");
+  const auto status_poll = sim::makera::encode_console_input("?");
+  require(sim::test::write_exact(client, status_poll.data(), status_poll.size()),
+          "status poll during ATC should write");
   const auto status = sim::test::read_until_pumping(client, "MPos:", pump_once, std::chrono::seconds(3));
   require(status.find("MPos:") != std::string::npos, "interactive transport should answer status polls during ATC");
 

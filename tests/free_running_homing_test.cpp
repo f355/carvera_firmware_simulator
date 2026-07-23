@@ -26,10 +26,9 @@
 using sim::test::require;
 using sim::test::require_near;
 
-
 int main() {
   sim::test::TempSdCard sd("carvera_sim_free_running_homing_test");
-  sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
+  sd.write_config_txt("protocol makera\nsd_ok true\nsoft_endstop.enable true\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();
@@ -61,15 +60,15 @@ int main() {
   require(!simulator.axis_endstop_triggered(1), "Y homing endstop should release after boot homing backoff");
   require(!simulator.axis_endstop_triggered(2), "Z homing endstop should release after boot homing backoff");
 
-  runtime.io().write_serial("?");
+  runtime.io().write_serial_command("?");
   runtime.runner().pump_free_running();
-  const auto status = runtime.io().read_serial();
+  const auto status = runtime.io().read_serial_text();
   require(status.find("<Idle") != std::string::npos,
           "runtime should answer controller status polling in free-running mode");
 
-  runtime.io().write_serial("$J X10 Y10 Z10 F10000\n");
+  runtime.io().write_serial_command("$J X10 Y10 Z10 F10000\n");
   runtime.runner().run_until_motion_idle(200'000);
-  const auto jog_response = runtime.io().read_serial();
+  const auto jog_response = runtime.io().read_serial_text();
   require(
       jog_response.find("Hard limit") == std::string::npos && jog_response.find("Limit switch") == std::string::npos,
       "controller-style positive jog past the soft boundary should not trip a hard limit");
@@ -89,9 +88,9 @@ int main() {
   require_near(last_telemetry.physical_travel->min_x, -303.0, 0.0001, "CA1 telemetry should expose hardware X travel");
   require_near(last_telemetry.physical_travel->max_z, 1.0, 0.0001, "CA1 telemetry should expose hardware Z travel");
 
-  runtime.io().write_serial("$J Y10 F10000\n");
+  runtime.io().write_serial_command("$J Y10 F10000\n");
   runtime.runner().run_until_motion_idle(200'000);
-  const auto ca1_jog_response = runtime.io().read_serial();
+  const auto ca1_jog_response = runtime.io().read_serial_text();
   require(ca1_jog_response.find("Hard limit") == std::string::npos &&
               ca1_jog_response.find("Limit switch") == std::string::npos,
           "CA1 positive Y jog should stop at the soft boundary instead of tripping the shared hard switch");
@@ -99,7 +98,7 @@ int main() {
   require(!simulator.axis_endstop_triggered(1, sim::EndstopSide::Max),
           "CA1 positive Y jog should remain clear of the physical max switch");
 
-  runtime.io().write_wifi_tcp("G91\nG0 X-100 F1500\n");
+  runtime.io().write_wifi_command("G91\nG0 X-100 F1500\n");
   bool saw_motion = false;
   for (int i = 0; i < 200 && !saw_motion; ++i) {
     saw_motion = !runtime.runner().pump({4, 4'000}).motion_idle;
@@ -114,9 +113,9 @@ int main() {
   require(ca1_kernel.get_halt_reason() == E_STOP, "CA1 active-motion e-stop should report E_STOP");
 
   runtime.inputs().set_e_stop_pressed(false);
-  runtime.io().write_wifi_tcp("$X\nG53 G0 Z-2\n");
+  runtime.io().write_wifi_command("$X\nG53 G0 Z-2\n");
   runtime.runner().run_until_motion_idle(200'000);
-  const auto unlock_response = runtime.io().read_wifi_tcp();
+  const auto unlock_response = runtime.io().read_wifi_text();
   require(unlock_response.find("motor alarm triggered") == std::string::npos,
           "CA1 e-stop unlock should not turn shared enable/alarm pins into motor alarms");
   require(ca1_kernel.get_halt_reason() != MOTOR_ERROR_X,

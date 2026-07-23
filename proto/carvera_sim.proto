@@ -230,7 +230,7 @@ message WriteSerial {
   //
   // This enters through the simulated mbed::Serial RX IRQ and is later consumed
   // by real SerialConsole main-loop handling.
-  string data = 1;
+  bytes data = 1;
 }
 
 // Command: drain bytes written by the primary firmware serial console.
@@ -683,7 +683,7 @@ message AxisPosition {
 // Response payload for ReadSerial.
 message SerialData {
   // Drained primary serial TX bytes.
-  string data = 1;
+  bytes data = 1;
 }
 
 // Response payload for RunUntilIdle.

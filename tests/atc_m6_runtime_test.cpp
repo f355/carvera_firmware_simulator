@@ -53,10 +53,10 @@ int main() {
   require(tool_setter->max_z == -105.5,
           "C1 ETS trigger point should be 1mm below an 8mm button over the configured rack surface");
 
-  runtime.io().write_serial("M6 T10000000\n");
+  runtime.io().write_serial_command("M6 T10000000\n");
   require(runtime.runner().run_until_motion_idle(100'000).motion_idle,
           "invalid tool request should be handled without queued motion");
-  auto serial = runtime.io().read_serial();
+  auto serial = runtime.io().read_serial_text();
   require(kernel.is_halted(), "invalid ATC tool should halt the firmware");
   require(kernel.get_halt_reason() == ATC_TOOL_INVALID, "invalid ATC tool should report ATC_TOOL_INVALID");
   require(serial.find("Invalid tool") != std::string::npos,
@@ -64,28 +64,28 @@ int main() {
   require(!scene.atc_spindle().has_tool, "invalid ATC tool request should not move a physical tool into the spindle");
   require(scene.atc_pockets().front().occupied, "invalid ATC tool request should leave the rack pocket untouched");
 
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   require(runtime.runner().run_until_motion_idle(100'000).motion_idle,
           "M999 should recover from invalid-tool ATC halt");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
   require(!kernel.is_halted(), "invalid-tool recovery should clear the firmware halt");
 
-  runtime.io().write_serial("M493.2 T1\n");
+  runtime.io().write_serial_command("M493.2 T1\n");
   require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
   require(!scene.atc_spindle().has_tool, "M493.2 should not physically move a rack tool into the spindle");
   require(scene.atc_pockets().front().occupied, "M493.2 should leave the simulated rack pocket occupied");
 
-  runtime.io().write_serial("M493.2 T-1\n");
+  runtime.io().write_serial_command("M493.2 T-1\n");
   require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "initial tool state command should run");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
 
-  runtime.io().write_serial("M6 T1\n");
+  runtime.io().write_serial_command("M6 T1\n");
   serial.clear();
   for (int i = 0; i < 600 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
     pump_script(runtime);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
 
   if (serial.find("Start picking new tool: T1") == std::string::npos) {
@@ -109,12 +109,12 @@ int main() {
   require(scene.atc_spindle().has_tool, "tool 1 should be held in the simulated spindle");
 
   scene.set_atc_pocket_tool(2, 2, true, 54.0);
-  runtime.io().write_serial("M6 T2\n");
+  runtime.io().write_serial_command("M6 T2\n");
   serial.clear();
   for (int i = 0; i < 900 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
     pump_script(runtime);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -130,12 +130,12 @@ int main() {
           "M6 T2 should leave the simulated spindle holding T2");
 
   scene.set_atc_pocket_tool(0, 0, true, 50.0);
-  runtime.io().write_serial("M6 T0\n");
+  runtime.io().write_serial_command("M6 T0\n");
   serial.clear();
   for (int i = 0;
        i < 1200 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos; ++i) {
     pump_script(runtime);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -146,23 +146,23 @@ int main() {
   require(scene.atc_spindle().has_tool && scene.atc_spindle().tool == 0,
           "M6 T0 should leave the simulated spindle holding the wireless probe");
 
-  runtime.io().write_serial("M6 T1\n");
+  runtime.io().write_serial_command("M6 T1\n");
   serial.clear();
   for (int i = 0;
        i < 1200 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos; ++i) {
     pump_script(runtime);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   require(serial.find("Done ATC") != std::string::npos, "M6 T1 should drop the wireless probe and pick T1");
   require(!scene.probe_tool_installed(), "dropping C1 probe pocket T0 should make the spindle probe inactive");
 
   scene.set_atc_pocket_tool(3, 3, false, 48.0);
-  runtime.io().write_serial("M6 T3\n");
+  runtime.io().write_serial_command("M6 T3\n");
   serial.clear();
   for (int i = 0; i < 900 && serial.find("ERROR:") == std::string::npos && serial.find("Done ATC") == std::string::npos;
        ++i) {
     pump_script(runtime);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   require(serial.find("ERROR:") != std::string::npos, "M6 T3 should report an ATC error when the rack pocket is empty");
   require(!scene.atc_spindle().has_tool || scene.atc_spindle().tool != 3,

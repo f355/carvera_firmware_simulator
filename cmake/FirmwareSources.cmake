@@ -43,6 +43,20 @@ if(_player_host_contents STREQUAL _player_contents)
 endif()
 file(WRITE "${_player_host_source}" "${_player_host_contents}")
 
+# WifiProvider pins a buffer into LPC AHBSRAM with an ELF-only section name.
+# Mach-O rejects that form, so compile a host copy that drops the placement.
+set(_wifi_source "${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp")
+set(_wifi_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/WifiProvider.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_wifi_source}")
+file(READ "${_wifi_source}" _wifi_contents)
+set(_wifi_ahbsram_attr "__attribute__((section(\"AHBSRAM1\"), aligned(4)))")
+set(_wifi_host_attr "alignas(4)")
+string(REPLACE "${_wifi_ahbsram_attr}" "${_wifi_host_attr}" _wifi_host_contents "${_wifi_contents}")
+if(_wifi_host_contents STREQUAL _wifi_contents)
+  message(FATAL_ERROR "Pinned WifiProvider.cpp no longer contains the expected AHBSRAM1 section attribute")
+endif()
+file(WRITE "${_wifi_host_source}" "${_wifi_host_contents}")
+
 set(SIM_FIRMWARE_FACADE_SOURCES
   src/compat/active_context.cpp
   src/firmware/firmware_boot_stubs.cpp
@@ -88,6 +102,7 @@ set(SIM_CORE_SOURCES
 )
 
 set(SIM_PROTOCOL_SOURCES
+  src/protocol/makera_protocol.cpp
   src/protocol/m8266_wifi.cpp
 )
 
@@ -135,7 +150,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${_player_host_source}
   ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
   ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
-  ${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp
+  ${_wifi_host_source}
   ${FIRMWARE_SRC}/modules/robot/Block.cpp
   ${FIRMWARE_SRC}/modules/robot/BlockQueue.cpp
   ${FIRMWARE_SRC}/modules/robot/Conveyor.cpp

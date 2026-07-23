@@ -67,11 +67,12 @@ int main() {
   sd.write_config_txt(
       "# controller handshake config\n"
       "sd_ok true\n"
+      "protocol smoothie\n"
       "soft_endstop.enable true\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   runtime.boot();
-  sim::LocalhostTcpBridge bridge(runtime.io(), [&runtime]() { return runtime.is_uploading(); });
+  sim::LocalhostTcpBridge bridge(runtime.io());
   require(bridge.start(0), "localhost WiFi bridge should start");
 
   std::atomic_bool running{true};
@@ -97,6 +98,7 @@ int main() {
 
   const char download[] = "download /sd/config.txt\n";
   require(sim::test::write_exact(client, download, std::strlen(download)), "config download command should write");
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto config = sim::test::receive_xmodem_download(client);
   require(config.find("# controller handshake config") != std::string::npos,
           "controller config download should return host SD config.txt");
@@ -149,6 +151,7 @@ int main() {
 
   require(sim::test::write_exact(client, download, std::strlen(download)),
           "post-reset config download command should write");
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto post_reset_config = sim::test::receive_xmodem_download(client);
   require(post_reset_config.find("# controller handshake config") != std::string::npos,
           "controller config download should still work after firmware reset");

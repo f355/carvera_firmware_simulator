@@ -54,7 +54,6 @@ RuntimePumpResult RuntimePump::run_until_motion_idle(std::size_t max_timer_event
   RuntimePumpOptions options;
   options.main_loop_iterations = 64;
   options.max_timer_events = max_timer_events;
-  options.drain_serial_lines = true;
   return pump(options);
 }
 
