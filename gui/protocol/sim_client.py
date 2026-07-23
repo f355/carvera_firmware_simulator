@@ -26,11 +26,13 @@ from gui.generated import carvera_sim_pb2 as pb
 from .model import (
     EepromContents,
     InteractiveTransportState,
+    MemoryDetails,
     ToolConfig,
     ToolKind,
     eeprom_contents_to_proto,
     eeprom_contents_to_state,
     interactive_transport_to_state,
+    memory_details_to_state,
     tool_kind_to_proto,
 )
 
@@ -134,6 +136,11 @@ class SimulatorClient:
         request = pb.Request()
         request.get_status.SetInParent()
         return self.request(request).status
+
+    def get_memory_details(self) -> MemoryDetails:
+        request = pb.Request()
+        request.get_memory_details.SetInParent()
+        return memory_details_to_state(self.request(request).memory_details)
 
     def get_gpio_level(self, port: int, pin: int) -> bool:
         request = pb.Request()

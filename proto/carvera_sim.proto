@@ -69,6 +69,7 @@ message Request {
     SetEepromBytes set_eeprom_bytes = 56;
     GetEepromContents get_eeprom_contents = 57;
     SetEepromContents set_eeprom_contents = 58;
+    GetMemoryDetails get_memory_details = 60;
     GetProbeInputs get_probe_inputs = 28;
     GetAdcInput get_adc_input = 33;
 
@@ -122,6 +123,7 @@ message Response {
     LaserState laser_state = 28;
     EepromBytes eeprom_bytes = 29;
     EepromContents eeprom_contents = 30;
+    MemoryDetails memory_details = 31;
   }
 }
 
@@ -752,6 +754,80 @@ message MachineSnapshot {
   // Physical electronic tool setter button geometry when configured.
   Box tool_setter = 9;
   bool tool_setter_available = 10;
+
+  // Compact LPC1768 memory totals, refreshed with the periodic machine snapshot.
+  MemorySummary memory = 11;
+}
+
+// Command: read the verbose allocation groups behind the compact memory summary.
+message GetMemoryDetails {}
+
+enum MemoryRegion {
+  MEMORY_REGION_UNSPECIFIED = 0;
+  MEMORY_REGION_MAIN_SRAM = 1;
+  MEMORY_REGION_AHB_SRAM = 2;
+}
+
+message MainSramSummary {
+  uint32 capacity_bytes = 1;
+  uint32 static_bytes = 2;
+  uint32 stack_reserved_bytes = 3;
+  uint32 heap_committed_bytes = 4;
+  uint32 live_payload_bytes = 5;
+  uint32 peak_live_payload_bytes = 6;
+  uint32 allocator_overhead_bytes = 7;
+  uint32 fragmented_free_bytes = 8;
+  uint32 largest_free_block_bytes = 9;
+  uint32 top_unallocated_bytes = 10;
+  uint32 minimum_margin_bytes = 11;
+  bool config_cache_active = 12;
+  uint32 config_cache_start = 13;
+  uint32 config_cache_bytes = 14;
+  bool config_cache_collision = 15;
+  uint32 failed_allocation_count = 16;
+  uint64 failed_allocation_bytes = 17;
+  bool heap_limit_collision = 18;
+  uint32 total_free_bytes = 19;
+}
+
+message AhbSramSummary {
+  uint32 capacity_bytes = 1;
+  uint32 static_bytes = 2;
+  uint32 dynamic_capacity_bytes = 3;
+  uint32 live_payload_bytes = 4;
+  uint32 peak_live_payload_bytes = 5;
+  uint32 allocator_overhead_bytes = 6;
+  uint32 total_free_bytes = 7;
+  uint32 largest_free_block_bytes = 8;
+  uint32 failed_allocation_count = 9;
+  uint64 failed_allocation_bytes = 10;
+}
+
+message MemorySummary {
+  MainSramSummary main = 1;
+  AhbSramSummary ahb = 2;
+  uint64 unresolved_main_live_host_bytes = 3;
+  uint64 unresolved_main_peak_host_bytes = 4;
+  uint64 unresolved_ahb_live_host_bytes = 5;
+  uint64 unresolved_ahb_peak_host_bytes = 6;
+}
+
+message MemoryAllocationGroup {
+  MemoryRegion region = 1;
+  string type_name = 2;
+  uint32 host_payload_bytes = 3;
+  uint32 target_payload_bytes = 4;
+  uint32 live_count = 5;
+  uint32 peak_live_count = 6;
+  uint32 total_count = 7;
+  uint64 live_target_bytes = 8;
+  uint64 peak_target_bytes = 9;
+  bool target_size_exact = 10;
+}
+
+message MemoryDetails {
+  MemorySummary summary = 1;
+  repeated MemoryAllocationGroup allocation_groups = 2;
 }
 
 // Response payload for StartInteractiveTransport.

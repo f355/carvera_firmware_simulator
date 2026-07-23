@@ -26,6 +26,7 @@ from gui.views.gpio_tab import GpioTabView
 from gui.views.io_panel import IoPanelView
 from gui.views.machine_tab import FirmwareStateView, MachineTabView
 from gui.views.machine_status import AtcPanelView, AxisPanelView
+from gui.views.memory_panel import MemoryPanelView
 from gui.views.signals_tab import SignalsTabView
 from gui.views.transport_panel import TransportPanelView
 
@@ -50,6 +51,7 @@ class AppView:
     transport_panel_view: TransportPanelView | None = None
     comms_log_view: CommsLogTabView | None = None
     eeprom_panel_view: EepromPanelView | None = None
+    memory_panel_view: MemoryPanelView | None = None
     machine_tab_view: MachineTabView | None = None
     signals_tab_view: SignalsTabView | None = None
     environment_tab_view: EnvironmentTabView | None = None

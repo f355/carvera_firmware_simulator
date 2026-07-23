@@ -309,6 +309,7 @@ add_library(carvera_sim_api
   src/protocol/discovery_beacon.cpp
   src/protocol/interactive_transport_manager.cpp
   src/protocol/localhost_tcp_bridge.cpp
+  src/protocol/lpc_memory_proto.cpp
   src/protocol/machine_state_proto.cpp
   src/protocol/nonblocking_fd_pump.cpp
   src/protocol/api_service.cpp

@@ -69,3 +69,11 @@ def test_client_sends_structured_eeprom_contents() -> None:
     assert request_contents.tool_length_offset == 1.0
     assert request_contents.persistent_variables[0].number == 501
     assert request_contents.work_coordinate_systems[0].rotation == 12.0
+
+
+def test_client_requests_memory_details_on_demand() -> None:
+    client = RecordingClient()
+
+    client.get_memory_details()
+
+    assert client.requests[-1].HasField("get_memory_details")

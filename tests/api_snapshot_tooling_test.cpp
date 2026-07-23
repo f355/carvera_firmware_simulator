@@ -52,12 +52,9 @@ int main() {
   const auto spindle = api.simulator().context().physical_scene().atc_spindle();
   require(spindle.has_tool, "set_spindle_tool should load the simulated spindle");
   require(spindle.tool == 3, "set_spindle_tool should store the tool number");
-  require(spindle.length_mm == 55.5,
-          "set_spindle_tool should store the tool length");
-  require(spindle.kind == sim::ToolKind::ThreeAxisProbe,
-          "set_spindle_tool should store the physical tool kind");
-  require(spindle.probe_tip_diameter_mm == 2.5,
-          "set_spindle_tool should store the probe tip diameter");
+  require(spindle.length_mm == 55.5, "set_spindle_tool should store the tool length");
+  require(spindle.kind == sim::ToolKind::ThreeAxisProbe, "set_spindle_tool should store the physical tool kind");
+  require(spindle.probe_tip_diameter_mm == 2.5, "set_spindle_tool should store the probe tip diameter");
 
   response = api.request([](auto& request) { request.mutable_get_machine_snapshot(); });
   require(response.ok(), "get_machine_snapshot should boot firmware and succeed");
@@ -92,6 +89,27 @@ int main() {
           "machine snapshot should expose simulated spindle tool kind");
   require(response.machine_snapshot().atc().spindle().probe_tip_diameter_mm() == 2.5,
           "machine snapshot should expose simulated spindle probe tip diameter");
+  require(response.machine_snapshot().has_memory(), "periodic machine snapshots should include LPC memory totals");
+  require(response.machine_snapshot().memory().main().capacity_bytes() == 32'568,
+          "memory summary should expose the LPC1768 main SRAM capacity");
+  require(response.machine_snapshot().memory().main().live_payload_bytes() > 0,
+          "memory summary should expose live target heap allocations");
+  require(response.machine_snapshot().memory().ahb().live_payload_bytes() > 0,
+          "memory summary should expose live target AHB allocations");
+
+  response = api.request([](auto& request) { request.mutable_get_memory_details(); });
+  require(response.ok(), "get_memory_details should succeed after firmware boot");
+  require(response.has_memory_details(), "get_memory_details should return a structured report");
+  bool saw_robot = false;
+  bool saw_blocks = false;
+  for (const auto& group : response.memory_details().allocation_groups()) {
+    saw_robot = saw_robot || (group.region() == sim::test::pb::MEMORY_REGION_MAIN_SRAM &&
+                              group.type_name() == "Robot" && group.target_size_exact());
+    saw_blocks = saw_blocks || (group.region() == sim::test::pb::MEMORY_REGION_AHB_SRAM &&
+                                group.type_name() == "Block[]" && group.target_size_exact());
+  }
+  require(saw_robot, "memory details should identify the Robot allocation with its target ABI size");
+  require(saw_blocks, "memory details should identify the AHB motion block queue");
 
   response = api.request([](auto& request) { request.mutable_get_laser_state(); });
   require(response.ok(), "get_laser_state should succeed");

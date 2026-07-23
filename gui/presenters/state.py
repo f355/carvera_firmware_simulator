@@ -88,6 +88,8 @@ class StatePresenter(SessionPresenter):
             view.axis_panel_view.update(state)
         if view.atc_panel_view is not None:
             view.atc_panel_view.update(state.atc)
+        if view.memory_panel_view is not None and state.memory is not None:
+            view.memory_panel_view.update_summary(state.memory)
         self.update_machine_scene(view, state)
 
     def drain_telemetry(self, view: AppView) -> None:

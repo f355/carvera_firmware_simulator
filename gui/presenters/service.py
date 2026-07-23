@@ -23,6 +23,18 @@ from gui.protocol.sim_client import SimulatorClientError
 
 
 class ServicePresenter(SessionPresenter):
+    async def refresh_memory_details(self, view: AppView) -> None:
+        if view.memory_panel_view is None:
+            return
+        if not self.session.state_store.snapshot().machine_online:
+            ui.notify("Power on the simulator before reading memory details.", type="warning")
+            return
+        try:
+            details = await self.session.process_controller.call(self.session.client.get_memory_details)
+            view.memory_panel_view.set_details(details)
+        except SimulatorClientError as exc:
+            ui.notify(str(exc), type="negative")
+
     async def refresh_eeprom(self, view: AppView, *, notify: bool = True) -> None:
         if view.eeprom_panel_view is None:
             return

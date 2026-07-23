@@ -34,6 +34,79 @@ class MachineModel(StrEnum):
     CARVERA_AIR_CA1 = "ca1"
 
 
+class MemoryRegion(StrEnum):
+    UNSPECIFIED = "unspecified"
+    MAIN_SRAM = "main"
+    AHB_SRAM = "ahb"
+
+
+@dataclass(frozen=True, slots=True)
+class MainSramMemory:
+    capacity_bytes: int
+    static_bytes: int
+    stack_reserved_bytes: int
+    heap_committed_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    fragmented_free_bytes: int
+    largest_free_block_bytes: int
+    top_unallocated_bytes: int
+    minimum_margin_bytes: int
+    config_cache_active: bool
+    config_cache_start: int
+    config_cache_bytes: int
+    config_cache_collision: bool
+    failed_allocation_count: int
+    failed_allocation_bytes: int
+    heap_limit_collision: bool
+    total_free_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class AhbSramMemory:
+    capacity_bytes: int
+    static_bytes: int
+    dynamic_capacity_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    total_free_bytes: int
+    largest_free_block_bytes: int
+    failed_allocation_count: int
+    failed_allocation_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemorySummary:
+    main: MainSramMemory
+    ahb: AhbSramMemory
+    unresolved_main_live_host_bytes: int
+    unresolved_main_peak_host_bytes: int
+    unresolved_ahb_live_host_bytes: int
+    unresolved_ahb_peak_host_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryAllocationGroup:
+    region: MemoryRegion
+    type_name: str
+    host_payload_bytes: int
+    target_payload_bytes: int
+    live_count: int
+    peak_live_count: int
+    total_count: int
+    live_target_bytes: int
+    peak_target_bytes: int
+    target_size_exact: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryDetails:
+    summary: MemorySummary
+    allocation_groups: tuple[MemoryAllocationGroup, ...]
+
+
 @dataclass(frozen=True, slots=True)
 class Box3D:
     min_x: float
@@ -151,6 +224,7 @@ class MachineState:
     spindle: SpindleSnapshot | None
     tool_setter: Box3D | None
     telemetry_time_s: float | None = None
+    memory: MemorySummary | None = None
 
     def axes_by_name(self) -> dict[str, AxisSnapshot]:
         return {axis.axis: axis for axis in self.axes}
@@ -246,6 +320,7 @@ def snapshot_to_state(snapshot: pb.MachineSnapshot) -> MachineState:
         atc=_atc_to_state(snapshot.atc),
         spindle=_spindle_to_state(snapshot.spindle),
         tool_setter=_box_to_state(snapshot.tool_setter) if snapshot.tool_setter_available else None,
+        memory=memory_summary_to_state(snapshot.memory) if snapshot.HasField("memory") else None,
     )
 
 
@@ -312,6 +387,75 @@ def eeprom_contents_to_state(contents: pb.EepromContents) -> EepromContents:
                 rotation=float(system.rotation),
             )
             for system in contents.work_coordinate_systems
+        ),
+    )
+
+
+def memory_summary_to_state(summary: pb.MemorySummary) -> MemorySummary:
+    main = summary.main
+    ahb = summary.ahb
+    return MemorySummary(
+        main=MainSramMemory(
+            capacity_bytes=int(main.capacity_bytes),
+            static_bytes=int(main.static_bytes),
+            stack_reserved_bytes=int(main.stack_reserved_bytes),
+            heap_committed_bytes=int(main.heap_committed_bytes),
+            live_payload_bytes=int(main.live_payload_bytes),
+            peak_live_payload_bytes=int(main.peak_live_payload_bytes),
+            allocator_overhead_bytes=int(main.allocator_overhead_bytes),
+            fragmented_free_bytes=int(main.fragmented_free_bytes),
+            largest_free_block_bytes=int(main.largest_free_block_bytes),
+            top_unallocated_bytes=int(main.top_unallocated_bytes),
+            minimum_margin_bytes=int(main.minimum_margin_bytes),
+            config_cache_active=bool(main.config_cache_active),
+            config_cache_start=int(main.config_cache_start),
+            config_cache_bytes=int(main.config_cache_bytes),
+            config_cache_collision=bool(main.config_cache_collision),
+            failed_allocation_count=int(main.failed_allocation_count),
+            failed_allocation_bytes=int(main.failed_allocation_bytes),
+            heap_limit_collision=bool(main.heap_limit_collision),
+            total_free_bytes=int(main.total_free_bytes),
+        ),
+        ahb=AhbSramMemory(
+            capacity_bytes=int(ahb.capacity_bytes),
+            static_bytes=int(ahb.static_bytes),
+            dynamic_capacity_bytes=int(ahb.dynamic_capacity_bytes),
+            live_payload_bytes=int(ahb.live_payload_bytes),
+            peak_live_payload_bytes=int(ahb.peak_live_payload_bytes),
+            allocator_overhead_bytes=int(ahb.allocator_overhead_bytes),
+            total_free_bytes=int(ahb.total_free_bytes),
+            largest_free_block_bytes=int(ahb.largest_free_block_bytes),
+            failed_allocation_count=int(ahb.failed_allocation_count),
+            failed_allocation_bytes=int(ahb.failed_allocation_bytes),
+        ),
+        unresolved_main_live_host_bytes=int(summary.unresolved_main_live_host_bytes),
+        unresolved_main_peak_host_bytes=int(summary.unresolved_main_peak_host_bytes),
+        unresolved_ahb_live_host_bytes=int(summary.unresolved_ahb_live_host_bytes),
+        unresolved_ahb_peak_host_bytes=int(summary.unresolved_ahb_peak_host_bytes),
+    )
+
+
+def memory_details_to_state(details: pb.MemoryDetails) -> MemoryDetails:
+    regions = {
+        pb.MEMORY_REGION_MAIN_SRAM: MemoryRegion.MAIN_SRAM,
+        pb.MEMORY_REGION_AHB_SRAM: MemoryRegion.AHB_SRAM,
+    }
+    return MemoryDetails(
+        summary=memory_summary_to_state(details.summary),
+        allocation_groups=tuple(
+            MemoryAllocationGroup(
+                region=regions.get(group.region, MemoryRegion.UNSPECIFIED),
+                type_name=str(group.type_name),
+                host_payload_bytes=int(group.host_payload_bytes),
+                target_payload_bytes=int(group.target_payload_bytes),
+                live_count=int(group.live_count),
+                peak_live_count=int(group.peak_live_count),
+                total_count=int(group.total_count),
+                live_target_bytes=int(group.live_target_bytes),
+                peak_target_bytes=int(group.peak_target_bytes),
+                target_size_exact=bool(group.target_size_exact),
+            )
+            for group in details.allocation_groups
         ),
     )
 

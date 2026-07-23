@@ -75,17 +75,34 @@ class FakeTransportPanel:
         self.updated_with = value
 
 
-class FakeProcessController:
+class FakeMemoryPanel:
     def __init__(self) -> None:
-        self.calls: list[tuple[object, tuple[object, ...]]] = []
+        self.summary: object | None = None
+        self.details: object | None = None
 
-    async def call(self, method: object, *args: object) -> None:
+    def update_summary(self, value: object) -> None:
+        self.summary = value
+
+    def set_details(self, value: object) -> None:
+        self.details = value
+
+
+class FakeProcessController:
+    def __init__(self, result: object = None) -> None:
+        self.calls: list[tuple[object, tuple[object, ...]]] = []
+        self.result = result
+
+    async def call(self, method: object, *args: object) -> object:
         self.calls.append((method, args))
+        return self.result
 
 
 class FakeClient:
     def set_realtime_speed(self, multiplier: float) -> None:
         _ = multiplier
+
+    def get_memory_details(self) -> None:
+        return None
 
 
 def test_app_presenters_is_composed_from_features() -> None:
@@ -167,6 +184,52 @@ def test_drain_snapshot_updates_full_firmware_state_and_scene() -> None:
     assert firmware_view.soft_limit_badge.text == "enabled"
     assert firmware_view.soft_limit_badge.classes_text == "badge-on"
     assert machine_scene.updated_with == snapshot
+
+
+def test_periodic_snapshot_updates_memory_panel() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    summary = object()
+    snapshot = MachineState(
+        firmware_booted=True,
+        homed=False,
+        soft_endstop_enabled=False,
+        work_area=None,
+        physical_travel=None,
+        axes=(),
+        atc=None,
+        spindle=None,
+        tool_setter=None,
+        memory=cast(Any, summary),
+    )
+    session = SimpleNamespace(state_store=store, snapshot_buffer=FakeStateBuffer(snapshot))
+    actions = AppPresenters(session)  # type: ignore[arg-type]
+    memory_panel = FakeMemoryPanel()
+    view = AppView()
+    view.firmware_state_view = cast(Any, make_firmware_state_view())
+    view.memory_panel_view = cast(Any, memory_panel)
+
+    actions.state.drain_snapshots(view)
+
+    assert memory_panel.summary is summary
+
+
+def test_memory_allocation_details_are_requested_on_demand() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    details = object()
+    process_controller = FakeProcessController(details)
+    client = FakeClient()
+    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    actions = AppPresenters(session)  # type: ignore[arg-type]
+    memory_panel = FakeMemoryPanel()
+    view = AppView()
+    view.memory_panel_view = cast(Any, memory_panel)
+
+    asyncio.run(actions.service.refresh_memory_details(view))
+
+    assert process_controller.calls == [(client.get_memory_details, ())]
+    assert memory_panel.details is details
 
 
 def test_drain_snapshot_updates_during_power_transition() -> None:

@@ -34,6 +34,7 @@ from gui.views.gpio_tab import build_gpio_tab
 from gui.views.io_panel import IoPanelView
 from gui.views.machine_status import AtcPanelView, AxisPanelView
 from gui.views.machine_tab import build_firmware_state_panel, build_machine_tab
+from gui.views.memory_panel import build_memory_panel
 from gui.views.signals_tab import build_signals_tab
 from gui.views.styles import SIM_CSS
 from gui.views.transport_panel import build_transport_panel
@@ -177,6 +178,9 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                                 sd_root=session.sd_root,
                                 simulator_path=session.args.simulator,
                                 open_sd_root=lambda: open_in_file_manager(session.sd_root),
+                            )
+                            view.memory_panel_view = build_memory_panel(
+                                refresh_details=lambda: actions.service.refresh_memory_details(view),
                             )
                             view.eeprom_panel_view = build_eeprom_panel(
                                 refresh_eeprom=lambda: actions.service.refresh_eeprom(view),

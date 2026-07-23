@@ -18,6 +18,10 @@
 #include "sim/api_service.hpp"
 
 #include "sim/api_snapshot.hpp"
+#include "sim/firmware_runtime.hpp"
+#include "sim/lpc_memory_proto.hpp"
+#include "sim/machine_simulator.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 
@@ -31,6 +35,14 @@ std::optional<ApiService::Response> ApiService::handle_snapshot_transport_comman
       if (!fill_machine_snapshot(*response.mutable_machine_snapshot(), firmware_, machine_)) {
         return error(request.id(), "firmware Robot is not available");
       }
+      return response;
+    }
+    case Request::kGetMemoryDetails: {
+      if (!firmware_.booted()) {
+        return error(request.id(), "firmware is not running");
+      }
+      auto response = ok(request.id());
+      api::fill_memory_details(*response.mutable_memory_details(), machine_.context().memory_accounting().snapshot());
       return response;
     }
     case Request::kStartInteractiveTransport: {

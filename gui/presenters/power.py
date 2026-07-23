@@ -105,6 +105,8 @@ class PowerPresenter(SessionPresenter):
                 view.atc_panel_view.reset()
             if view.eeprom_panel_view is not None:
                 view.eeprom_panel_view.status_label.text = "Power on and refresh to view EEPROM contents."
+            if view.memory_panel_view is not None:
+                view.memory_panel_view.reset()
             self.state.update_machine_scene(view, None)
         finally:
             self.state.update_model_selector_lock(view)

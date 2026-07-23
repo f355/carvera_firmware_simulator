@@ -30,6 +30,15 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
     snapshot.tool_setter_available = True
     snapshot.tool_setter.min_x = -15.0
     snapshot.tool_setter.max_x = -7.0
+    snapshot.memory.main.capacity_bytes = 32_568
+    snapshot.memory.main.live_payload_bytes = 5_000
+    snapshot.memory.main.peak_live_payload_bytes = 6_000
+    snapshot.memory.main.total_free_bytes = 18_000
+    snapshot.memory.main.minimum_margin_bytes = 9_000
+    snapshot.memory.ahb.capacity_bytes = 32_768
+    snapshot.memory.ahb.live_payload_bytes = 12_500
+    snapshot.memory.ahb.total_free_bytes = 4_700
+    snapshot.memory.unresolved_main_live_host_bytes = 20_000
 
     axis = snapshot.axes.add()
     axis.axis = model.pb.AXIS_X
@@ -66,6 +75,12 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
     assert state.atc.available is True
     assert state.atc.spindle.active_tool == 2
     assert state.atc.pocket(1).kind == model.ToolKind.CUTTING_TOOL
+    assert state.memory is not None
+    assert state.memory.main.capacity_bytes == 32_568
+    assert state.memory.main.live_payload_bytes == 5_000
+    assert state.memory.main.minimum_margin_bytes == 9_000
+    assert state.memory.ahb.live_payload_bytes == 12_500
+    assert state.memory.unresolved_main_live_host_bytes == 20_000
 
     telemetry = model.pb.MachineTelemetry()
     telemetry.firmware_booted = True
@@ -76,6 +91,7 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
     assert frame.axis("A").physical_mm == 10.5
     assert frame.work_area is None
     assert frame.atc is None
+    assert frame.memory is None
     assert frame.telemetry_time_s == 12.34
 
 
