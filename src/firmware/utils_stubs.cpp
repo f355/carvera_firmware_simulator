@@ -297,7 +297,8 @@ void advance_delay_time(std::uint64_t delay_us) {
     sim::us_ticker::dispatch_due_events();
   }
   if (sim::delay_hooks::run()) {
-    std::this_thread::yield();
+    const auto wall_delay_us = std::min<std::uint64_t>(delay_us, 1000);
+    std::this_thread::sleep_for(std::chrono::microseconds(wall_delay_us));
   }
   if (THEKERNEL != nullptr) {
     THEKERNEL->call_event(ON_IDLE, nullptr);

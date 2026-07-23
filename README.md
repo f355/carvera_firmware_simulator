@@ -162,15 +162,17 @@ for testing current development code but is not a versioned release.
 
 ### Coverage reports
 
-Configure a separate instrumented build and run its `coverage` target:
+Configure the canonical build with instrumentation and run its `coverage`
+target:
 
 ```sh
-cmake -S . -B build-coverage -G Ninja -DCARVERA_SIM_ENABLE_COVERAGE=ON
-cmake --build build-coverage --target coverage
+cmake -S . -B build -G Ninja -DCARVERA_SIM_ENABLE_COVERAGE=ON
+cmake --build build --target coverage
 ```
 
 The target runs the C++ test suite and writes annotated firmware and simulator
-reports to `build-coverage/coverage/`. The firmware report includes only the
+reports to `build/coverage/`. Desktop packaging scripts reconfigure the same
+build back to a non-instrumented Release build. The firmware report includes only the
 firmware sources compiled for the C1 and CA1 simulator configurations. Coverage
 is informational; the target does not enforce a threshold.
 

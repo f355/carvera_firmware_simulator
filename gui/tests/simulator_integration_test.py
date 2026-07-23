@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -29,9 +30,10 @@ pytestmark = pytest.mark.integration
 
 def test_stdio_client_controls_simulator_lifecycle() -> None:
     root = Path(__file__).resolve().parents[2]
-    simulator_binary = root / "build" / "carvera_sim_stdio"
+    configured_binary = os.environ.get("CARVERA_SIMULATOR_API_BINARY")
+    simulator_binary = Path(configured_binary) if configured_binary else root / "build" / "carvera_sim_stdio"
     if not simulator_binary.exists():
-        pytest.skip("build/carvera_sim_stdio is not built")
+        pytest.skip(f"{simulator_binary} is not built")
 
     simulator = SimulatorClient(simulator_binary)
     with tempfile.TemporaryDirectory(prefix="carvera_sim_gui_test_") as tmp:

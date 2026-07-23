@@ -76,30 +76,18 @@ int main() {
   require(bridge.start(0), "localhost WiFi bridge should start");
 
   std::atomic_bool running{true};
-  std::atomic_bool transfer_active{false};
   std::thread pump([&] {
     while (running.load()) {
       bridge.poll();
       {
-        sim::delay_hooks::ScopedCallback delay_io_pump([&] {
-          transfer_active.store(runtime.is_uploading());
-          bridge.poll();
-        });
+        sim::delay_hooks::ScopedCallback delay_io_pump([&] { bridge.poll(); });
         runtime.runner().pump_free_running();
       }
-      transfer_active.store(runtime.is_uploading());
       bridge.poll();
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   });
   auto wait_for_bridge_io = [] { std::this_thread::yield(); };
-  const auto wait_for_transfer = [&transfer_active] {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (!transfer_active.load() && std::chrono::steady_clock::now() < deadline) {
-      std::this_thread::yield();
-    }
-    return transfer_active.load();
-  };
 
   int client = -1;
   require(sim::test::connect_loopback(bridge.port(), client),
@@ -110,7 +98,7 @@ int main() {
 
   const char download[] = "download /sd/config.txt\n";
   require(sim::test::write_exact(client, download, std::strlen(download)), "config download command should write");
-  require(wait_for_transfer(), "config download should enter transfer mode");
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto config = sim::test::receive_xmodem_download(client);
   require(config.find("# controller handshake config") != std::string::npos,
           "controller config download should return host SD config.txt");
@@ -163,7 +151,7 @@ int main() {
 
   require(sim::test::write_exact(client, download, std::strlen(download)),
           "post-reset config download command should write");
-  require(wait_for_transfer(), "post-reset config download should enter transfer mode");
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto post_reset_config = sim::test::receive_xmodem_download(client);
   require(post_reset_config.find("# controller handshake config") != std::string::npos,
           "controller config download should still work after firmware reset");

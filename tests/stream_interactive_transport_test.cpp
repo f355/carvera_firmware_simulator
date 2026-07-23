@@ -306,6 +306,10 @@ int main(int argc, char** argv) {
               "failed to write download command to TCP endpoint")) {
     return 1;
   }
+  // The controller starts XMODEM after the line command has reached the firmware.
+  // Keeping the phases separate also prevents TCP from coalescing the first raw
+  // handshake byte into the command parser's receive batch.
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   const auto downloaded_config = sim::test::receive_xmodem_download(client);
   close(client);
   simulator.stop();

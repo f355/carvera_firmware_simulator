@@ -115,7 +115,7 @@ jobs:
         shell: pwsh
         env:
           CARVERA_SIM_MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
-          CARVERA_SIM_PACKAGE_BUILD_DIR: ${{ github.workspace }}\build-windows
+          CARVERA_SIM_PACKAGE_BUILD_DIR: ${{ github.workspace }}\build
         run: scripts\build_windows_app.ps1
 
       - name: Test native and packaged Windows backends

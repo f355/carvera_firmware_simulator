@@ -86,7 +86,7 @@ def test_packaged_simulator_binary_takes_precedence(tmp_path: Path) -> None:
     assert default_stream_simulator(tmp_path, platform="linux") == packaged_binary
 
 
-def test_windows_simulator_binary_uses_exe_name_and_native_build_directory(tmp_path: Path) -> None:
+def test_windows_simulator_binary_uses_exe_name(tmp_path: Path) -> None:
     packaged_binary = tmp_path / "bin" / "carvera_sim_stream_stdio.exe"
     packaged_binary.parent.mkdir()
     packaged_binary.touch()
@@ -94,9 +94,7 @@ def test_windows_simulator_binary_uses_exe_name_and_native_build_directory(tmp_p
     assert default_stream_simulator(tmp_path, platform="win32") == packaged_binary
 
     packaged_binary.unlink()
-    assert default_stream_simulator(tmp_path, platform="win32") == (
-        tmp_path / "build-windows" / "carvera_sim_stream_stdio.exe"
-    )
+    assert default_stream_simulator(tmp_path, platform="win32") == tmp_path / "build" / "carvera_sim_stream_stdio.exe"
 
 
 def test_prepare_sd_root_initializes_once(tmp_path: Path) -> None:
