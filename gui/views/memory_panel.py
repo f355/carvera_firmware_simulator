@@ -57,21 +57,30 @@ def _status_text(summary: MemorySummary) -> str:
 def _details_text(details: MemoryDetails) -> str:
     if not details.allocation_groups:
         return "No live or historical allocation groups."
-    lines: list[str] = []
-    for group in details.allocation_groups:
-        region = {
-            MemoryRegion.MAIN_SRAM: "Main SRAM",
-            MemoryRegion.AHB_SRAM: "AHB SRAM",
-        }.get(group.region, "Unknown SRAM")
-        estimate = "" if group.target_size_exact else " estimated"
-        lines.append(
-            f"{region} · {group.type_name}\n"
-            f"  live {group.live_count} × {format_bytes(group.target_payload_bytes)}"
-            f" = {format_bytes(group.live_target_bytes)}{estimate}; "
-            f"peak {group.peak_live_count} / {format_bytes(group.peak_target_bytes)}; "
-            f"total allocations {group.total_count}"
+
+    sections: list[str] = []
+    for region, title in (
+        (MemoryRegion.MAIN_SRAM, "Main SRAM"),
+        (MemoryRegion.AHB_SRAM, "AHB SRAM"),
+    ):
+        groups = sorted(
+            (group for group in details.allocation_groups if group.region is region),
+            key=lambda group: (-group.live_target_bytes, group.type_name),
         )
-    return "\n".join(lines)
+        lines = [title]
+        if not groups:
+            lines.append("No allocation groups.")
+        for group in groups:
+            estimate = "" if group.target_size_exact else " (host-size estimate)"
+            allocation_word = "allocation" if group.total_count == 1 else "allocations"
+            lines.append(
+                f"{format_bytes(group.live_target_bytes)}{estimate} · {group.type_name} · "
+                f"{group.live_count} live × {format_bytes(group.target_payload_bytes)} · "
+                f"peak {format_bytes(group.peak_target_bytes)} ({group.peak_live_count}) · "
+                f"{group.total_count} {allocation_word}"
+            )
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
 
 
 @dataclass

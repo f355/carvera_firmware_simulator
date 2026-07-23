@@ -119,11 +119,53 @@ def test_memory_panel_renders_allocation_groups_only_after_details_arrive() -> N
                 peak_target_bytes=64,
                 target_size_exact=True,
             ),
+            MemoryAllocationGroup(
+                region=MemoryRegion.AHB_SRAM,
+                type_name="raw buffer",
+                host_payload_bytes=256,
+                target_payload_bytes=256,
+                live_count=2,
+                peak_live_count=2,
+                total_count=2,
+                live_target_bytes=512,
+                peak_target_bytes=512,
+                target_size_exact=True,
+            ),
+            MemoryAllocationGroup(
+                region=MemoryRegion.MAIN_SRAM,
+                type_name="Planner",
+                host_payload_bytes=184,
+                target_payload_bytes=184,
+                live_count=3,
+                peak_live_count=4,
+                total_count=5,
+                live_target_bytes=552,
+                peak_target_bytes=736,
+                target_size_exact=True,
+            ),
+            MemoryAllocationGroup(
+                region=MemoryRegion.AHB_SRAM,
+                type_name="Block[]",
+                host_payload_bytes=1_024,
+                target_payload_bytes=1_024,
+                live_count=1,
+                peak_live_count=1,
+                total_count=1,
+                live_target_bytes=1_024,
+                peak_target_bytes=1_024,
+                target_size_exact=True,
+            ),
         ),
     )
 
     panel.set_details(details)
 
-    assert "Main SRAM" in panel.details_label.text
-    assert "Robot" in panel.details_label.text
-    assert "64 B" in panel.details_label.text
+    assert panel.details_label.text.splitlines() == [
+        "Main SRAM",
+        "552 B · Planner · 3 live × 184 B · peak 736 B (4) · 5 allocations",
+        "64 B · Robot · 1 live × 64 B · peak 64 B (1) · 1 allocation",
+        "",
+        "AHB SRAM",
+        "1,024 B · Block[] · 1 live × 1,024 B · peak 1,024 B (1) · 1 allocation",
+        "512 B · raw buffer · 2 live × 256 B · peak 512 B (2) · 2 allocations",
+    ]
