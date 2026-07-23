@@ -168,6 +168,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  request.Clear();
+  request.set_id(24);
+  request.mutable_get_memory_details();
+  if (!expect(simulator.write_request(request), "failed to write memory details request")) {
+    return 1;
+  }
+
   response.Clear();
   const bool stale_snapshot_rejected = simulator.wait_response(20, response, kBusyResponseDeadline) && !response.ok();
   if (!expect(stale_snapshot_rejected, "busy stream should reject non-urgent snapshot reads quickly")) {
@@ -191,6 +198,13 @@ int main(int argc, char** argv) {
   const bool realtime_speed_acknowledged =
       simulator.wait_response(23, response, kBusyResponseDeadline) && response.ok();
   if (!expect(realtime_speed_acknowledged, "busy stream should acknowledge realtime speed changes quickly")) {
+    return 1;
+  }
+
+  response.Clear();
+  const bool memory_details_acknowledged =
+      simulator.wait_response(24, response, kBusyResponseDeadline) && response.ok() && response.has_memory_details();
+  if (!expect(memory_details_acknowledged, "busy stream should return memory accounting details")) {
     return 1;
   }
 

@@ -25,15 +25,11 @@ from gui.protocol.model import MemoryDetails, MemoryRegion, MemorySummary
 
 
 def format_bytes(value: int) -> str:
-    if value < 1024:
-        return f"{value} B"
-    return f"{value / 1024:.1f} KiB"
+    return f"{value:,} B"
 
 
 def _usage_text(used: int, capacity: int) -> str:
-    if used >= 1024 and capacity >= 1024:
-        return f"{used / 1024:.1f} / {capacity / 1024:.1f} KiB"
-    return f"{format_bytes(used)} / {format_bytes(capacity)}"
+    return f"{used:,} / {capacity:,} B"
 
 
 def _status_text(summary: MemorySummary) -> str:

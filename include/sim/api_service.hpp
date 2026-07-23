@@ -58,6 +58,7 @@ class ApiService {
   std::optional<Response> handle_physical_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_cooperative_physical_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_snapshot_transport_command(const carvera::sim::v1::Request& request);
+  std::optional<Response> handle_cooperative_snapshot_transport_command(const carvera::sim::v1::Request& request);
 
   carvera::sim::v1::Response ok(std::uint64_t request_id) const;
   carvera::sim::v1::Response error(std::uint64_t request_id, const char* message) const;

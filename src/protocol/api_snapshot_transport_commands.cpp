@@ -62,4 +62,16 @@ std::optional<ApiService::Response> ApiService::handle_snapshot_transport_comman
   }
 }
 
+std::optional<ApiService::Response> ApiService::handle_cooperative_snapshot_transport_command(
+    const carvera::sim::v1::Request& request) {
+  using Request = carvera::sim::v1::Request;
+
+  switch (request.command_case()) {
+    case Request::kGetMemoryDetails:
+      return handle_snapshot_transport_command(request);
+    default:
+      return std::nullopt;
+  }
+}
+
 }  // namespace sim

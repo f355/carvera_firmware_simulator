@@ -67,6 +67,9 @@ carvera::sim::v1::Response ApiService::handle_cooperative(const carvera::sim::v1
   if (auto response = handle_cooperative_physical_command(request)) {
     return *response;
   }
+  if (auto response = handle_cooperative_snapshot_transport_command(request)) {
+    return *response;
+  }
   if (request.command_case() == carvera::sim::v1::Request::COMMAND_NOT_SET) {
     return error(request.id(), "command is required");
   }

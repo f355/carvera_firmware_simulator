@@ -89,11 +89,11 @@ def test_memory_panel_updates_periodic_summary_and_resets() -> None:
 
     panel.update_summary(memory_summary())
 
-    assert panel.main_live_label.text == "5.0 / 31.8 KiB"
-    assert panel.main_margin_label.text == "9.0 KiB"
-    assert panel.ahb_live_label.text == "12.0 / 32.0 KiB"
-    assert panel.ahb_largest_label.text == "3.0 KiB"
-    assert panel.status_label.text == "Config cache 2.0 KiB · no allocation failures"
+    assert panel.main_live_label.text == "5,120 / 32,568 B"
+    assert panel.main_margin_label.text == "9,216 B"
+    assert panel.ahb_live_label.text == "12,288 / 32,768 B"
+    assert panel.ahb_largest_label.text == "3,072 B"
+    assert panel.status_label.text == "Config cache 2,048 B · no allocation failures"
 
     panel.reset()
 
