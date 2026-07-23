@@ -225,4 +225,4 @@ exec uv run python -m gui.app \
   --firmware-root "$FIRMWARE_ROOT" \
   --simulator "$SIMULATOR_BIN" \
   --model "$MODEL" \
-  "${GUI_ARGS[@]}"
+  ${GUI_ARGS[@]+"${GUI_ARGS[@]}"}
