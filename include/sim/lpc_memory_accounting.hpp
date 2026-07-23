@@ -37,6 +37,8 @@ struct MainSramLayout {
   std::uint32_t config_cache_bytes{};
 };
 
+MainSramLayout firmware_main_sram_layout();
+
 struct MainSramSnapshot {
   std::uint32_t capacity_bytes{};
   std::uint32_t static_bytes{};
@@ -103,6 +105,8 @@ struct AhbLayout {
   std::uint32_t region_end{};
   std::uint32_t dynamic_start{};
 };
+
+AhbLayout firmware_ahb_layout();
 
 struct AhbPoolSnapshot {
   std::uint32_t capacity_bytes{};

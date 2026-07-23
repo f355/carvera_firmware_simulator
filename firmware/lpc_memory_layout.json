@@ -1,0 +1,22 @@
+{
+  "ahb_sram": {
+    "dynamic_start": 537394344,
+    "region_end": 537411584,
+    "region_start": 537378816
+  },
+  "firmware_commit": "78afb9f3186b8580a4312312ed3e185c4e5a0a92",
+  "main_sram": {
+    "config_cache_bytes": 9100,
+    "heap_limit": 268464096,
+    "ram_end": 268468224,
+    "ram_start": 268435656,
+    "stack_limit": 268464128,
+    "stack_top": 268468224,
+    "static_end": 268439504
+  },
+  "schema_version": 1,
+  "type_sizes": {
+    "Block": 368,
+    "ConfigValue": 26
+  }
+}

@@ -21,6 +21,8 @@
 #include <limits>
 #include <stdexcept>
 
+#include "lpc_memory_layout.hpp"
+
 namespace {
 
 constexpr std::uint32_t kMainHeapHeaderBytes = 8;
@@ -57,6 +59,26 @@ void rebuild_allocation_index(const std::vector<Chunk>& chunks,
 }  // namespace
 
 namespace sim::lpc_memory {
+
+MainSramLayout firmware_main_sram_layout() {
+  return {
+      .ram_start = generated::kRamStart,
+      .ram_end = generated::kRamEnd,
+      .static_end = generated::kStaticEnd,
+      .stack_top = generated::kStackTop,
+      .stack_limit = generated::kStackLimit,
+      .heap_limit = generated::kHeapLimit,
+      .config_cache_bytes = generated::kConfigCacheBytes,
+  };
+}
+
+AhbLayout firmware_ahb_layout() {
+  return {
+      .region_start = generated::kAhbRegionStart,
+      .region_end = generated::kAhbRegionEnd,
+      .dynamic_start = generated::kAhbDynamicStart,
+  };
+}
 
 MainSramModel::MainSramModel(MainSramLayout layout) : layout_(layout) {
   if (!(layout_.ram_start <= layout_.static_end && layout_.static_end <= layout_.heap_limit &&

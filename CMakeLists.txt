@@ -108,6 +108,34 @@ endif()
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
+set(SIM_LPC_MEMORY_LAYOUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/firmware/lpc_memory_layout.json")
+file(READ "${SIM_LPC_MEMORY_LAYOUT_FILE}" SIM_LPC_MEMORY_LAYOUT_JSON)
+string(JSON SIM_LPC_LAYOUT_SCHEMA_VERSION GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" schema_version)
+if(NOT SIM_LPC_LAYOUT_SCHEMA_VERSION EQUAL 1)
+  message(FATAL_ERROR
+    "${SIM_LPC_MEMORY_LAYOUT_FILE} has unsupported schema version ${SIM_LPC_LAYOUT_SCHEMA_VERSION}"
+  )
+endif()
+string(JSON SIM_LPC_LAYOUT_FIRMWARE_COMMIT GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" firmware_commit)
+if(NOT SIM_LPC_LAYOUT_FIRMWARE_COMMIT STREQUAL SIM_COMPATIBLE_FIRMWARE_COMMIT)
+  message(FATAL_ERROR
+    "${SIM_LPC_MEMORY_LAYOUT_FILE} describes firmware ${SIM_LPC_LAYOUT_FIRMWARE_COMMIT}, but the simulator is "
+    "pinned to ${SIM_COMPATIBLE_FIRMWARE_COMMIT}. Rebuild the firmware and regenerate the LPC memory layout."
+  )
+endif()
+foreach(layout_value IN ITEMS
+    ram_start ram_end static_end stack_top stack_limit heap_limit config_cache_bytes)
+  string(JSON SIM_LPC_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" main_sram ${layout_value})
+endforeach()
+foreach(layout_value IN ITEMS region_start region_end dynamic_start)
+  string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
+endforeach()
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/lpc_memory_layout.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/lpc_memory_layout.hpp
+  @ONLY
+)
+
 include(cmake/FirmwareSources.cmake)
 include(cmake/CompilerDiagnostics.cmake)
 
@@ -199,7 +227,7 @@ add_library(carvera_sim_host_objects OBJECT
   ${SIM_PROTOCOL_SOURCES}
   ${SIM_RUNTIME_SUPPORT_SOURCES}
 )
-target_include_directories(carvera_sim_host_objects PRIVATE include src)
+target_include_directories(carvera_sim_host_objects PRIVATE include src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_include_directories(carvera_sim_host_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
 target_compile_definitions(carvera_sim_host_objects PRIVATE
   CHECKSUM_USE_CPP

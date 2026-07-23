@@ -1,0 +1,26 @@
+/*
+ * Generated from firmware/lpc_memory_layout.json. Do not edit.
+ */
+
+#ifndef SIMULATOR_GENERATED_LPC_MEMORY_LAYOUT_HPP
+#define SIMULATOR_GENERATED_LPC_MEMORY_LAYOUT_HPP
+
+#include <cstdint>
+
+namespace sim::lpc_memory::generated {
+
+inline constexpr std::uint32_t kRamStart = @SIM_LPC_ram_start@U;
+inline constexpr std::uint32_t kRamEnd = @SIM_LPC_ram_end@U;
+inline constexpr std::uint32_t kStaticEnd = @SIM_LPC_static_end@U;
+inline constexpr std::uint32_t kStackTop = @SIM_LPC_stack_top@U;
+inline constexpr std::uint32_t kStackLimit = @SIM_LPC_stack_limit@U;
+inline constexpr std::uint32_t kHeapLimit = @SIM_LPC_heap_limit@U;
+inline constexpr std::uint32_t kConfigCacheBytes = @SIM_LPC_config_cache_bytes@U;
+
+inline constexpr std::uint32_t kAhbRegionStart = @SIM_LPC_AHB_region_start@U;
+inline constexpr std::uint32_t kAhbRegionEnd = @SIM_LPC_AHB_region_end@U;
+inline constexpr std::uint32_t kAhbDynamicStart = @SIM_LPC_AHB_dynamic_start@U;
+
+}  // namespace sim::lpc_memory::generated
+
+#endif
