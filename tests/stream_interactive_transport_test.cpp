@@ -173,6 +173,7 @@ int main(int argc, char** argv) {
 
   sim::test::TempSdCard sd("carvera_sim_stream_interactive_test");
   sim::test::CartesianConfigOptions config_options;
+  config_options.protocol = sim::test::TestProtocol::Smoothie;
   config_options.extra = "spindle.delay_s 1\n";
   sim::test::write_cartesian_config(sd.path(), config_options);
   const std::string config_txt = "# Carvera simulator SD config.\n";

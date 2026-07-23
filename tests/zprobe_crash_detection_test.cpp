@@ -35,9 +35,9 @@ int main() {
   auto& kernel = probe.kernel();
 
   require(runtime.is_homed(), "runtime should home before crash-detection motion");
-  runtime.io().write_serial("M493.2 T999999\n");
+  runtime.io().write_serial_command("M493.2 T999999\n");
   require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
   simulator.context().physical_scene().set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
   runtime.runner().run_main_loop(4);
 
@@ -49,13 +49,13 @@ int main() {
   probe.world().set_stock_box(
       sim::Box{stock_min_x, current_y - 5.0, tip_z - 5.0, stock_min_x + 10.0, current_y + 5.0, tip_z + 5.0});
 
-  runtime.io().write_serial("G91\nG0 X10 F60\n");
+  runtime.io().write_serial_command("G91\nG0 X10 F60\n");
   std::string serial;
   const bool halted = sim::test::pump_until(runtime.runner(), [&] {
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
     return kernel.is_halted();
   });
-  serial += runtime.io().read_serial();
+  serial += runtime.io().read_serial_text();
 
   require(halted, "real ZProbe should halt firmware when a 3D probe contacts stock during normal motion");
   require(kernel.get_halt_reason() == CRASH_DETECTED,

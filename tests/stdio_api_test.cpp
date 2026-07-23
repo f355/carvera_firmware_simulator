@@ -26,6 +26,7 @@
 #include <string>
 
 #include "carvera_sim.pb.h"
+#include "sim/makera_protocol.hpp"
 #include "support/assertions.hpp"
 #include "support/framed_proto_client.hpp"
 #include "support/temp_sdcard.hpp"
@@ -43,7 +44,7 @@ bool read_response(int fd, carvera::sim::v1::Response& response) {
 void write_minimal_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);
   std::ofstream config(root / "config");
-  config << "protocol smoothie\n"
+  config << "protocol makera\n"
          << "arm_solution cartesian\n"
          << "alpha_step_pin 1.28\n"
          << "alpha_dir_pin 1.29\n"
@@ -142,7 +143,7 @@ int main(int argc, char** argv) {
   request.Clear();
   response.Clear();
   request.set_id(5);
-  request.mutable_write_serial()->set_data("G91\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("G91\n"));
   if (!expect(write_request(to_child[1], request), "failed to write serial request") ||
       !expect(read_response(from_child[0], response), "failed to read serial write response") ||
       !expect(response.ok(), "write_serial failed")) {

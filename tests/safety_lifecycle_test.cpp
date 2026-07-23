@@ -98,7 +98,7 @@ int main() {
   require(kernel.robot != nullptr, "boot should install Robot");
   kernel.robot->override_homed_check(true);
   if (kernel.is_halted()) {
-    runtime.io().write_serial("M999\n");
+    runtime.io().write_serial_command("M999\n");
     runtime.runner().run_main_loop(16);
   }
   require(!kernel.is_halted(), "test should clear boot alarms before Player cover check");
@@ -108,9 +108,9 @@ int main() {
   runtime.inputs().set_cover_open(false);
   require(!runtime.inputs().cover_open(), "cover should start closed");
 
-  runtime.io().write_serial("M23 cover\n");
+  runtime.io().write_serial_command("M23 cover\n");
   runtime.runner().run_main_loop(8);
-  runtime.io().write_serial("M24\n");
+  runtime.io().write_serial_command("M24\n");
   bool playing = false;
   bool moving = false;
   for (int i = 0; i < 200; ++i) {
@@ -135,7 +135,7 @@ int main() {
   require(!player_is_playing(), "Player should abort the active job when cover-open halt fires");
 
   runtime.inputs().set_cover_open(false);
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear the cover-open alarm after the cover is closed");
   require(!player_is_playing(), "M999 recovery should not restart an aborted Player job");
@@ -145,13 +145,13 @@ int main() {
   require(kernel.is_halted(), "pressing e-stop should halt the firmware");
   require(kernel.get_halt_reason() == E_STOP, "e-stop policy should report E_STOP");
 
-  runtime.io().write_wifi_tcp("M999\n");
+  runtime.io().write_wifi_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "WiFi M999 should not clear alarm while e-stop remains pressed");
   require(kernel.get_halt_reason() == E_STOP, "still-pressed e-stop should reassert E_STOP");
 
   runtime.inputs().set_e_stop_pressed(false);
-  runtime.io().write_wifi_tcp("M999\n");
+  runtime.io().write_wifi_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "WiFi M999 should clear e-stop alarm after the physical switch is released");
 
@@ -164,13 +164,13 @@ int main() {
       motor_alarm_status.find("<Alarm") != std::string::npos && motor_alarm_status.find("|H:23") != std::string::npos,
       "controller status should expose the motor alarm halt reason");
 
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(kernel.is_halted(), "M999 should not clear a still-active motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_Y, "still-active Y motor alarm should reassert MOTOR_ERROR_Y");
 
   runtime.inputs().set_motor_alarm(1, false);
-  runtime.io().write_serial("M999\n");
+  runtime.io().write_serial_command("M999\n");
   runtime.runner().run_until_motion_idle(20'000);
   require(!kernel.is_halted(), "M999 should clear motor alarm after the physical alarm input is released");
   return 0;

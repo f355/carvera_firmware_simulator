@@ -1,5 +1,5 @@
 # mypy: disable-error-code="var-annotated"
-# source-schema-sha256: 8a6764099d0fe140aad59755571e36c0bf918b5566c415eea849d7e2827b78a5
+# source-schema-sha256: fa480ccd7afbbf306a5729adbba1f383aa55be57e0aa5797b2ccea5e03635d8d
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -343,8 +343,8 @@ class GetAxisPosition(_message.Message):
 class WriteSerial(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
-    data: str
-    def __init__(self, data: _Optional[str] = ...) -> None: ...
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
 class ReadSerial(_message.Message):
     __slots__ = ()
@@ -815,8 +815,8 @@ class AxisPosition(_message.Message):
 class SerialData(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
-    data: str
-    def __init__(self, data: _Optional[str] = ...) -> None: ...
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
 class RunResult(_message.Message):
     __slots__ = ("idle",)

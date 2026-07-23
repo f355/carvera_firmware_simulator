@@ -75,9 +75,8 @@ std::size_t free_running_batches(double realtime_speed) {
 
 namespace sim {
 
-InteractiveTransportManager::InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine,
-                                                         UploadingQuery uploading)
-    : runtime_io_(io), runner_(runner), machine_(machine), uploading_(std::move(uploading)) {}
+InteractiveTransportManager::InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine)
+    : runtime_io_(io), runner_(runner), machine_(machine) {}
 
 InteractiveTransportStartResult InteractiveTransportManager::start(
     const carvera::sim::v1::StartInteractiveTransport& command) {
@@ -98,7 +97,7 @@ InteractiveTransportStartResult InteractiveTransportManager::start(
       if (requested_port > 0xffff) {
         return start_error("TCP port must fit in uint16");
       }
-      auto bridge = std::make_unique<LocalhostTcpBridge>(runtime_io_, uploading_);
+      auto bridge = std::make_unique<LocalhostTcpBridge>(runtime_io_);
       if (!bridge->start(static_cast<std::uint16_t>(requested_port))) {
         return start_error("failed to start TCP bridge");
       }

@@ -451,8 +451,13 @@ u8 M8266WIFI_SPI_STA_Fetch_Last_Scanned_Signals(struct ScannedSigs scanned_signa
 
 u8 M8266WIFI_SPI_Has_DataReceived(void) { return sim::m8266_wifi::active().has_received_data() ? 1 : 0; }
 
-u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t, u8* link_no, u16* status) {
-  return sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u16* status) {
+  const auto received = sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+  auto& clock = sim::compat::active_context().clock();
+  if (received == 0 && max_wait_in_ms != 0 && !clock.is_realtime()) {
+    clock.advance_us(static_cast<std::uint64_t>(max_wait_in_ms) * 1'000);
+  }
+  return received;
 }
 
 u16 M8266WIFI_SPI_RecvData_ex(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u8[4], u16*, u16* status) {

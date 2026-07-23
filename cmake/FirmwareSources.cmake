@@ -102,6 +102,7 @@ set(SIM_CORE_SOURCES
 )
 
 set(SIM_PROTOCOL_SOURCES
+  src/protocol/makera_protocol.cpp
   src/protocol/m8266_wifi.cpp
 )
 

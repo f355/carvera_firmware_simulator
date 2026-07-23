@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "sim/makera_protocol.hpp"
+
 class Kernel;
 
 namespace sim {
@@ -37,8 +39,12 @@ class RuntimeIo {
 
   void write_serial(const std::string& data);
   std::string read_serial();
+  void write_serial_command(const std::string& command);
+  std::string read_serial_text();
   void write_wifi_tcp(const std::string& data);
   std::string read_wifi_tcp();
+  void write_wifi_command(const std::string& command);
+  std::string read_wifi_text();
   void set_wifi_client_connected(bool connected);
   std::vector<std::string> take_wifi_udp_datagrams();
   void write_wireless_probe_rx(const std::string& data);
@@ -48,6 +54,8 @@ class RuntimeIo {
   MachineSimulator& simulator_;
   RuntimeBootSession& boot_session_;
   BootCallback boot_;
+  makera::FrameDecoder serial_decoder_;
+  makera::FrameDecoder wifi_decoder_;
 };
 
 }  // namespace sim

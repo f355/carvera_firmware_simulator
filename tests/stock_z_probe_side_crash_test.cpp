@@ -40,13 +40,13 @@ int main() {
   probe.world().set_stock_box(
       sim::Box{current_x - 14.0, current_y - 5.0, tip_z - 5.0, current_x - 4.0, current_y + 5.0, tip_z + 5.0});
 
-  runtime.io().write_serial("G91\nG0 X-10 F60\n");
+  runtime.io().write_serial_command("G91\nG0 X-10 F60\n");
   std::string serial;
   const bool halted = sim::test::pump_until(runtime.runner(), [&] {
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
     return kernel.is_halted();
   });
-  serial += runtime.io().read_serial();
+  serial += runtime.io().read_serial_text();
 
   require(halted, "stock Z probe side contact should halt through a simulated motor alarm");
   require(kernel.get_halt_reason() == MOTOR_ERROR_X, "stock Z probe side contact in X should report MOTOR_ERROR_X");

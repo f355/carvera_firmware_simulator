@@ -88,7 +88,7 @@ void test_ca1_without_rotary_accessory() {
   require(simulator.axis_endstop_triggered(3),
           "unplugged CA1 rotary accessory should present the A home input as already triggered");
   const double initial_angle = simulator.axis_position_mm(3);
-  runtime.io().write_serial("G91 G0 A90 F600\n");
+  runtime.io().write_serial_command("G91 G0 A90 F600\n");
   runtime.runner().run_until_motion_idle(100'000);
   require_near(simulator.axis_position_mm(3), initial_angle, 0.001,
                "unplugged CA1 rotary accessory should ignore A step pulses physically");
@@ -118,7 +118,7 @@ void test_c1_without_rotary_accessory() {
   require(simulator.axis_endstop_triggered(3),
           "unplugged C1 rotary accessory should present the A home input as already triggered");
   const double initial_angle = simulator.axis_position_mm(3);
-  runtime.io().write_serial("G91 G0 A90 F600\n");
+  runtime.io().write_serial_command("G91 G0 A90 F600\n");
   runtime.runner().run_until_motion_idle(100'000);
   require_near(simulator.axis_position_mm(3), initial_angle, 0.001,
                "unplugged C1 rotary accessory should ignore A step pulses physically");
@@ -152,8 +152,8 @@ void test_ca1_with_rotary_accessory() {
   require(!simulator.axis_endstop_triggered(3), "A-axis shared homing/limit switch should release after backoff");
 
   simulation.machine().context().m8266_wifi().connect_tcp_client();
-  (void)runtime.io().read_wifi_tcp();
-  runtime.io().write_wifi_tcp("G91 G0 A90 F600\n");
+  (void)runtime.io().read_wifi_text();
+  runtime.io().write_wifi_command("G91 G0 A90 F600\n");
   for (int i = 0; i < 2'000 && sim::stepper_axes::count() >= 4 &&
                   std::fabs(simulator.axis_position_mm(3) - (home_angle + 90.0)) > 0.2;
        ++i) {

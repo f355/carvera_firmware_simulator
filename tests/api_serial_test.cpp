@@ -19,6 +19,7 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
+#include "sim/makera_protocol.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -26,6 +27,16 @@
 
 using sim::test::require;
 
+namespace {
+
+std::string decode_text(sim::makera::FrameDecoder& decoder, const std::string& bytes) {
+  decoder.append(bytes);
+  auto text = decoder.take_text();
+  (void)decoder.take_frames();
+  return text;
+}
+
+}  // namespace
 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_api_serial_test");
@@ -45,6 +56,7 @@ int main() {
 
   carvera::sim::v1::Request request;
   carvera::sim::v1::Response response;
+  sim::makera::FrameDecoder serial_decoder;
 
   request.set_id(1);
   request.mutable_mount_filesystem()->set_name("sd");
@@ -54,7 +66,7 @@ int main() {
 
   request.Clear();
   request.set_id(3);
-  request.mutable_write_serial()->set_data("G91\nG0 X-1 F1500\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("G91\nG0 X-1 F1500\n"));
   response = api.handle(request);
   require(response.ok(), "write_serial should succeed");
 
@@ -78,12 +90,12 @@ int main() {
   request.mutable_read_serial();
   response = api.handle(request);
   require(response.ok(), "read_serial should succeed");
-  require(response.serial_data().data().find("ok") != std::string::npos,
+  require(decode_text(serial_decoder, response.serial_data().data()).find("ok") != std::string::npos,
           "serial output should include G-code acknowledgements");
 
   request.Clear();
   request.set_id(7);
-  request.mutable_write_serial()->set_data("$J X-10 F10000\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("$J X-10 F10000\n"));
   response = api.handle(request);
   require(response.ok(), "controller-style X jog should be accepted");
 
@@ -99,12 +111,12 @@ int main() {
   request.mutable_read_serial();
   response = api.handle(request);
   require(response.ok(), "read_serial after controller-style jog should succeed");
-  require(response.serial_data().data().find("Limit switch") == std::string::npos,
+  require(decode_text(serial_decoder, response.serial_data().data()).find("Limit switch") == std::string::npos,
           "negative X jog inside travel should not trip a hard limit");
 
   request.Clear();
   request.set_id(10);
-  request.mutable_write_serial()->set_data("$J X5 F10000\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("$J X5 F10000\n"));
   response = api.handle(request);
   require(response.ok(), "controller-style positive X jog should be accepted");
 
@@ -120,12 +132,12 @@ int main() {
   request.mutable_read_serial();
   response = api.handle(request);
   require(response.ok(), "read_serial after positive controller-style jog should succeed");
-  require(response.serial_data().data().find("Limit switch") == std::string::npos,
+  require(decode_text(serial_decoder, response.serial_data().data()).find("Limit switch") == std::string::npos,
           "positive X jog inside travel should not trip a hard limit");
 
   request.Clear();
   request.set_id(20);
-  request.mutable_write_serial()->set_data("reset\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("reset\n"));
   response = api.handle(request);
   require(response.ok(), "reset shell command should be accepted");
 
@@ -139,7 +151,7 @@ int main() {
 
   request.Clear();
   request.set_id(50);
-  request.mutable_write_serial()->set_data("?\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("?"));
   response = api.handle(request);
   require(response.ok(), "status query after reset should be accepted");
 
@@ -154,7 +166,7 @@ int main() {
   request.mutable_read_serial();
   response = api.handle(request);
   require(response.ok(), "read_serial after reset should succeed");
-  require(response.serial_data().data().find("<Idle") != std::string::npos,
+  require(decode_text(serial_decoder, response.serial_data().data()).find("<Idle") != std::string::npos,
           "reset should reboot firmware back to an idle controller-visible state");
   return 0;
 }

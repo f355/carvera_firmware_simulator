@@ -82,7 +82,11 @@ class Serial {
     for (char c : bytes) {
       rx_.push_back(c);
     }
-    if (irq_[RxIrq]) {
+    service_rx_irq();
+  }
+
+  void service_rx_irq() {
+    if (!rx_.empty() && irq_[RxIrq]) {
       irq_[RxIrq]();
     }
   }

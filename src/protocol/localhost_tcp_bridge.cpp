@@ -17,62 +17,12 @@
 
 #include "sim/interactive_io.hpp"
 
-#include <utility>
-
 #include "sim/platform_io.hpp"
 #include "sim/runtime_io.hpp"
 
 namespace sim {
 
-namespace {
-
-bool is_realtime_command_byte(char byte) {
-  switch (byte) {
-    case '?':
-    case '!':
-    case '~':
-    case '\x18':  // Ctrl-X: abort
-    case '\x19':  // Ctrl-Y: stop
-    case '\x1a':  // Ctrl-Z: keepalive
-      return true;
-    default:
-      return false;
-  }
-}
-
-}  // namespace
-
-std::string LocalhostTcpBridge::take_pending_firmware_input(Client& client, bool firmware_uploading) const {
-  if (client.pending_input.empty()) {
-    return {};
-  }
-
-  if (firmware_uploading) {
-    auto bytes = std::move(client.pending_input);
-    client.pending_input.clear();
-    return bytes;
-  }
-
-  if (is_realtime_command_byte(client.pending_input.front())) {
-    const auto count =
-        client.pending_input.size() >= 2 && client.pending_input[0] == '?' && client.pending_input[1] == '1' ? 2U : 1U;
-    auto bytes = client.pending_input.substr(0, count);
-    client.pending_input.erase(0, count);
-    return bytes;
-  }
-
-  const auto newline = client.pending_input.find('\n');
-  if (newline == std::string::npos) {
-    return {};
-  }
-
-  auto bytes = client.pending_input.substr(0, newline + 1);
-  client.pending_input.erase(0, newline + 1);
-  return bytes;
-}
-
-LocalhostTcpBridge::LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading)
-    : runtime_io_(io), uploading_(std::move(uploading)) {}
+LocalhostTcpBridge::LocalhostTcpBridge(RuntimeIo& io) : runtime_io_(io) {}
 
 LocalhostTcpBridge::~LocalhostTcpBridge() { stop(); }
 
@@ -117,9 +67,7 @@ std::string LocalhostTcpBridge::poll_input() {
   }
 
   std::string combined;
-  std::string firmware_input;
   bool connected = false;
-  const bool firmware_uploading = uploading_();
   {
     std::lock_guard<std::mutex> lock(mutex_);
     service_clients_locked();
@@ -128,15 +76,11 @@ std::string LocalhostTcpBridge::poll_input() {
       auto input = client.io.take_input();
       if (!input.empty()) {
         combined.append(input);
-        client.pending_input.append(std::move(input));
+        runtime_io_.write_wifi_tcp(input);
       }
-      firmware_input.append(take_pending_firmware_input(client, firmware_uploading));
     }
   }
   update_firmware_connection_state(connected);
-  if (!firmware_input.empty()) {
-    runtime_io_.write_wifi_tcp(firmware_input);
-  }
   return combined;
 }
 

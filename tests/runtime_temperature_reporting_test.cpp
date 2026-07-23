@@ -56,13 +56,14 @@ int main() {
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before spindle temperature reporting");
-    (void)runtime.io().read_serial();
+    (void)runtime.io().read_serial_text();
 
     runtime.inputs().set_temperature(sim::TemperatureSensor::Spindle, 42.0);
     pump_temperature(runtime);
-    runtime.io().write_serial("M105\n");
+    runtime.io().write_serial_command("M105\n");
     require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M105 should be handled without queued motion");
-    require_contains(runtime.io().read_serial(), "M:42.", "M105 should report the spindle thermistor through firmware");
+    require_contains(runtime.io().read_serial_text(), "M:42.",
+                     "M105 should report the spindle thermistor through firmware");
   }
 
   {
@@ -79,13 +80,13 @@ int main() {
     auto& runtime = booted.runtime();
     auto& kernel = booted.kernel();
     require(!kernel.is_halted(), "runtime should boot before power temperature reporting");
-    (void)runtime.io().read_serial();
+    (void)runtime.io().read_serial_text();
 
     runtime.inputs().set_temperature(sim::TemperatureSensor::Power, 45.0);
     pump_temperature(runtime);
-    runtime.io().write_serial("M106\n");
+    runtime.io().write_serial_command("M106\n");
     require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M106 should be handled without queued motion");
-    require_contains(runtime.io().read_serial(), "P:45.",
+    require_contains(runtime.io().read_serial_text(), "P:45.",
                      "M106 should report the CA1 power thermistor through firmware");
   }
 

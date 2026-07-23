@@ -36,9 +36,9 @@ int main() {
   probe.world().set_stock_box(
       sim::Box{current_x - 5.0, current_y - 5.0, target_z - 0.25, current_x + 5.0, current_y + 5.0, target_z});
 
-  runtime.io().write_serial("G91\nG38.2 Z-10 F60\n");
+  runtime.io().write_serial_command("G91\nG38.2 Z-10 F60\n");
   require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "G38.2 probe move should stop and reach idle");
-  const auto serial = runtime.io().read_serial();
+  const auto serial = runtime.io().read_serial_text();
   require(serial.find("[PRB:") != std::string::npos, "G38.2 should report a probed position");
   require(serial.find(":1]") != std::string::npos, "G38.2 should report probe success");
   require_near(simulator.axis_position_mm(2), target_z, 0.08,

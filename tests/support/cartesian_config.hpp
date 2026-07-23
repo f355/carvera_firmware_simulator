@@ -25,11 +25,17 @@
 
 namespace sim::test {
 
+enum class TestProtocol {
+  Makera,
+  Smoothie,
+};
+
 struct CartesianConfigOptions {
   bool include_rotary_axes = false;
   bool include_probe_inputs = false;
   bool sd_ok = true;
   bool soft_endstop = false;
+  TestProtocol protocol = TestProtocol::Makera;
   std::string extra;
 };
 
@@ -95,7 +101,7 @@ inline std::string cartesian_config(const CartesianConfigOptions& options = {}) 
   if (options.sd_ok) {
     config << "sd_ok true\n";
   }
-  config << "protocol smoothie\n";
+  config << "protocol " << (options.protocol == TestProtocol::Makera ? "makera" : "smoothie") << "\n";
   config << "soft_endstop.enable " << (options.soft_endstop ? "true" : "false") << "\n";
   config << options.extra;
   return config.str();
