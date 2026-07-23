@@ -49,6 +49,7 @@ set(SIM_FIRMWARE_FACADE_SOURCES
   src/firmware/firm_config_source.cpp
   src/firmware/host_filesystem.cpp
   src/firmware/i2c_sim.cpp
+  src/firmware/lpc_memory_constraints.cpp
   src/firmware/main_button_led_stub.cpp
   src/firmware/mri_hooks_stub.cpp
   src/firmware/utils_stubs.cpp

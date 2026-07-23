@@ -77,6 +77,7 @@ set(SIM_RUNTIME_TESTS
   controller_handshake_test
   factory_settings_mount_order_test
   free_running_homing_test
+  free_running_reset_loop_test
   g38_3d_probe_side_test
   g38_stock_probe_test
   g38_tool_setter_probe_test

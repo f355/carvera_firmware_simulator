@@ -33,12 +33,22 @@
 #include "libs/FirmwareFileSystem.h"
 #include "sim/delay_hooks.hpp"
 #include "sim/host_filesystem.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/system_reset.hpp"
 #include "sim/us_ticker_sim.hpp"
 #include "sim/virtual_clock.hpp"
 #include "utils.h"
 
-extern "C" caddr_t _sbrk(int) { return 0; }
+extern "C" caddr_t _sbrk(int increment) {
+  // Host libc/firmware must not share the tiny simulated main-SRAM arena by
+  // default (that OOMs Config/heap during boot). Opt in with
+  // CARVERA_SIM_LPC_HEAP=1 / set_lpc_heap_enabled(true).
+  if (!sim::lpc_memory::lpc_heap_enabled()) {
+    (void)increment;
+    return 0;
+  }
+  return static_cast<caddr_t>(sim::lpc_memory::sbrk(increment));
+}
 
 extern "C" {
 uint32_t __end__ = 0;

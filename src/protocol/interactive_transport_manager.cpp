@@ -25,6 +25,7 @@
 
 #include "sim/delay_hooks.hpp"
 #include "sim/logging.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_io.hpp"
 #include "sim/runtime_pump.hpp"
@@ -174,7 +175,14 @@ void InteractiveTransportManager::pump() {
     delay_hooks::ScopedCallback delay_io_pump(pump_transport_io);
     const auto batches = free_running_batches(machine_.realtime_speed());
     for (std::size_t batch = 0; batch < batches; ++batch) {
-      runner_.pump_free_running(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
+      const auto result =
+          runner_.pump_free_running_result(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
+      if (result.reset_requested) {
+        // Match LPC behavior: system_reset tears the MCU down and the next
+        // free-running pump reconstructs Kernel (boot loop if the fault repeats).
+        logging::event("firmware", "system_reset: rebooting firmware (LPC-like boot loop)");
+        (void)runner_.pump_free_running_result(0, 0);
+      }
       pump_transport_io();
       relay_wifi_discovery();
       discovery_beacon_.poll();

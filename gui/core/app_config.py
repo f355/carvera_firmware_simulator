@@ -151,6 +151,26 @@ def build_arg_parser(simulator_root: Path, *, platform: str | None = None) -> ar
     )
     parser.add_argument("--wifi-port", type=int, default=2222)
     parser.add_argument(
+        "--ahb-bytes",
+        type=int,
+        default=None,
+        help=(
+            "Cap the simulated LPC AHB dynamic pool (passed to the firmware process as "
+            "CARVERA_SIM_AHB_BYTES). Use 17544 for strict LPC map capacity."
+        ),
+    )
+    parser.add_argument(
+        "--ahb-unlimited",
+        action="store_true",
+        help="Disable the capped AHB pool (CARVERA_SIM_AHB_UNLIMITED=1).",
+    )
+    parser.add_argument(
+        "--stack-limit-bytes",
+        type=int,
+        default=None,
+        help="Optional native stack watermark for the firmware process (CARVERA_SIM_STACK_LIMIT_BYTES).",
+    )
+    parser.add_argument(
         "--no-log-transport",
         action="store_false",
         dest="log_transport",
@@ -160,6 +180,20 @@ def build_arg_parser(simulator_root: Path, *, platform: str | None = None) -> ar
     parser.add_argument("--port", type=int, default=None)
     parser.set_defaults(log_transport=True)
     return parser
+
+
+def simulator_process_env(args: argparse.Namespace, *, base_env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Build the environment for `carvera_sim_stream_stdio` from GUI CLI flags."""
+    env = dict(os.environ if base_env is None else base_env)
+    if getattr(args, "ahb_unlimited", False):
+        env["CARVERA_SIM_AHB_UNLIMITED"] = "1"
+        env.pop("CARVERA_SIM_AHB_BYTES", None)
+    elif getattr(args, "ahb_bytes", None) is not None:
+        env["CARVERA_SIM_AHB_BYTES"] = str(args.ahb_bytes)
+        env.pop("CARVERA_SIM_AHB_UNLIMITED", None)
+    if getattr(args, "stack_limit_bytes", None) is not None:
+        env["CARVERA_SIM_STACK_LIMIT_BYTES"] = str(args.stack_limit_bytes)
+    return env
 
 
 def parse_args(simulator_root: Path) -> argparse.Namespace:

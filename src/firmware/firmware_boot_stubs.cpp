@@ -30,7 +30,6 @@
 
 int BootModule::loaded_count = 0;
 int SDFileSystem::disk_status = 1;
-SimMemoryPool simulator_ahb;
 #ifdef _WIN32
 #define SIM_WEAK_FIRMWARE_GLOBAL
 #else

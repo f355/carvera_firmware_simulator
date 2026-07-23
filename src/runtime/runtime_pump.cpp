@@ -59,11 +59,16 @@ RuntimePumpResult RuntimePump::run_until_motion_idle(std::size_t max_timer_event
 }
 
 bool RuntimePump::pump_free_running(std::size_t main_loop_iterations, std::size_t max_step_ticks) {
+  return pump_free_running_result(main_loop_iterations, max_step_ticks).motion_idle;
+}
+
+RuntimePumpResult RuntimePump::pump_free_running_result(std::size_t main_loop_iterations,
+                                                        std::size_t max_step_ticks) {
   RuntimePumpOptions options;
   options.main_loop_iterations = main_loop_iterations;
   options.max_timer_events = max_step_ticks;
   options.timer_budget_policy = TimerBudgetMode::SpendFullBudget;
-  return pump(options).motion_idle;
+  return pump(options);
 }
 
 }  // namespace sim

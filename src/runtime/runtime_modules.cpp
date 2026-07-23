@@ -260,6 +260,10 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   kernel.add_module(new ATCHandler());
 
   BootModules modules;
+  // SerialConsole2 stays on the host heap: with the LPC-sized AHB pool, placing it
+  // in AHB on top of Kernel's SerialConsole/SlowTicker/Conveyor/BlockQueue leaves
+  // too little headroom for cart-grid/flex buffers. Real main.cpp pays for this via
+  // smaller static AHB usage in some builds; keep behavior explicit here.
   modules.wireless_probe_serial = new SerialConsole2();
   kernel.add_module(modules.wireless_probe_serial);
 

@@ -310,8 +310,14 @@ This is the important part.
 * The GUI/protobuf API can set physical inputs, tools, stock, temperatures, and
   alarms directly for tests. That is a simulator control surface, not a real
   firmware feature.
-* Reset, MRI/debug hooks, AHB SRAM placement, and watchdog resets are host
-  integration shims.
+* Reset and MRI/debug hooks remain host shims, but free-running mode treats
+  `system_reset` as an LPC-like reboot (Kernel teardown + re-boot). The AHB
+  dynamic pool is capped by default (LPC map size 17544 bytes, scaled by host
+  pointer width to ~35KiB on 64-bit so Block queues still fit). Override with
+  `--ahb-bytes`, `--ahb-unlimited`, or `CARVERA_SIM_AHB_*` (`--ahb-bytes 17544`
+  is strict LPC capacity). Optional native stack-limit checks use
+  `--stack-limit-bytes` / `CARVERA_SIM_STACK_LIMIT_BYTES`. Optional LPC
+  main-SRAM `_sbrk` modeling is off unless `CARVERA_SIM_LPC_HEAP=1`.
 
 In other words: this is a firmware-and-machine simulator, not a microcontroller
 emulator. It tries to be honest where the firmware meets the machine, not where

@@ -39,6 +39,8 @@ class RuntimePump {
   void run_main_loop(std::size_t iterations);
   RuntimePumpResult run_until_motion_idle(std::size_t max_timer_events);
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
+  RuntimePumpResult pump_free_running_result(std::size_t main_loop_iterations = 4,
+                                             std::size_t max_step_ticks = 1000);
 
  private:
   EventEngine& engine_;

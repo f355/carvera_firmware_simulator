@@ -15,10 +15,12 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
 from collections import deque
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Callable
 
@@ -33,10 +35,12 @@ class SimulatorProcess:
         *,
         stderr_handler: Callable[[str], None] | None = None,
         inherit_stderr: bool = False,
+        env: Mapping[str, str] | None = None,
     ) -> None:
         self.binary = Path(binary)
         self.stderr_handler = stderr_handler
         self.inherit_stderr = inherit_stderr
+        self.env = dict(env) if env is not None else None
         self._process: subprocess.Popen[bytes] | None = None
         self._stderr_thread: threading.Thread | None = None
         self._stderr_lock = threading.Lock()
@@ -64,6 +68,7 @@ class SimulatorProcess:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=0,
+            env=self.env if self.env is not None else os.environ.copy(),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0,
         )
         self._process = process

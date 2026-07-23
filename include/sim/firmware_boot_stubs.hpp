@@ -31,6 +31,7 @@
 #include "PinNames.h"
 #include "StreamOutputPool.h"
 #include "sim/host_filesystem.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 
 class StepperMotor;
 class Block;
@@ -67,21 +68,11 @@ class SDFAT {
   }
 };
 
-class SimMemoryPool {
- public:
-  void* alloc(std::size_t bytes) { return std::malloc(bytes); }
-  void dealloc(void* ptr) { std::free(ptr); }
-  std::uint32_t free() const { return 0; }
-  void debug(StreamOutput*) const {}
-};
-
 inline void* operator new(std::size_t bytes, SimMemoryPool& pool) { return pool.alloc(bytes); }
-
-extern SimMemoryPool simulator_ahb;
 
 #define AHB simulator_ahb
 #ifndef STACK_SIZE
-#define STACK_SIZE 0
+#define STACK_SIZE 4096
 #endif
 
 namespace sim::boot {

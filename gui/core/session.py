@@ -21,7 +21,7 @@ from math import radians
 from pathlib import Path
 from typing import Any, Self
 
-from gui.core.app_config import default_sd_seed_root, parse_args, parse_vec3
+from gui.core.app_config import default_sd_seed_root, parse_args, parse_vec3, simulator_process_env
 from gui.core.gui_state import GuiStateStore
 from gui.core.process_controller import SimulatorProcessController
 from gui.core.telemetry import TelemetryBuffer
@@ -94,6 +94,7 @@ class SimulatorSession:
             event_handler=handle_stream_event,
             stderr_handler=handle_transport_stderr,
             inherit_stderr=args.log_transport,
+            env=simulator_process_env(args),
         )
         sd_root = args.sd_root.expanduser()
         sd_seed_root = default_sd_seed_root(simulator_root)

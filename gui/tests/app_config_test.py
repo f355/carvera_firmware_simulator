@@ -120,6 +120,28 @@ def test_parser_uses_platform_data_for_writable_sd_root(tmp_path: Path) -> None:
     assert args.port is None
     assert args.wifi_port == 2222
     assert args.log_transport is True
+    assert args.ahb_bytes is None
+    assert args.ahb_unlimited is False
+    assert args.stack_limit_bytes is None
+
+
+def test_simulator_process_env_forwards_ahb_flags() -> None:
+    from gui.core.app_config import simulator_process_env
+
+    parser = build_arg_parser(Path("."), platform="linux")
+    capped = parser.parse_args(["--ahb-bytes", "17544"])
+    env = simulator_process_env(capped, base_env={"PATH": "/usr/bin", "CARVERA_SIM_AHB_UNLIMITED": "1"})
+    assert env["CARVERA_SIM_AHB_BYTES"] == "17544"
+    assert "CARVERA_SIM_AHB_UNLIMITED" not in env
+
+    unlimited = parser.parse_args(["--ahb-unlimited"])
+    env = simulator_process_env(unlimited, base_env={"PATH": "/usr/bin", "CARVERA_SIM_AHB_BYTES": "1"})
+    assert env["CARVERA_SIM_AHB_UNLIMITED"] == "1"
+    assert "CARVERA_SIM_AHB_BYTES" not in env
+
+    stacked = parser.parse_args(["--stack-limit-bytes", "262144"])
+    env = simulator_process_env(stacked, base_env={"PATH": "/usr/bin"})
+    assert env["CARVERA_SIM_STACK_LIMIT_BYTES"] == "262144"
 
 
 def test_prepare_sd_root_copies_seed_payload(tmp_path: Path) -> None:

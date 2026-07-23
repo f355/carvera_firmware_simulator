@@ -16,14 +16,17 @@
  */
 
 #include <chrono>
+#include <cstddef>
 #include <csignal>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "sim/interactive_transport_manager.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/simulation_instance.hpp"
 
 namespace {
@@ -34,9 +37,13 @@ void on_signal(int) { keep_running = 0; }
 
 void usage(const char* program) {
   std::cerr << "usage: " << program << " [--sd PATH] [--model c1|ca1] [--function-setting BYTE]\n"
-            << "       [--wifi-port PORT]... [--no-uart] [--no-wifi]\n\n"
+            << "       [--wifi-port PORT]... [--no-uart] [--no-wifi]\n"
+            << "       [--ahb-bytes N | --ahb-unlimited] [--stack-limit-bytes N]\n\n"
             << "If no --wifi-port is given, one localhost TCP port is opened on an ephemeral port.\n"
-            << "PORT 0 also requests an ephemeral port.\n";
+            << "PORT 0 also requests an ephemeral port.\n"
+            << "AHB defaults to " << sim::lpc_memory::kDefaultAhbPoolBytes
+            << " bytes (LPC " << sim::lpc_memory::kLpcAhbPoolBytes
+            << " scaled for host pointer width). Stack-limit checks are off unless set.\n";
 }
 
 bool parse_u16(const std::string& text, std::uint16_t& value) {
@@ -61,6 +68,16 @@ bool parse_u8(const std::string& text, std::uint8_t& value) {
   return true;
 }
 
+bool parse_usize(const std::string& text, std::size_t& value) {
+  try {
+    const auto parsed = std::stoull(text, nullptr, 0);
+    value = static_cast<std::size_t>(parsed);
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -69,6 +86,11 @@ int main(int argc, char** argv) {
   std::vector<std::uint16_t> wifi_ports;
   std::string sd_root;
   sim::FactorySettings factory;
+  std::optional<std::size_t> ahb_bytes;
+  bool ahb_unlimited = false;
+  std::optional<std::size_t> stack_limit_bytes;
+
+  sim::lpc_memory::apply_environment_defaults();
 
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
@@ -82,6 +104,28 @@ int main(int argc, char** argv) {
     }
     if (arg == "--no-wifi") {
       enable_wifi = false;
+      continue;
+    }
+    if (arg == "--ahb-unlimited") {
+      ahb_unlimited = true;
+      continue;
+    }
+    if (arg == "--ahb-bytes" && i + 1 < argc) {
+      std::size_t bytes = 0;
+      if (!parse_usize(argv[++i], bytes)) {
+        std::cerr << "invalid --ahb-bytes\n";
+        return 2;
+      }
+      ahb_bytes = bytes;
+      continue;
+    }
+    if (arg == "--stack-limit-bytes" && i + 1 < argc) {
+      std::size_t bytes = 0;
+      if (!parse_usize(argv[++i], bytes)) {
+        std::cerr << "invalid --stack-limit-bytes\n";
+        return 2;
+      }
+      stack_limit_bytes = bytes;
       continue;
     }
     if (arg == "--sd" && i + 1 < argc) {
@@ -119,6 +163,15 @@ int main(int argc, char** argv) {
 
     usage(argv[0]);
     return 2;
+  }
+
+  if (ahb_unlimited) {
+    sim::lpc_memory::set_ahb_capacity(0);
+  } else if (ahb_bytes.has_value()) {
+    sim::lpc_memory::set_ahb_capacity(*ahb_bytes);
+  }
+  if (stack_limit_bytes.has_value()) {
+    sim::lpc_memory::set_native_stack_limit(*stack_limit_bytes);
   }
 
   if (enable_wifi && wifi_ports.empty()) {

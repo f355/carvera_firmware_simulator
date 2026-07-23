@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable
 
 from gui.protocol.client_error import SimulatorClientError as SimulatorClientError
@@ -74,11 +75,13 @@ class SimulatorClient:
         stderr_handler: Callable[[str], None] | None = None,
         inherit_stderr: bool = False,
         request_timeout_s: float = 10.0,
+        env: Mapping[str, str] | None = None,
     ) -> None:
         self.process = SimulatorProcess(
             binary,
             stderr_handler=stderr_handler,
             inherit_stderr=inherit_stderr,
+            env=env,
         )
         self.transport = FramedTransport(
             self.process,

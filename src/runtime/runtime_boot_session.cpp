@@ -22,6 +22,7 @@
 #include "Robot.h"
 #include "libs/Kernel.h"
 #include "sim/firm_config_data.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_modules.hpp"
 #include "sim/simulator_context.hpp"
@@ -60,6 +61,8 @@ void initialize_eeprom_for_reboot(I2cEepromDevice& eeprom, const FactorySettings
 RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, EventEngine& event_engine,
                                        FactorySettings factory_settings)
     : simulator_(simulator), event_engine_(event_engine), factory_settings_(factory_settings) {
+  lpc_memory::apply_environment_defaults();
+  lpc_memory::reset_for_reboot();
   initialize_eeprom_for_power_on(simulator_.context().eeprom(), factory_settings_);
   simulator_.context().m8266_wifi().reset();
 }
@@ -90,6 +93,8 @@ void RuntimeBootSession::reset() {
   kernel_.reset();
   wireless_probe_serial_ = nullptr;
   Kernel::instance = nullptr;
+  lpc_memory::note_firmware_reboot();
+  lpc_memory::reset_for_reboot();
   simulator_.reset(true);
   simulator_.set_realtime_speed(realtime_speed);
   if (was_realtime) {

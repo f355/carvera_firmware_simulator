@@ -21,6 +21,7 @@
 #include "libs/Kernel.h"
 #include "modules/communication/SerialConsole.h"
 #include "sim/machine_simulator.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/simulator_context.hpp"
 #include "sim/system_reset.hpp"
 
@@ -101,8 +102,10 @@ bool EventEngine::run_one_timer_event(Kernel& kernel) {
 }
 
 bool EventEngine::run_firmware_iteration(Kernel& kernel, EventRunResult& result, const ResetCallback& reset) {
+  lpc_memory::begin_firmware_stack_sample();
   kernel.call_event(ON_MAIN_LOOP);
   kernel.call_event(ON_IDLE);
+  lpc_memory::check_firmware_stack_sample();
   simulator_.poll();
   ++result.main_loop_iterations;
   if (!system_reset::consume_requested()) {
