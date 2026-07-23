@@ -19,6 +19,7 @@ import os
 import socket
 import tempfile
 import threading
+from binascii import crc_hqx
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,13 @@ from gui.protocol.sim_client import SimulatorClient
 TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
 pytestmark = pytest.mark.integration
 STREAM_STARTUP_TIMEOUT_S = 45.0
+
+
+def _makera_status_query() -> bytes:
+    payload = b"\xa1?"
+    body = (len(payload) + 2).to_bytes(2, "big") + payload
+    checksum = crc_hqx(body, 0).to_bytes(2, "big")
+    return b"\x86\x68" + body + checksum + b"\x55\xaa"
 
 
 def _wait_for_stream_startup(
@@ -122,7 +130,7 @@ def test_stream_client_receives_live_simulator_state() -> None:
             endpoint = transport.tcp_endpoints[0]
             with socket.create_connection(("127.0.0.1", endpoint.port), timeout=5.0) as connection:
                 connection.settimeout(5.0)
-                connection.sendall(b"?\n")
+                connection.sendall(_makera_status_query())
                 status = b""
                 while b"MPos:" not in status:
                     chunk = connection.recv(4096)
