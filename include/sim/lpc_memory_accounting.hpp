@@ -20,8 +20,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
+#include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+class StreamOutput;
 
 namespace sim::lpc_memory {
 
@@ -150,6 +155,74 @@ class AhbPoolModel {
   std::uint32_t failed_allocation_count_{};
   std::uint64_t failed_allocation_bytes_{};
 };
+
+enum class MemoryRegion {
+  MainSram,
+  AhbSram,
+};
+
+struct AllocationGroupSnapshot {
+  MemoryRegion region{};
+  std::string type_name;
+  std::uint32_t host_payload_bytes{};
+  std::uint32_t target_payload_bytes{};
+  std::uint32_t live_count{};
+  std::uint32_t peak_live_count{};
+  std::uint32_t total_count{};
+  std::uint64_t live_target_bytes{};
+  std::uint64_t peak_target_bytes{};
+  bool target_size_exact{};
+};
+
+struct MemoryAccountingSnapshot {
+  MainSramSnapshot main;
+  AhbPoolSnapshot ahb;
+  std::vector<AllocationGroupSnapshot> allocation_groups;
+};
+
+class MemoryAccounting {
+ public:
+  MemoryAccounting();
+
+  void record_main(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                   std::string type_name = {}, bool target_size_exact = true);
+  void record_ahb(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                  std::string type_name = {}, bool target_size_exact = true);
+  std::optional<MemoryRegion> deallocate(void* pointer);
+  void mark_config_cache_owner(void* pointer, std::size_t target_payload_bytes);
+  void set_config_cache_active(bool active);
+  void release_config_cache();
+  void reset();
+
+  MemoryAccountingSnapshot snapshot() const;
+
+ private:
+  struct Allocation {
+    MemoryRegion region{};
+    AllocationId id{};
+    std::size_t group_index{};
+    bool modeled{};
+    bool config_cache_owner{};
+  };
+
+  void record(MemoryRegion region, void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+              std::string type_name, bool target_size_exact);
+
+  mutable std::mutex mutex_;
+  MainSramModel main_;
+  AhbPoolModel ahb_;
+  std::unordered_map<void*, Allocation> allocations_;
+  std::vector<AllocationGroupSnapshot> groups_;
+  AllocationId next_id_{1};
+};
+
+void enter_firmware_function(void* function_address) noexcept;
+void exit_firmware_function() noexcept;
+bool firmware_allocation_active() noexcept;
+void config_cache_storage_acquired() noexcept;
+void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes) noexcept;
+bool release_host_allocation(void* pointer) noexcept;
+void print_memory_report(StreamOutput* stream, bool verbose);
 
 }  // namespace sim::lpc_memory
 

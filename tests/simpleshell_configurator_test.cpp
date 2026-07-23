@@ -19,6 +19,7 @@
 #include <regex>
 
 #include "sim/simulation_instance.hpp"
+#include "sim/simulator_context.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/assertions.hpp"
@@ -44,6 +45,32 @@ int main() {
   require_contains(serial, "model = C1", "SimpleShell model should keep the controller-visible model format");
   require_contains(serial, "time = 1234567890",
                    "SimpleShell time sync should persist through the simulator clock stub");
+
+  runtime.io().write_serial_command("mem -v\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial_text();
+  require_contains(serial, "LPC1768 Main SRAM:", "mem should report the target main SRAM layout");
+  require_contains(serial, "Config cache: released", "mem should retain the boot-time cache accounting after release");
+  require_contains(serial, "LPC1768 AHB SRAM:", "mem should report the target AHB SRAM layout");
+  require_contains(serial, "Block[]", "verbose mem output should identify the motion queue's target allocation type");
+  require_contains(serial, "Robot", "verbose mem output should identify core firmware object allocations");
+  require_contains(serial, "host request -> LPC charge", "verbose mem output should distinguish host and target sizes");
+  const auto memory = simulation.machine().context().memory_accounting().snapshot();
+  require(!memory.main.config_cache_active, "normal C1 boot should release the temporary config cache");
+  require(!memory.main.config_cache_collision, "normal C1 boot should not report a config-cache collision");
+  for (const auto& group : memory.allocation_groups) {
+    if (group.type_name == "ConfigCache") {
+      require(group.live_count == 0, "released config cache object should not remain in the LPC heap model");
+    }
+  }
+  require(!memory.main.heap_limit_collision, "normal C1 boot should fit in the modeled main heap (committed=" +
+                                                 std::to_string(memory.main.heap_committed_bytes) + ", failed=" +
+                                                 std::to_string(memory.main.failed_allocation_count) + ")\n" + serial);
+  require(memory.ahb.failed_allocation_count == 0, "normal C1 boot should fit in the modeled AHB pool");
+  for (const auto& group : memory.allocation_groups) {
+    require(group.region != sim::lpc_memory::MemoryRegion::AhbSram || group.target_size_exact,
+            "all AHB allocations in the pinned firmware should have exact LPC byte counts");
+  }
 
   runtime.io().write_serial_command("config-get alpha_steps_per_mm\n");
   runtime.runner().run_main_loop(8);

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "fastmath.h"
+#include "sim/lpc_memory_accounting.hpp"
 
 #ifdef _WIN32
 using caddr_t = char*;

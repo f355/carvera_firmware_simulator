@@ -23,6 +23,7 @@ void SimulatorContext::reset(bool preserve_physical_scene) {
   clock_.reset();
   us_ticker_.reset();
   mcu_.reset();
+  memory_accounting_.reset();
   pwm_outputs_.reset();
   interrupts_.reset();
   main_button_led_.reset();

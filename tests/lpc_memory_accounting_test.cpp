@@ -23,10 +23,12 @@ namespace {
 
 using sim::lpc_memory::AhbLayout;
 using sim::lpc_memory::AhbPoolModel;
-using sim::lpc_memory::MainSramLayout;
-using sim::lpc_memory::MainSramModel;
 using sim::lpc_memory::firmware_ahb_layout;
 using sim::lpc_memory::firmware_main_sram_layout;
+using sim::lpc_memory::MainSramLayout;
+using sim::lpc_memory::MainSramModel;
+using sim::lpc_memory::MemoryAccounting;
+using sim::lpc_memory::MemoryRegion;
 using sim::test::require;
 
 void generated_layout_matches_the_pinned_arm_firmware() {
@@ -132,6 +134,29 @@ void ahb_pool_uses_lpc_headers_and_reports_fragmentation() {
   require(snapshot.largest_free_block_bytes == 188, "adjacent AHB frees should coalesce");
 }
 
+void accounting_service_keeps_host_success_separate_from_lpc_capacity() {
+  MemoryAccounting memory;
+  int main_pointer = 0;
+  int ahb_pointer = 0;
+
+  memory.record_main(&main_pointer, 16, 8, "ConfigCache");
+  memory.set_config_cache_active(true);
+  memory.record_ahb(&ahb_pointer, 32, 20, "TargetType");
+
+  auto snapshot = memory.snapshot();
+  require(snapshot.main.config_cache_active, "service should expose the temporary cache reservation");
+  require(snapshot.main.live_payload_bytes == 8, "main heap should use the target payload size");
+  require(snapshot.ahb.live_payload_bytes == 20, "AHB pool should use the target payload size");
+  require(snapshot.allocation_groups.size() == 2, "allocations should be grouped for reporting");
+  require(snapshot.allocation_groups[0].host_payload_bytes == 16, "report should retain the host request");
+  require(snapshot.allocation_groups[0].target_payload_bytes == 8, "report should retain the LPC charge");
+
+  require(memory.deallocate(&main_pointer) == MemoryRegion::MainSram, "tracked main allocation should be released");
+  require(!memory.snapshot().main.config_cache_active, "deleting the cache owner should release its reservation");
+  require(memory.deallocate(&ahb_pointer) == MemoryRegion::AhbSram, "tracked AHB allocation should be released");
+  require(memory.snapshot().ahb.live_payload_bytes == 0, "released AHB payload should no longer be live");
+}
+
 }  // namespace
 
 int main() {
@@ -139,5 +164,6 @@ int main() {
   main_sram_tracks_temporary_config_cache_collisions();
   main_sram_tracks_fragmentation_without_shrinking_the_break();
   ahb_pool_uses_lpc_headers_and_reports_fragmentation();
+  accounting_service_keeps_host_success_separate_from_lpc_capacity();
   return 0;
 }

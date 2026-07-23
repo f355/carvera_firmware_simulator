@@ -57,10 +57,52 @@ if(_wifi_host_contents STREQUAL _wifi_contents)
 endif()
 file(WRITE "${_wifi_host_source}" "${_wifi_host_contents}")
 
+# The target SimpleShell walks newlib-nano's in-memory chunk headers. Host
+# allocators have unrelated layouts, so route only the mem command through the
+# simulator's LPC shadow-accounting report.
+set(_simpleshell_source "${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp")
+set(_simpleshell_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/SimpleShell.cpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_simpleshell_source}")
+file(READ "${_simpleshell_source}" _simpleshell_contents)
+set(_simpleshell_target_mem [=[void SimpleShell::mem_command( string parameters, StreamOutput *stream)
+{
+    bool verbose = shift_parameter( parameters ).find_first_of("Vv") != string::npos;
+    unsigned long heap_top = (unsigned long)_sbrk(0);
+    unsigned long heap_unallocated_top = (STACK_SIZE && g_maximumHeapAddress != 0) ? g_maximumHeapAddress - heap_top : 0; // Calculate unallocated space at the top if stack limit is set
+    stream->printf("Main Heap Unallocated Top: %lu bytes\r\n", heap_unallocated_top);
+
+    uint32_t heap_fragmented_free = heapWalk(stream, verbose); // Calculates and prints used/free within allocated heap part
+    stream->printf("Total Free RAM (Main Heap): %lu bytes\r\n", heap_unallocated_top + heap_fragmented_free);
+
+    // Use MemoryPool::free() which calculates total free space in the pool
+    uint32_t ahb_total_free = AHB.free();
+    stream->printf("AHB Pool Total Free: %lu bytes\r\n", ahb_total_free);
+
+    if (verbose) {
+        stream->printf("--- AHB Pool Details ---\n");
+        AHB.debug(stream); // Detailed AHB pool breakdown
+        stream->printf("--- End AHB Pool Details ---\n");
+    }
+
+    stream->printf("Block size: %u bytes, Tickinfo size: %u bytes\n", sizeof(Block), sizeof(Block::tickinfo_t) * Block::n_actuators);
+}]=])
+set(_simpleshell_host_mem [=[void SimpleShell::mem_command( string parameters, StreamOutput *stream)
+{
+    bool verbose = shift_parameter( parameters ).find_first_of("Vv") != string::npos;
+    sim::lpc_memory::print_memory_report(stream, verbose);
+}]=])
+string(REPLACE "${_simpleshell_target_mem}" "${_simpleshell_host_mem}"
+  _simpleshell_host_contents "${_simpleshell_contents}")
+if(_simpleshell_host_contents STREQUAL _simpleshell_contents)
+  message(FATAL_ERROR "Pinned SimpleShell.cpp no longer contains the expected target mem command")
+endif()
+file(WRITE "${_simpleshell_host_source}" "${_simpleshell_host_contents}")
+
 set(SIM_FIRMWARE_FACADE_SOURCES
   src/compat/active_context.cpp
   src/firmware/firmware_boot_stubs.cpp
   src/firmware/firm_config_source.cpp
+  src/firmware/firmware_allocation_hooks.cpp
   src/firmware/host_filesystem.cpp
   src/firmware/i2c_sim.cpp
   src/firmware/lpc_memory_accounting.cpp
@@ -150,7 +192,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/utils/player/OCodeHandler.cpp
   ${_player_host_source}
   ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
-  ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
+  ${_simpleshell_host_source}
   ${_wifi_host_source}
   ${FIRMWARE_SRC}/modules/robot/Block.cpp
   ${FIRMWARE_SRC}/modules/robot/BlockQueue.cpp

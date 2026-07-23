@@ -69,10 +69,10 @@ class SDFAT {
 
 class SimMemoryPool {
  public:
-  void* alloc(std::size_t bytes) { return std::malloc(bytes); }
-  void dealloc(void* ptr) { std::free(ptr); }
-  std::uint32_t free() const { return 0; }
-  void debug(StreamOutput*) const {}
+  void* alloc(std::size_t bytes);
+  void dealloc(void* ptr);
+  std::uint32_t free() const;
+  void debug(StreamOutput* stream) const;
 };
 
 inline void* operator new(std::size_t bytes, SimMemoryPool& pool) { return pool.alloc(bytes); }

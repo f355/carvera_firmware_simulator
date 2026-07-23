@@ -16,7 +16,31 @@
   },
   "schema_version": 1,
   "type_sizes": {
+    "ATCHandler": 468,
     "Block": 368,
-    "ConfigValue": 26
+    "Config": 16,
+    "ConfigCache": 8,
+    "ConfigValue": 26,
+    "Configurator": 1,
+    "Conveyor": 44,
+    "Drillingcycles": 44,
+    "Endstops": 88,
+    "GcodeDispatch": 40,
+    "Kernel": 264,
+    "Laser": 44,
+    "MainButton": 132,
+    "Planner": 24,
+    "Player": 424,
+    "Robot": 604,
+    "SerialConsole": 320,
+    "SerialConsole2": 288,
+    "SimpleShell": 12,
+    "SlowTicker": 52,
+    "StepTicker": 60,
+    "StepperMotor": 60,
+    "TemperatureSwitch": 32,
+    "Watchdog": 4,
+    "WifiProvider": 1928,
+    "ZProbe": 436
   }
 }

@@ -21,6 +21,7 @@
 #include "sim/adc.hpp"
 #include "sim/interrupt_controller.hpp"
 #include "sim/lpc1768.hpp"
+#include "sim/lpc_memory_accounting.hpp"
 #include "sim/m8266_wifi.hpp"
 #include "sim/main_button_led.hpp"
 #include "sim/mbed_peripheral_state.hpp"
@@ -48,6 +49,9 @@ class SimulatorContext {
 
   Lpc1768& mcu() { return mcu_; }
   const Lpc1768& mcu() const { return mcu_; }
+
+  lpc_memory::MemoryAccounting& memory_accounting() { return memory_accounting_; }
+  const lpc_memory::MemoryAccounting& memory_accounting() const { return memory_accounting_; }
 
   AdcState& adc() { return adc_; }
   const AdcState& adc() const { return adc_; }
@@ -103,6 +107,7 @@ class SimulatorContext {
  private:
   VirtualClock clock_{};
   Lpc1768 mcu_{};
+  lpc_memory::MemoryAccounting memory_accounting_{};
   AdcState adc_{};
   PwmOutRegistry pwm_outputs_{};
   InterruptInRegistry interrupts_{};

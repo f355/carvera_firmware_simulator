@@ -130,6 +130,12 @@ endforeach()
 foreach(layout_value IN ITEMS region_start region_end dynamic_start)
   string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
 endforeach()
+foreach(type_name IN ITEMS
+    ATCHandler Block Config ConfigCache Configurator Conveyor Drillingcycles Endstops GcodeDispatch Kernel
+    Laser MainButton Planner Player Robot SerialConsole SerialConsole2 SimpleShell SlowTicker StepTicker
+    StepperMotor TemperatureSwitch Watchdog WifiProvider ZProbe)
+  string(JSON SIM_LPC_TYPE_${type_name} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_name})
+endforeach()
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/lpc_memory_layout.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/lpc_memory_layout.hpp
@@ -214,6 +220,9 @@ if(MSVC)
 else()
   target_compile_options(carvera_firmware_objects PRIVATE -funsigned-char)
 endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  target_compile_options(carvera_firmware_objects PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-finstrument-functions>)
+endif()
 target_compile_definitions(carvera_firmware_objects PRIVATE
   CHECKSUM_USE_CPP
   ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
@@ -247,7 +256,7 @@ sim_enable_instrumentation(carvera_firmware_sim)
 
 set_property(
   SOURCE
-  ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
+  ${_simpleshell_host_source}
   APPEND PROPERTY COMPILE_OPTIONS
   "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
   "$<$<PLATFORM_ID:Windows>:-fpermissive>"
@@ -262,6 +271,7 @@ add_library(carvera_sim_runtime
   src/runtime/simulation_instance.cpp
 )
 target_include_directories(carvera_sim_runtime PUBLIC include)
+target_include_directories(carvera_sim_runtime PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(carvera_sim_runtime PUBLIC carvera_firmware_sim)
 sim_force_include(carvera_sim_runtime ${HOST_PRELUDE})
 sim_enable_project_diagnostics(carvera_sim_runtime)

@@ -20,11 +20,14 @@
 
 #include <cstddef>
 
+#include "sim/lpc_memory_accounting.hpp"
+
 #define LOCATED_IN_AHBSRAM
 
 template <typename Type, std::size_t Capacity>
 Type* simulator_config_cache_storage() {
   alignas(Type) static unsigned char storage[Capacity * sizeof(Type)]{};
+  sim::lpc_memory::config_cache_storage_acquired();
   return reinterpret_cast<Type*>(storage);
 }
 

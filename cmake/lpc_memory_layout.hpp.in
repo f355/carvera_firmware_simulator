@@ -21,6 +21,32 @@ inline constexpr std::uint32_t kAhbRegionStart = @SIM_LPC_AHB_region_start@U;
 inline constexpr std::uint32_t kAhbRegionEnd = @SIM_LPC_AHB_region_end@U;
 inline constexpr std::uint32_t kAhbDynamicStart = @SIM_LPC_AHB_dynamic_start@U;
 
+inline constexpr std::uint32_t kAtcHandlerBytes = @SIM_LPC_TYPE_ATCHandler@U;
+inline constexpr std::uint32_t kBlockBytes = @SIM_LPC_TYPE_Block@U;
+inline constexpr std::uint32_t kConfigBytes = @SIM_LPC_TYPE_Config@U;
+inline constexpr std::uint32_t kConfigCacheObjectBytes = @SIM_LPC_TYPE_ConfigCache@U;
+inline constexpr std::uint32_t kConfiguratorBytes = @SIM_LPC_TYPE_Configurator@U;
+inline constexpr std::uint32_t kConveyorBytes = @SIM_LPC_TYPE_Conveyor@U;
+inline constexpr std::uint32_t kDrillingcyclesBytes = @SIM_LPC_TYPE_Drillingcycles@U;
+inline constexpr std::uint32_t kEndstopsBytes = @SIM_LPC_TYPE_Endstops@U;
+inline constexpr std::uint32_t kGcodeDispatchBytes = @SIM_LPC_TYPE_GcodeDispatch@U;
+inline constexpr std::uint32_t kKernelBytes = @SIM_LPC_TYPE_Kernel@U;
+inline constexpr std::uint32_t kLaserBytes = @SIM_LPC_TYPE_Laser@U;
+inline constexpr std::uint32_t kMainButtonBytes = @SIM_LPC_TYPE_MainButton@U;
+inline constexpr std::uint32_t kPlannerBytes = @SIM_LPC_TYPE_Planner@U;
+inline constexpr std::uint32_t kPlayerBytes = @SIM_LPC_TYPE_Player@U;
+inline constexpr std::uint32_t kRobotBytes = @SIM_LPC_TYPE_Robot@U;
+inline constexpr std::uint32_t kSerialConsoleBytes = @SIM_LPC_TYPE_SerialConsole@U;
+inline constexpr std::uint32_t kSerialConsole2Bytes = @SIM_LPC_TYPE_SerialConsole2@U;
+inline constexpr std::uint32_t kSimpleShellBytes = @SIM_LPC_TYPE_SimpleShell@U;
+inline constexpr std::uint32_t kSlowTickerBytes = @SIM_LPC_TYPE_SlowTicker@U;
+inline constexpr std::uint32_t kStepTickerBytes = @SIM_LPC_TYPE_StepTicker@U;
+inline constexpr std::uint32_t kStepperMotorBytes = @SIM_LPC_TYPE_StepperMotor@U;
+inline constexpr std::uint32_t kTemperatureSwitchBytes = @SIM_LPC_TYPE_TemperatureSwitch@U;
+inline constexpr std::uint32_t kWatchdogBytes = @SIM_LPC_TYPE_Watchdog@U;
+inline constexpr std::uint32_t kWifiProviderBytes = @SIM_LPC_TYPE_WifiProvider@U;
+inline constexpr std::uint32_t kZProbeBytes = @SIM_LPC_TYPE_ZProbe@U;
+
 }  // namespace sim::lpc_memory::generated
 
 #endif

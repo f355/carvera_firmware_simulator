@@ -19,7 +19,14 @@
 
 #include <cstdint>
 
+#include "Config.h"
+#include "Configurator.h"
+#include "GcodeDispatch.h"
+#include "Planner.h"
 #include "Robot.h"
+#include "SimpleShell.h"
+#include "StepperMotor.h"
+#include "lpc_memory_layout.hpp"
 #include "libs/Kernel.h"
 #include "sim/firm_config_data.hpp"
 #include "sim/machine_simulator.hpp"
@@ -55,6 +62,16 @@ void initialize_eeprom_for_reboot(I2cEepromDevice& eeprom, const FactorySettings
   eeprom.configure_factory_settings(settings);
 }
 
+template <typename Type>
+void record_firmware_object(lpc_memory::MemoryAccounting& memory, Type* object, std::uint32_t target_bytes,
+                            const char* type_name) {
+  if (object == nullptr) {
+    return;
+  }
+  memory.deallocate(object);
+  memory.record_main(object, sizeof(Type), target_bytes, type_name);
+}
+
 }  // namespace
 
 RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, EventEngine& event_engine,
@@ -74,6 +91,20 @@ Kernel& RuntimeBootSession::boot() {
   {
     FirmConfigDataScope firm_config_data_scope;
     kernel_ = std::make_unique<Kernel>();
+    auto& memory = simulator_.context().memory_accounting();
+    record_firmware_object(memory, kernel_.get(), lpc_memory::generated::kKernelBytes, "Kernel");
+    record_firmware_object(memory, kernel_->config, lpc_memory::generated::kConfigBytes, "Config");
+    record_firmware_object(memory, kernel_->gcode_dispatch, lpc_memory::generated::kGcodeDispatchBytes,
+                           "GcodeDispatch");
+    record_firmware_object(memory, kernel_->robot, lpc_memory::generated::kRobotBytes, "Robot");
+    record_firmware_object(memory, kernel_->planner, lpc_memory::generated::kPlannerBytes, "Planner");
+    record_firmware_object(memory, kernel_->configurator, lpc_memory::generated::kConfiguratorBytes, "Configurator");
+    record_firmware_object(memory, kernel_->simpleshell, lpc_memory::generated::kSimpleShellBytes, "SimpleShell");
+    if (kernel_->robot != nullptr) {
+      for (auto* motor : kernel_->robot->actuators) {
+        record_firmware_object(memory, motor, lpc_memory::generated::kStepperMotorBytes, "StepperMotor");
+      }
+    }
   }
   runtime_modules::initialize_startup_gpio();
   const auto modules =

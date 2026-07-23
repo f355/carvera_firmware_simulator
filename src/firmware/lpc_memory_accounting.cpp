@@ -20,8 +20,13 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 
+#include "ConfigCache.h"
+#include "StreamOutput.h"
+#include "compat/active_context.hpp"
 #include "lpc_memory_layout.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace {
 
@@ -29,6 +34,26 @@ constexpr std::uint32_t kMainHeapHeaderBytes = 8;
 constexpr std::uint32_t kMainHeapAlignment = 8;
 constexpr std::uint32_t kAhbHeaderBytes = 4;
 constexpr std::uint32_t kAhbAlignment = 4;
+
+struct FirmwareCallStack {
+  std::size_t depth{};
+  void* pending_config_cache_owner{};
+  std::size_t pending_config_cache_depth{};
+  bool accounting_suppressed{};
+};
+
+thread_local FirmwareCallStack firmware_calls;
+
+class AccountingSuppression {
+ public:
+  AccountingSuppression() : previous_(firmware_calls.accounting_suppressed) {
+    firmware_calls.accounting_suppressed = true;
+  }
+  ~AccountingSuppression() { firmware_calls.accounting_suppressed = previous_; }
+
+ private:
+  bool previous_;
+};
 
 std::uint32_t checked_size(std::size_t bytes) {
   if (bytes > std::numeric_limits<std::uint32_t>::max()) {
@@ -78,6 +103,348 @@ AhbLayout firmware_ahb_layout() {
       .region_end = generated::kAhbRegionEnd,
       .dynamic_start = generated::kAhbDynamicStart,
   };
+}
+
+MemoryAccounting::MemoryAccounting() : main_(firmware_main_sram_layout()), ahb_(firmware_ahb_layout()) {}
+
+void MemoryAccounting::record_main(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                                   std::string type_name, bool target_size_exact) {
+  record(MemoryRegion::MainSram, pointer, host_payload_bytes, target_payload_bytes, std::move(type_name),
+         target_size_exact);
+}
+
+void MemoryAccounting::record_ahb(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                                  std::string type_name, bool target_size_exact) {
+  record(MemoryRegion::AhbSram, pointer, host_payload_bytes, target_payload_bytes, std::move(type_name),
+         target_size_exact);
+}
+
+void MemoryAccounting::record(MemoryRegion region, void* pointer, std::size_t host_payload_bytes,
+                              std::size_t target_payload_bytes, std::string type_name, bool target_size_exact) {
+  if (pointer == nullptr) {
+    return;
+  }
+
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  if (allocations_.contains(pointer)) {
+    throw std::invalid_argument("host pointer is already tracked by LPC memory accounting");
+  }
+
+  std::size_t group_index = groups_.size();
+  for (std::size_t index = 0; index < groups_.size(); ++index) {
+    const auto& group = groups_[index];
+    if (group.region == region && group.type_name == type_name && group.host_payload_bytes == host_payload_bytes &&
+        group.target_payload_bytes == target_payload_bytes && group.target_size_exact == target_size_exact) {
+      group_index = index;
+      break;
+    }
+  }
+  if (group_index == groups_.size()) {
+    groups_.push_back(AllocationGroupSnapshot{
+        .region = region,
+        .type_name = std::move(type_name),
+        .host_payload_bytes = checked_size(host_payload_bytes),
+        .target_payload_bytes = checked_size(target_payload_bytes),
+        .target_size_exact = target_size_exact,
+    });
+  }
+
+  const AllocationId id = next_id_++;
+  bool modeled = false;
+  if (target_size_exact) {
+    modeled = region == MemoryRegion::MainSram ? main_.allocate(id, target_payload_bytes)
+                                               : ahb_.allocate(id, target_payload_bytes);
+  }
+  const bool config_cache_owner = region == MemoryRegion::MainSram && groups_[group_index].type_name == "ConfigCache";
+  allocations_.emplace(pointer, Allocation{
+                                    .region = region,
+                                    .id = id,
+                                    .group_index = group_index,
+                                    .modeled = modeled,
+                                    .config_cache_owner = config_cache_owner,
+                                });
+
+  auto& group = groups_[group_index];
+  ++group.live_count;
+  ++group.total_count;
+  group.peak_live_count = std::max(group.peak_live_count, group.live_count);
+  group.live_target_bytes += target_payload_bytes;
+  group.peak_target_bytes = std::max(group.peak_target_bytes, group.live_target_bytes);
+}
+
+std::optional<MemoryRegion> MemoryAccounting::deallocate(void* pointer) {
+  if (pointer == nullptr) {
+    return std::nullopt;
+  }
+
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  const auto found = allocations_.find(pointer);
+  if (found == allocations_.end()) {
+    return std::nullopt;
+  }
+
+  const auto allocation = found->second;
+  if (allocation.modeled) {
+    if (allocation.region == MemoryRegion::MainSram) {
+      main_.deallocate(allocation.id);
+    } else {
+      ahb_.deallocate(allocation.id);
+    }
+  }
+  auto& group = groups_[allocation.group_index];
+  --group.live_count;
+  group.live_target_bytes -= group.target_payload_bytes;
+  if (allocation.config_cache_owner) {
+    main_.set_config_cache_active(false);
+  }
+  allocations_.erase(found);
+  return allocation.region;
+}
+
+void MemoryAccounting::mark_config_cache_owner(void* pointer, std::size_t target_payload_bytes) {
+  if (pointer == nullptr) {
+    return;
+  }
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  const auto found = allocations_.find(pointer);
+  if (found == allocations_.end() || found->second.region != MemoryRegion::MainSram ||
+      found->second.config_cache_owner) {
+    return;
+  }
+
+  auto& allocation = found->second;
+  auto& old_group = groups_[allocation.group_index];
+  if (allocation.modeled) {
+    main_.deallocate(allocation.id);
+  }
+  --old_group.live_count;
+  old_group.live_target_bytes -= old_group.target_payload_bytes;
+
+  std::size_t group_index = groups_.size();
+  for (std::size_t index = 0; index < groups_.size(); ++index) {
+    const auto& group = groups_[index];
+    if (group.region == MemoryRegion::MainSram && group.type_name == "ConfigCache" &&
+        group.host_payload_bytes == old_group.host_payload_bytes &&
+        group.target_payload_bytes == target_payload_bytes && group.target_size_exact) {
+      group_index = index;
+      break;
+    }
+  }
+  if (group_index == groups_.size()) {
+    groups_.push_back(AllocationGroupSnapshot{
+        .region = MemoryRegion::MainSram,
+        .type_name = "ConfigCache",
+        .host_payload_bytes = old_group.host_payload_bytes,
+        .target_payload_bytes = checked_size(target_payload_bytes),
+        .target_size_exact = true,
+    });
+  }
+
+  auto& group = groups_[group_index];
+  ++group.live_count;
+  ++group.total_count;
+  group.peak_live_count = std::max(group.peak_live_count, group.live_count);
+  group.live_target_bytes += target_payload_bytes;
+  group.peak_target_bytes = std::max(group.peak_target_bytes, group.live_target_bytes);
+  allocation.group_index = group_index;
+  allocation.modeled = main_.allocate(allocation.id, target_payload_bytes);
+  allocation.config_cache_owner = true;
+}
+
+void MemoryAccounting::set_config_cache_active(bool active) {
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  main_.set_config_cache_active(active);
+}
+
+void MemoryAccounting::release_config_cache() {
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  for (auto allocation = allocations_.begin(); allocation != allocations_.end(); ++allocation) {
+    if (!allocation->second.config_cache_owner) {
+      continue;
+    }
+    if (allocation->second.modeled) {
+      main_.deallocate(allocation->second.id);
+    }
+    auto& group = groups_[allocation->second.group_index];
+    --group.live_count;
+    group.live_target_bytes -= group.target_payload_bytes;
+    allocations_.erase(allocation);
+    break;
+  }
+  main_.set_config_cache_active(false);
+}
+
+void MemoryAccounting::reset() {
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  main_.reset();
+  ahb_.reset();
+  allocations_.clear();
+  groups_.clear();
+  next_id_ = 1;
+}
+
+MemoryAccountingSnapshot MemoryAccounting::snapshot() const {
+  AccountingSuppression suppression;
+  std::scoped_lock lock(mutex_);
+  return {
+      .main = main_.snapshot(),
+      .ahb = ahb_.snapshot(),
+      .allocation_groups = groups_,
+  };
+}
+
+void enter_firmware_function(void*) noexcept { ++firmware_calls.depth; }
+
+void exit_firmware_function() noexcept {
+  if (firmware_calls.depth > 0) {
+    --firmware_calls.depth;
+  }
+  if (firmware_calls.pending_config_cache_owner != nullptr &&
+      firmware_calls.depth < firmware_calls.pending_config_cache_depth) {
+    firmware_calls.pending_config_cache_owner = nullptr;
+  }
+}
+
+bool firmware_allocation_active() noexcept { return firmware_calls.depth > 0 && !firmware_calls.accounting_suppressed; }
+
+void config_cache_storage_acquired() noexcept {
+  AccountingSuppression suppression;
+  void* owner = firmware_calls.pending_config_cache_owner;
+  firmware_calls.pending_config_cache_owner = nullptr;
+  try {
+    if (auto* context = compat::try_active_context(); context != nullptr) {
+      context->memory_accounting().mark_config_cache_owner(owner, generated::kConfigCacheObjectBytes);
+      context->memory_accounting().set_config_cache_active(true);
+    }
+  } catch (...) {
+  }
+}
+
+void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes) noexcept {
+  if (pointer == nullptr || !firmware_allocation_active()) {
+    return;
+  }
+
+  AccountingSuppression suppression;
+  try {
+    auto* context = compat::try_active_context();
+    if (context == nullptr) {
+      return;
+    }
+    context->memory_accounting().record_main(pointer, host_payload_bytes, host_payload_bytes, "ABI-unresolved", false);
+    if (host_payload_bytes == sizeof(ConfigCache)) {
+      firmware_calls.pending_config_cache_owner = pointer;
+      firmware_calls.pending_config_cache_depth = firmware_calls.depth;
+    }
+  } catch (...) {
+  }
+}
+
+bool release_host_allocation(void* pointer) noexcept {
+  if (pointer == nullptr || firmware_calls.accounting_suppressed) {
+    return false;
+  }
+
+  AccountingSuppression suppression;
+  try {
+    if (auto* context = compat::try_active_context(); context != nullptr) {
+      return context->memory_accounting().deallocate(pointer).has_value();
+    }
+  } catch (...) {
+  }
+  return false;
+}
+
+void print_memory_report(StreamOutput* stream, bool verbose) {
+  if (stream == nullptr) {
+    return;
+  }
+  AccountingSuppression suppression;
+  auto* context = compat::try_active_context();
+  if (context == nullptr) {
+    stream->printf("LPC memory accounting unavailable\n");
+    return;
+  }
+
+  auto report = context->memory_accounting().snapshot();
+  const auto& main = report.main;
+  stream->printf("LPC1768 Main SRAM: capacity=%lu static=%lu stack=%lu\n",
+                 static_cast<unsigned long>(main.capacity_bytes), static_cast<unsigned long>(main.static_bytes),
+                 static_cast<unsigned long>(main.stack_reserved_bytes));
+  stream->printf(
+      "  Heap: committed=%lu live=%lu peak=%lu overhead=%lu fragmented=%lu top-free=%lu\n",
+      static_cast<unsigned long>(main.heap_committed_bytes), static_cast<unsigned long>(main.live_payload_bytes),
+      static_cast<unsigned long>(main.peak_live_payload_bytes),
+      static_cast<unsigned long>(main.allocator_overhead_bytes), static_cast<unsigned long>(main.fragmented_free_bytes),
+      static_cast<unsigned long>(main.top_unallocated_bytes));
+  stream->printf("  Total Free RAM (Main Heap): %lu bytes; minimum-margin=%lu\n",
+                 static_cast<unsigned long>(main.fragmented_free_bytes + main.top_unallocated_bytes),
+                 static_cast<unsigned long>(main.minimum_margin_bytes));
+  stream->printf("  Config cache: %s start=0x%08lX size=%lu collision=%s\n",
+                 main.config_cache_active ? "active" : "released", static_cast<unsigned long>(main.config_cache_start),
+                 static_cast<unsigned long>(main.config_cache_bytes), main.config_cache_collision ? "yes" : "no");
+  stream->printf("  Main allocation failures: %lu (%llu requested bytes); heap-limit-collision=%s\n",
+                 static_cast<unsigned long>(main.failed_allocation_count),
+                 static_cast<unsigned long long>(main.failed_allocation_bytes),
+                 main.heap_limit_collision ? "yes" : "no");
+
+  const auto& ahb = report.ahb;
+  stream->printf("LPC1768 AHB SRAM: capacity=%lu static=%lu dynamic=%lu\n",
+                 static_cast<unsigned long>(ahb.capacity_bytes), static_cast<unsigned long>(ahb.static_bytes),
+                 static_cast<unsigned long>(ahb.dynamic_capacity_bytes));
+  stream->printf(
+      "  Pool: live=%lu peak=%lu overhead=%lu free=%lu largest-free=%lu\n",
+      static_cast<unsigned long>(ahb.live_payload_bytes), static_cast<unsigned long>(ahb.peak_live_payload_bytes),
+      static_cast<unsigned long>(ahb.allocator_overhead_bytes), static_cast<unsigned long>(ahb.total_free_bytes),
+      static_cast<unsigned long>(ahb.largest_free_block_bytes));
+  stream->printf("  AHB allocation failures: %lu (%llu requested bytes)\n",
+                 static_cast<unsigned long>(ahb.failed_allocation_count),
+                 static_cast<unsigned long long>(ahb.failed_allocation_bytes));
+
+  std::uint64_t unresolved_main_live = 0;
+  std::uint64_t unresolved_main_peak = 0;
+  std::uint64_t unresolved_ahb_live = 0;
+  std::uint64_t unresolved_ahb_peak = 0;
+  for (const auto& group : report.allocation_groups) {
+    if (group.target_size_exact) {
+      continue;
+    }
+    auto& live = group.region == MemoryRegion::MainSram ? unresolved_main_live : unresolved_ahb_live;
+    auto& peak = group.region == MemoryRegion::MainSram ? unresolved_main_peak : unresolved_ahb_peak;
+    live += static_cast<std::uint64_t>(group.host_payload_bytes) * group.live_count;
+    peak += static_cast<std::uint64_t>(group.host_payload_bytes) * group.peak_live_count;
+  }
+  stream->printf(
+      "Unresolved ABI allocations (not charged to LPC totals): main live=%llu peak=%llu; "
+      "AHB live=%llu peak=%llu host-request bytes\n",
+      static_cast<unsigned long long>(unresolved_main_live), static_cast<unsigned long long>(unresolved_main_peak),
+      static_cast<unsigned long long>(unresolved_ahb_live), static_cast<unsigned long long>(unresolved_ahb_peak));
+
+  if (!verbose) {
+    return;
+  }
+  std::ranges::sort(report.allocation_groups, [](const auto& lhs, const auto& rhs) {
+    if (lhs.region != rhs.region) {
+      return lhs.region < rhs.region;
+    }
+    return lhs.peak_target_bytes > rhs.peak_target_bytes;
+  });
+  stream->printf("Allocation groups (host request -> LPC charge):\n");
+  for (const auto& group : report.allocation_groups) {
+    const char* region = group.region == MemoryRegion::MainSram ? "main" : "AHB";
+    const char* type = group.type_name.empty() ? "unlabelled" : group.type_name.c_str();
+    stream->printf("  %s %-20s %lu -> %lu bytes, live=%lu peak=%lu total=%lu%s\n", region, type,
+                   static_cast<unsigned long>(group.host_payload_bytes),
+                   static_cast<unsigned long>(group.target_payload_bytes), static_cast<unsigned long>(group.live_count),
+                   static_cast<unsigned long>(group.peak_live_count), static_cast<unsigned long>(group.total_count),
+                   group.target_size_exact ? "" : " (host-size estimate)");
+  }
 }
 
 MainSramModel::MainSramModel(MainSramLayout layout) : layout_(layout) {
