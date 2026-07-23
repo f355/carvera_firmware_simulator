@@ -37,6 +37,18 @@ EventEngine::EventEngine(MachineSimulator& simulator) : simulator_(simulator) {}
 EventRunResult EventEngine::run(Kernel& kernel, const EventRunOptions& options, ResetCallback reset) {
   EventRunResult result;
 
+  // Honor a reset requested during boot (e.g. config-cache FATAL) before any
+  // further main-loop or timer work that would touch a cleared cache.
+  if (system_reset::consume_requested()) {
+    if (reset) {
+      reset();
+    }
+    result.status = EventRunStatus::Reset;
+    result.reset_requested = true;
+    result.motion_idle = true;
+    return result;
+  }
+
   for (std::size_t i = 0; i < options.main_loop_iterations; ++i) {
     if (options.drain_serial_lines && (kernel.serial == nullptr || !kernel.serial->has_char('\n'))) {
       break;
@@ -63,6 +75,16 @@ EventRunResult EventEngine::run(Kernel& kernel, const EventRunOptions& options, 
   }
 
   for (std::size_t event = 0; event < options.max_timer_events; ++event) {
+    if (system_reset::consume_requested()) {
+      if (reset) {
+        reset();
+      }
+      result.status = EventRunStatus::Reset;
+      result.reset_requested = true;
+      result.motion_idle = true;
+      return result;
+    }
+
     if (!run_one_timer_event(kernel)) {
       result.status = EventRunStatus::NoProgress;
       return result;

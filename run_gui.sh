@@ -53,6 +53,7 @@ Options:
   --ahb-bytes N         Cap simulated LPC AHB pool (e.g. 17544 for strict LPC).
   --ahb-unlimited       Disable the capped AHB pool.
   --stack-limit-bytes N Optional firmware native stack watermark.
+  --lpc-heap            Enable LPC main-SRAM/_sbrk model (heap↔config-cache repro).
   --no-open             Do not open a browser.
   --no-log-transport    Do not dump UART/WiFi traffic to this terminal.
   -h, --help            Show this help.
@@ -60,7 +61,8 @@ Options:
 Environment alternatives:
   CARVERA_FIRMWARE_ROOT, CARVERA_SIM_FIRMWARE_DIR, CARVERA_SIM_BUILD_DIR, CARVERA_SIM_GUI_HOST,
   CARVERA_SIM_GUI_PORT, CARVERA_SIM_WIFI_PORT, CARVERA_SIM_MODEL, CARVERA_SIM_BUILD_JOBS,
-  CARVERA_SIM_AHB_BYTES, CARVERA_SIM_AHB_UNLIMITED, CARVERA_SIM_STACK_LIMIT_BYTES
+  CARVERA_SIM_AHB_BYTES, CARVERA_SIM_AHB_UNLIMITED, CARVERA_SIM_STACK_LIMIT_BYTES,
+  CARVERA_SIM_LPC_HEAP
 EOF
 }
 

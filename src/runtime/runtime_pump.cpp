@@ -25,6 +25,13 @@ RuntimePump::RuntimePump(EventEngine& engine, RuntimeBootSession& boot_session)
     : engine_(engine), boot_session_(boot_session) {}
 
 RuntimePumpResult RuntimePump::pump(const RuntimePumpOptions& options) {
+  if (boot_session_.boot_inhibited()) {
+    EventRunResult result;
+    result.status = EventRunStatus::NoProgress;
+    result.motion_idle = true;
+    return result;
+  }
+
   auto& kernel = boot_session_.boot();
   auto reset = [this]() { boot_session_.reset(); };
   auto result = engine_.run(kernel, options, reset);

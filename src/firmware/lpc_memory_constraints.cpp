@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
-#include <new>
 #include <string>
 
 #include "StreamOutput.h"
@@ -31,12 +30,13 @@
 #define STACK_SIZE 4096
 #endif
 
+extern unsigned int g_maximumHeapAddress;
+
 namespace {
 
 constexpr std::uint32_t kUsedBit = 0x80000000u;
 constexpr std::size_t kHeaderSize = 4;
 constexpr std::size_t kMinSplitTail = kHeaderSize + 4;
-
 struct alignas(4) PoolHeader {
   std::uint32_t word;
 };
@@ -47,13 +47,30 @@ std::size_t g_native_stack_limit = 0;
 std::uint64_t g_reboot_count = 0;
 bool g_env_applied = false;
 bool g_lpc_heap_enabled = false;
-
 alignas(8) std::uint8_t g_main_sram[sim::lpc_memory::kMainSramBytes];
-std::uint8_t* g_heap_break = g_main_sram;
-const std::uint8_t* g_heap_limit =
-    g_main_sram + (sim::lpc_memory::kMainSramBytes - static_cast<std::size_t>(STACK_SIZE));
+
+std::uint8_t* heap_region_start() {
+  return g_main_sram + sim::lpc_memory::kSimulatedStaticBytes;
+}
+
+std::uint8_t* stack_limit_ptr() {
+  return g_main_sram + (sim::lpc_memory::kMainSramBytes - static_cast<std::size_t>(STACK_SIZE));
+}
+
+std::uint8_t* maximum_heap_ptr() {
+  // Match mbed_custom: StackLimit - 32 (MPU guard), allowing growth through the
+  // config-cache window so Config's software check can observe a collision.
+  return stack_limit_ptr() - 32;
+}
+
+std::uint8_t* config_cache_ptr(std::size_t bytes) {
+  return stack_limit_ptr() - bytes;
+}
+
+std::uint8_t* g_heap_break = heap_region_start();
 
 thread_local const void* g_stack_sample_base = nullptr;
+bool g_config_cache_live = false;
 
 std::uint32_t header_size(std::uint32_t word) { return word & ~kUsedBit; }
 bool header_used(std::uint32_t word) { return (word & kUsedBit) != 0; }
@@ -70,6 +87,39 @@ bool env_truthy(const char* name) {
   }
   const std::string text = value;
   return text == "1" || text == "true" || text == "TRUE" || text == "yes" || text == "YES";
+}
+
+void publish_maximum_heap_address_locked() {
+  if (g_lpc_heap_enabled) {
+    g_maximumHeapAddress = static_cast<unsigned int>(reinterpret_cast<std::uintptr_t>(maximum_heap_ptr()));
+  } else {
+    g_maximumHeapAddress = 0;
+  }
+}
+
+void reset_heap_break_locked() {
+  g_heap_break = heap_region_start();
+  g_config_cache_live = false;
+  publish_maximum_heap_address_locked();
+}
+
+void advance_heap_break_locked(std::size_t bytes) {
+  if (bytes == 0) {
+    return;
+  }
+  // Allow growth through the config-cache window up to the MPU ceiling. Do not
+  // request reset here — Config::config_cache_clear FATALS when `_sbrk(0)` has
+  // crossed cache_start. Resetting on every host-pressure charge caused false
+  // boot loops with always_active=false.
+  std::uint8_t* limit = maximum_heap_ptr();
+  if (g_heap_break >= limit) {
+    return;
+  }
+  if (g_heap_break + bytes > limit) {
+    g_heap_break = limit;
+    return;
+  }
+  g_heap_break += bytes;
 }
 
 void apply_environment_defaults_locked() {
@@ -99,6 +149,8 @@ void apply_environment_defaults_locked() {
   if (env_truthy("CARVERA_SIM_LPC_HEAP")) {
     g_lpc_heap_enabled = true;
   }
+
+  reset_heap_break_locked();
 }
 
 }  // namespace
@@ -108,14 +160,16 @@ SimMemoryPool simulator_ahb;
 SimMemoryPool::SimMemoryPool() = default;
 
 void SimMemoryPool::rebuild_capped_pool() {
-  delete[] arena_;
+  // Use malloc/free so AHB arena pages are not charged to the main-SRAM `_sbrk`
+  // watermark (on device AHB is a separate bank).
+  std::free(arena_);
   arena_ = nullptr;
   arena_bytes_ = capacity_;
   if (arena_bytes_ < kHeaderSize * 2) {
     arena_bytes_ = 0;
     return;
   }
-  arena_ = new (std::nothrow) std::uint8_t[arena_bytes_];
+  arena_ = static_cast<std::uint8_t*>(std::malloc(arena_bytes_));
   if (arena_ == nullptr) {
     arena_bytes_ = 0;
     return;
@@ -142,7 +196,7 @@ void SimMemoryPool::reset() {
   std::lock_guard<std::mutex> lock(g_mutex);
   apply_environment_defaults_locked();
   configured_ = false;
-  delete[] arena_;
+  std::free(arena_);
   arena_ = nullptr;
   arena_bytes_ = 0;
   unlimited_ = false;
@@ -347,7 +401,7 @@ void check_firmware_stack_sample() {
 void reset_for_reboot() {
   {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_heap_break = g_main_sram;
+    reset_heap_break_locked();
     g_stack_sample_base = nullptr;
   }
   simulator_ahb.reset();
@@ -367,13 +421,64 @@ void set_lpc_heap_enabled(bool enabled) {
   std::lock_guard<std::mutex> lock(g_mutex);
   g_env_applied = true;
   g_lpc_heap_enabled = enabled;
-  g_heap_break = g_main_sram;
+  reset_heap_break_locked();
 }
 
 bool lpc_heap_enabled() {
   apply_environment_defaults();
   std::lock_guard<std::mutex> lock(g_mutex);
   return g_lpc_heap_enabled;
+}
+
+void note_config_cache_live(bool live) {
+  apply_environment_defaults();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  g_config_cache_live = live;
+}
+
+bool config_cache_live() {
+  apply_environment_defaults();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return g_config_cache_live;
+}
+
+void* config_cache_base(std::size_t bytes) {
+  apply_environment_defaults();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (bytes == 0) {
+    bytes = kConfigCacheBytes;
+  }
+  if (bytes > kConfigCacheBytes) {
+    bytes = kConfigCacheBytes;
+  }
+  std::uint8_t* cache = config_cache_ptr(bytes);
+  // When the cache window is first reserved, raise the heap watermark to a
+  // realistic post-BSS / early-boot level just below it. Host `new` sizes are
+  // not MCU-accurate; fopen + small live-window allocs then provide the natural
+  // tip-over (e.g. flex always-active) without special-casing that path.
+  if (g_heap_break < cache - kConfigCacheBootHeadroomBytes) {
+    std::uint8_t* target = cache - kConfigCacheBootHeadroomBytes;
+    if (target > heap_region_start()) {
+      g_heap_break = target;
+    }
+  }
+  return cache;
+}
+
+std::uintptr_t stack_limit_address() {
+  apply_environment_defaults();
+  return reinterpret_cast<std::uintptr_t>(stack_limit_ptr());
+}
+
+std::uintptr_t heap_break_address() {
+  apply_environment_defaults();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  return reinterpret_cast<std::uintptr_t>(g_heap_break);
+}
+
+std::uintptr_t maximum_heap_address() {
+  apply_environment_defaults();
+  return reinterpret_cast<std::uintptr_t>(maximum_heap_ptr());
 }
 
 void* sbrk(int increment) {
@@ -383,7 +488,7 @@ void* sbrk(int increment) {
   }
   if (increment < 0) {
     const auto dec = static_cast<std::size_t>(-increment);
-    if (g_heap_break - g_main_sram < static_cast<std::ptrdiff_t>(dec)) {
+    if (g_heap_break - heap_region_start() < static_cast<std::ptrdiff_t>(dec)) {
       return reinterpret_cast<void*>(static_cast<std::intptr_t>(-1));
     }
     g_heap_break -= dec;
@@ -391,13 +496,25 @@ void* sbrk(int increment) {
   }
 
   const auto inc = static_cast<std::size_t>(increment);
-  if (g_heap_break + inc > g_heap_limit) {
-    system_reset::request();
+  std::uint8_t* previous = g_heap_break;
+  if (g_heap_break + inc > maximum_heap_ptr()) {
     return reinterpret_cast<void*>(static_cast<std::intptr_t>(-1));
   }
-  void* previous = g_heap_break;
   g_heap_break += inc;
   return previous;
 }
 
+void account_host_allocation_raw(std::size_t bytes) {
+  if (bytes == 0) {
+    return;
+  }
+  apply_environment_defaults();
+  std::lock_guard<std::mutex> lock(g_mutex);
+  if (!g_lpc_heap_enabled || !g_config_cache_live) {
+    return;
+  }
+  advance_heap_break_locked(bytes);
+}
+
 }  // namespace sim::lpc_memory
+

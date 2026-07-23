@@ -56,6 +56,7 @@
 #include "sim/runtime_temperature.hpp"
 #include "sim/spindle_state.hpp"
 #include "sim/simulator_context.hpp"
+#include "sim/system_reset.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -283,8 +284,10 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   spindle_maker.load_spindle();
   kernel.add_module(make_spindle_tach_module(simulator));
   kernel.add_module(new SimulatorTimerPumpBridgeModule(simulator, event_engine));
+  ZProbe *zprobe = nullptr;
   if (kernel.robot != nullptr && kernel.robot->get_number_registered_motors() >= 3) {
-    kernel.add_module(new ZProbe());
+    zprobe = new ZProbe();
+    kernel.add_module(zprobe);
   }
   simulator.set_temperature(TemperatureSensor::Spindle, 25.0);
   simulator.set_temperature(TemperatureSensor::Power, 25.0);
@@ -292,6 +295,26 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   kernel.add_module(new TemperatureSwitch());
   kernel.add_module(new Drillingcycles());
   load_watchdog_if_enabled(kernel);
+
+  // Match main.cpp: run config_cache_clear() so LPC heap↔cache collisions can
+  // FATAL. Device firmware has already snapped config into modules by this
+  // point; the simulator host layer still reads Config::value() for pins/ATC,
+  // so reload the cache afterward when clear did not request a reset.
+  if (kernel.config != nullptr) {
+    kernel.config->config_cache_clear();
+    if (sim::system_reset::pending()) {
+      // system_reset returns on the host; abort the rest of boot so we do not
+      // start motion/tickers against a cleared cache before soft-reboot.
+      return modules;
+    }
+    // Match main.cpp: flex always-active load (and similar) must run only after
+    // the config cache is released — it allocates on the main heap.
+    if (zprobe != nullptr) {
+      zprobe->after_config_cache_clear();
+    }
+    kernel.config->config_cache_load();
+  }
+
   replay_config_override(kernel, simulator);
 
   if (kernel.conveyor != nullptr && kernel.robot != nullptr) {

@@ -26,6 +26,7 @@
 
 #include "libs/FirmwareFileSystem.h"
 #include "sim/i2c_eeprom.hpp"
+#include "sim/lpc_memory_constraints.hpp"
 #include "sim/simulator_context.hpp"
 #include "compat/active_context.hpp"
 
@@ -142,7 +143,13 @@ FILE* fopen(const char* path, const char* mode) {
     std::error_code error;
     std::filesystem::create_directories(translated.parent_path(), error);
   }
-  return std::fopen(translated.string().c_str(), mode);
+  FILE* file = std::fopen(translated.string().c_str(), mode);
+  if (file != nullptr) {
+    // newlib FILE buffers live on the main heap; charge while the config cache
+    // is live so fopen during module init (including flex load) moves `_sbrk`.
+    sim::lpc_memory::account_host_allocation_raw(sim::lpc_memory::kNewlibFileBufferBytes);
+  }
+  return file;
 }
 
 FILE* freopen(const char* path, const char* mode, FILE* stream) {

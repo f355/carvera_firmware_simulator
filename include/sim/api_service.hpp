@@ -45,6 +45,7 @@ class ApiService {
   bool fill_machine_snapshot_nonblocking(carvera::sim::v1::MachineSnapshot& snapshot);
   bool fill_physical_io_snapshot_nonblocking(carvera::sim::v1::PhysicalIoSnapshot& snapshot);
   void set_auxiliary_interactive_pump(std::function<void()> pump);
+  void set_max_boot_loop_soft_resets(std::size_t max_resets);
   void pump_interactive();
 
  private:

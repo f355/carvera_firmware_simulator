@@ -315,9 +315,16 @@ This is the important part.
   dynamic pool is capped by default (LPC map size 17544 bytes, scaled by host
   pointer width to ~35KiB on 64-bit so Block queues still fit). Override with
   `--ahb-bytes`, `--ahb-unlimited`, or `CARVERA_SIM_AHB_*` (`--ahb-bytes 17544`
-  is strict LPC capacity). Optional native stack-limit checks use
-  `--stack-limit-bytes` / `CARVERA_SIM_STACK_LIMIT_BYTES`. Optional LPC
-  main-SRAM `_sbrk` modeling is off unless `CARVERA_SIM_LPC_HEAP=1`.
+  is strict LPC capacity). Optional LPC main-SRAM modeling (`--lpc-heap` /
+  `CARVERA_SIM_LPC_HEAP=1`) already reserves a **4096-byte LPC stack** at the
+  top of the 32KiB arena and places the config cache at `StackLimit - 9100`.
+  Do **not** set `--stack-limit-bytes 4096` for that — that flag is a separate
+  **host native** stack watermark (`CARVERA_SIM_STACK_LIMIT_BYTES`) and will
+  false-trip immediately on x86_64 (use hundreds of KiB if you enable it at
+  all, e.g. `262144`). While the cache is live, `fopen` advances a shadow
+  `_sbrk` by a newlib-sized FILE buffer so heap↔cache collisions can be
+  reproduced. Host `new` is not charged — those sizes are not MCU-accurate and
+  false-trigger normal boots.
 
 In other words: this is a firmware-and-machine simulator, not a microcontroller
 emulator. It tries to be honest where the firmware meets the machine, not where

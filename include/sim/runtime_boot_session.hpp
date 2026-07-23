@@ -37,7 +37,10 @@ class RuntimeBootSession {
 
   Kernel& boot();
   void reset();
+  // Tear down firmware and inhibit automatic re-boot (boot-loop abort / power off).
+  void power_off();
   bool booted() const { return kernel_ != nullptr; }
+  bool boot_inhibited() const { return boot_inhibited_; }
 
   bool is_homed() const { return homed_; }
   void refresh_homed();
@@ -56,6 +59,7 @@ class RuntimeBootSession {
   FactorySettings factory_settings_;
   SerialConsole2* wireless_probe_serial_{nullptr};
   bool homed_{false};
+  bool boot_inhibited_{false};
 };
 
 }  // namespace sim

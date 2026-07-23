@@ -73,9 +73,11 @@ set(SIM_RUNTIME_TESTS
   atc_interactive_transport_test
   atc_m6_runtime_test
   atc_persistent_tool_boot_test
+  boot_loop_abort_test
   ca1_manual_toolchange_test
   controller_handshake_test
   factory_settings_mount_order_test
+  flex_always_active_heap_collision_test
   free_running_homing_test
   free_running_reset_loop_test
   g38_3d_probe_side_test

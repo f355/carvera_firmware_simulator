@@ -33,7 +33,9 @@ ApiService::ApiService(SimulationInstance& simulation)
       runner_(simulation.runner()),
       machine_(simulation.machine()),
       persistent_state_(simulation.persistent_state()),
-      interactive_transport_(io_, runner_, machine_, [this]() { return firmware_.is_uploading(); }) {}
+      interactive_transport_(io_, runner_, machine_, [this]() { return firmware_.is_uploading(); }) {
+  interactive_transport_.set_boot_loop_abort([this]() { firmware_.power_off(); });
+}
 
 carvera::sim::v1::Response ApiService::handle(const carvera::sim::v1::Request& request) {
   if (auto response = handle_lifecycle_command(request)) {
@@ -75,6 +77,10 @@ carvera::sim::v1::Response ApiService::handle_cooperative(const carvera::sim::v1
 
 void ApiService::set_auxiliary_interactive_pump(std::function<void()> pump) {
   interactive_transport_.set_auxiliary_pump(std::move(pump));
+}
+
+void ApiService::set_max_boot_loop_soft_resets(std::size_t max_resets) {
+  interactive_transport_.set_max_consecutive_soft_resets(max_resets);
 }
 
 bool ApiService::fill_machine_snapshot_nonblocking(carvera::sim::v1::MachineSnapshot& snapshot) {

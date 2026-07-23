@@ -44,6 +44,9 @@ bool fill_snapshot_from_kernel(carvera::sim::v1::MachineSnapshot& snapshot, Firm
 
 bool fill_machine_snapshot(carvera::sim::v1::MachineSnapshot& snapshot, FirmwareRuntime& firmware,
                            MachineSimulator& simulator) {
+  if (firmware.boot_inhibited()) {
+    return false;
+  }
   (void)firmware.boot();
   return fill_snapshot_from_kernel(snapshot, firmware, simulator);
 }

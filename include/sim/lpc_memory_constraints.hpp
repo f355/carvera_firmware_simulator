@@ -29,46 +29,64 @@ namespace sim::lpc_memory {
 // __AHB_end (0x20084000) - __AHB_dyn_start (0x2007fb78) = 0x4488.
 inline constexpr std::size_t kLpcAhbPoolBytes = 17544;
 inline constexpr std::size_t kMainSramBytes = 32768;
+inline constexpr std::size_t kLpcStackSize = 4096;
+// 350 ConfigValue entries × 26 bytes — matches device CONFIG_CACHE_CAPACITY.
+inline constexpr std::size_t kConfigCacheBytes = 9100;
+// Typical leftover between end of .data/.bss and StackTop on current LPC maps.
+inline constexpr std::size_t kTypicalPostStaticBytes = 25000;
+inline constexpr std::size_t kSimulatedStaticBytes = kMainSramBytes - kTypicalPostStaticBytes;
+// Headroom under the config cache when the window is reserved. Chosen so normal
+// live-window fopen/small-alloc traffic still clears, while the extra flex
+// always-active fopen + std::function traffic tips past cache_start.
+inline constexpr std::size_t kConfigCacheBootHeadroomBytes = 1800;
+// newlib FILE buffer size charged while the config cache is live.
+inline constexpr std::size_t kNewlibFileBufferBytes = 1024;
+
 // Host builds use 64-bit pointers, so AHB-resident objects (Block queue, etc.)
 // are larger than on the MCU. Scale the default pool by pointer width so boot
 // still mirrors LPC headroom; use --ahb-bytes 17544 for strict LPC capacity.
 inline constexpr std::size_t kDefaultAhbPoolBytes =
     (sizeof(void*) > 4) ? (kLpcAhbPoolBytes * sizeof(void*) / 4) : kLpcAhbPoolBytes;
 
-// Apply CARVERA_SIM_AHB_BYTES / CARVERA_SIM_AHB_UNLIMITED /
-// CARVERA_SIM_STACK_LIMIT_BYTES once at process start.
 void apply_environment_defaults();
 
-// 0 = unlimited malloc shim (legacy host behavior).
 void set_ahb_capacity(std::size_t bytes);
 std::size_t ahb_capacity();
 bool ahb_unlimited();
 
-// Optional native stack watermark for the firmware pump thread.
-// 0 disables the check. A literal LPC STACK_SIZE (4096) will false-trigger on
-// host C++ frames; use a larger budget (e.g. 256KiB) when hunting deep recursion.
 void set_native_stack_limit(std::size_t bytes);
 std::size_t native_stack_limit();
 void begin_firmware_stack_sample();
 void check_firmware_stack_sample();
 
-// Rebuild the AHB pool and simulated main-SRAM heap (LPC reboot semantics).
 void reset_for_reboot();
 std::uint64_t firmware_reboot_count();
 void note_firmware_reboot();
 
-// Optional LPC main-SRAM heap model for `_sbrk`. Off by default because the
-// host process still needs a normal C++ heap for Config and STL.
+// LPC main-SRAM model: 32KiB arena, stack reserve 4096, config cache at
+// StackLimit - 9100. While the config cache is live (ConfigCache lifetime),
+// host `fopen` and `new` advance a shadow `_sbrk` watermark so Config's
+// heap↔cache check matches device behavior. There is no special-case for
+// flex compensation — any live-window heap pressure can tip the watermark.
 void set_lpc_heap_enabled(bool enabled);
 bool lpc_heap_enabled();
 
-// LPC-like `_sbrk` against a 32KiB main SRAM model with STACK_SIZE reserved.
-// Only used when `lpc_heap_enabled()` is true.
+void note_config_cache_live(bool live);
+bool config_cache_live();
+
+void* config_cache_base(std::size_t bytes);
+std::uintptr_t stack_limit_address();
+std::uintptr_t heap_break_address();
+std::uintptr_t maximum_heap_address();
+
 void* sbrk(int increment);
+
+// Advance the shadow watermark (newlib FILE buffer from fopen). No-op unless
+// LPC heap is enabled and the config cache is currently live.
+void account_host_allocation_raw(std::size_t bytes);
 
 }  // namespace sim::lpc_memory
 
-// Bounded AHB pool used by firmware via `#define AHB simulator_ahb`.
 class SimMemoryPool {
  public:
   SimMemoryPool();

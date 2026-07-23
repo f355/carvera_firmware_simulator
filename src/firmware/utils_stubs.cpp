@@ -70,6 +70,8 @@ namespace sim::system_reset {
 
 void request() { reset_requested.store(true); }
 
+bool pending() { return reset_requested.load(); }
+
 bool consume_requested() { return reset_requested.exchange(false); }
 
 }  // namespace sim::system_reset

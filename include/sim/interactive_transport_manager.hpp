@@ -18,6 +18,7 @@
 #ifndef SIMULATOR_SIM_INTERACTIVE_TRANSPORT_MANAGER_HPP
 #define SIMULATOR_SIM_INTERACTIVE_TRANSPORT_MANAGER_HPP
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -42,6 +43,9 @@ class InteractiveTransportManager {
  public:
   using AuxiliaryPump = std::function<void()>;
   using UploadingQuery = std::function<bool()>;
+  using BootLoopAbort = std::function<void()>;
+
+  static constexpr std::size_t kDefaultMaxConsecutiveSoftResets = 8;
 
   InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine, UploadingQuery uploading);
 
@@ -51,6 +55,9 @@ class InteractiveTransportManager {
   void pump();
   void fill(carvera::sim::v1::InteractiveTransport& transport) const;
   void set_auxiliary_pump(AuxiliaryPump pump);
+  void set_boot_loop_abort(BootLoopAbort abort);
+  void set_max_consecutive_soft_resets(std::size_t max_resets);
+  std::size_t consecutive_soft_resets() const { return consecutive_soft_resets_; }
 
  private:
   void relay_wifi_discovery();
@@ -60,11 +67,14 @@ class InteractiveTransportManager {
   RuntimePump& runner_;
   MachineSimulator& machine_;
   UploadingQuery uploading_;
+  BootLoopAbort boot_loop_abort_;
   std::unique_ptr<VirtualComPort> uart_;
   std::vector<std::unique_ptr<LocalhostTcpBridge>> tcp_bridges_;
   LocalhostDiscoveryBeacon discovery_beacon_;
   AuxiliaryPump auxiliary_pump_;
   bool traffic_logging_{false};
+  std::size_t consecutive_soft_resets_{0};
+  std::size_t max_consecutive_soft_resets_{kDefaultMaxConsecutiveSoftResets};
 };
 
 }  // namespace sim

@@ -27,6 +27,7 @@
 #include "sim/runtime_io.hpp"
 #include "sim/runtime_physical_controls.hpp"
 #include "sim/runtime_pump.hpp"
+#include "sim/system_reset.hpp"
 
 namespace sim {
 
@@ -51,15 +52,24 @@ Kernel& FirmwareRuntime::boot() {
   const bool already_booted = boot_session_.booted();
   auto& kernel = boot_session_.boot();
   if (!already_booted) {
-    pump_.run_until_motion_idle(200'000);
-    boot_session_.refresh_homed();
+    // FATAL during module load (e.g. heap↔cache) requests system_reset. On LPC
+    // that never returns; here skip the post-boot settle so we do not home/poll
+    // against a cleared config cache until the free-running path soft-reboots.
+    if (!system_reset::pending()) {
+      pump_.run_until_motion_idle(200'000);
+      boot_session_.refresh_homed();
+    }
   }
   return kernel;
 }
 
 void FirmwareRuntime::reset() { boot_session_.reset(); }
 
+void FirmwareRuntime::power_off() { boot_session_.power_off(); }
+
 bool FirmwareRuntime::booted() const { return boot_session_.booted(); }
+
+bool FirmwareRuntime::boot_inhibited() const { return boot_session_.boot_inhibited(); }
 
 bool FirmwareRuntime::is_homed() const { return boot_session_.is_homed(); }
 

@@ -38,12 +38,16 @@ void on_signal(int) { keep_running = 0; }
 void usage(const char* program) {
   std::cerr << "usage: " << program << " [--sd PATH] [--model c1|ca1] [--function-setting BYTE]\n"
             << "       [--wifi-port PORT]... [--no-uart] [--no-wifi]\n"
-            << "       [--ahb-bytes N | --ahb-unlimited] [--stack-limit-bytes N]\n\n"
+            << "       [--ahb-bytes N | --ahb-unlimited] [--stack-limit-bytes N]\n"
+            << "       [--lpc-heap]\n\n"
             << "If no --wifi-port is given, one localhost TCP port is opened on an ephemeral port.\n"
             << "PORT 0 also requests an ephemeral port.\n"
             << "AHB defaults to " << sim::lpc_memory::kDefaultAhbPoolBytes
             << " bytes (LPC " << sim::lpc_memory::kLpcAhbPoolBytes
-            << " scaled for host pointer width). Stack-limit checks are off unless set.\n";
+            << " scaled for host pointer width). Stack-limit checks are off unless set.\n"
+            << "--lpc-heap enables the 32KiB main-SRAM model (config cache at StackLimit-9100).\n"
+            << "While the config cache is live, fopen advances shadow `_sbrk` so heap↔cache\n"
+            << "collisions (e.g. flex always-active) can reproduce for firmware fix testing.\n";
 }
 
 bool parse_u16(const std::string& text, std::uint16_t& value) {
@@ -89,6 +93,7 @@ int main(int argc, char** argv) {
   std::optional<std::size_t> ahb_bytes;
   bool ahb_unlimited = false;
   std::optional<std::size_t> stack_limit_bytes;
+  bool lpc_heap = false;
 
   sim::lpc_memory::apply_environment_defaults();
 
@@ -126,6 +131,10 @@ int main(int argc, char** argv) {
         return 2;
       }
       stack_limit_bytes = bytes;
+      continue;
+    }
+    if (arg == "--lpc-heap") {
+      lpc_heap = true;
       continue;
     }
     if (arg == "--sd" && i + 1 < argc) {
@@ -172,6 +181,9 @@ int main(int argc, char** argv) {
   }
   if (stack_limit_bytes.has_value()) {
     sim::lpc_memory::set_native_stack_limit(*stack_limit_bytes);
+  }
+  if (lpc_heap) {
+    sim::lpc_memory::set_lpc_heap_enabled(true);
   }
 
   if (enable_wifi && wifi_ports.empty()) {

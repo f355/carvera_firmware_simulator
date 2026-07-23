@@ -39,7 +39,9 @@ class FirmwareRuntime {
   Kernel& start();
   Kernel& boot();
   void reset();
+  void power_off();
   bool booted() const;
+  bool boot_inhibited() const;
   bool is_homed() const;
   bool is_uploading();
   void home_machine();

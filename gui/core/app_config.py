@@ -171,6 +171,11 @@ def build_arg_parser(simulator_root: Path, *, platform: str | None = None) -> ar
         help="Optional native stack watermark for the firmware process (CARVERA_SIM_STACK_LIMIT_BYTES).",
     )
     parser.add_argument(
+        "--lpc-heap",
+        action="store_true",
+        help="Enable LPC main-SRAM/_sbrk model for heap↔config-cache collision repros (CARVERA_SIM_LPC_HEAP=1).",
+    )
+    parser.add_argument(
         "--no-log-transport",
         action="store_false",
         dest="log_transport",
@@ -193,6 +198,8 @@ def simulator_process_env(args: argparse.Namespace, *, base_env: Mapping[str, st
         env.pop("CARVERA_SIM_AHB_UNLIMITED", None)
     if getattr(args, "stack_limit_bytes", None) is not None:
         env["CARVERA_SIM_STACK_LIMIT_BYTES"] = str(args.stack_limit_bytes)
+    if getattr(args, "lpc_heap", False):
+        env["CARVERA_SIM_LPC_HEAP"] = "1"
     return env
 
 

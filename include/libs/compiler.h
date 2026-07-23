@@ -22,9 +22,20 @@
 
 #define LOCATED_IN_AHBSRAM
 
+namespace sim::lpc_memory {
+bool lpc_heap_enabled();
+void* config_cache_base(std::size_t bytes);
+}  // namespace sim::lpc_memory
+
+// Match device CONFIG_CACHE_STORAGE: place the store at StackLimit - N when the
+// LPC main-SRAM model is enabled; otherwise keep a disconnected host buffer.
 template <typename Type, std::size_t Capacity>
 Type* simulator_config_cache_storage() {
-  alignas(Type) static unsigned char storage[Capacity * sizeof(Type)]{};
+  constexpr std::size_t bytes = Capacity * sizeof(Type);
+  if (sim::lpc_memory::lpc_heap_enabled()) {
+    return reinterpret_cast<Type*>(sim::lpc_memory::config_cache_base(bytes));
+  }
+  alignas(Type) static unsigned char storage[bytes]{};
   return reinterpret_cast<Type*>(storage);
 }
 

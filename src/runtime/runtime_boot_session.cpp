@@ -26,6 +26,7 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_modules.hpp"
 #include "sim/simulator_context.hpp"
+#include "sim/system_reset.hpp"
 
 namespace sim {
 namespace {
@@ -73,6 +74,10 @@ Kernel& RuntimeBootSession::boot() {
   if (kernel_ != nullptr) {
     return *kernel_;
   }
+  if (boot_inhibited_) {
+    // Explicit boot() is treated as a manual power-on retry after an abort.
+    boot_inhibited_ = false;
+  }
 
   {
     FirmConfigDataScope firm_config_data_scope;
@@ -93,6 +98,7 @@ void RuntimeBootSession::reset() {
   kernel_.reset();
   wireless_probe_serial_ = nullptr;
   Kernel::instance = nullptr;
+  boot_inhibited_ = false;
   lpc_memory::note_firmware_reboot();
   lpc_memory::reset_for_reboot();
   simulator_.reset(true);
@@ -105,11 +111,20 @@ void RuntimeBootSession::reset() {
   homed_ = false;
 }
 
+void RuntimeBootSession::power_off() {
+  kernel_.reset();
+  wireless_probe_serial_ = nullptr;
+  Kernel::instance = nullptr;
+  boot_inhibited_ = true;
+  homed_ = false;
+  system_reset::consume_requested();
+}
+
 void RuntimeBootSession::refresh_homed() {
   homed_ = kernel_ != nullptr && kernel_->robot != nullptr && kernel_->robot->is_homed_all_axes();
 }
 
-bool RuntimeBootSession::is_uploading() { return boot().is_uploading(); }
+bool RuntimeBootSession::is_uploading() { return kernel_ != nullptr && kernel_->is_uploading(); }
 
 bool RuntimeBootSession::set_factory_settings(const FactorySettings& settings) {
   if (booted()) {

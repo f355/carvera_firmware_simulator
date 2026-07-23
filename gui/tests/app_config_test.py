@@ -143,6 +143,10 @@ def test_simulator_process_env_forwards_ahb_flags() -> None:
     env = simulator_process_env(stacked, base_env={"PATH": "/usr/bin"})
     assert env["CARVERA_SIM_STACK_LIMIT_BYTES"] == "262144"
 
+    lpc = parser.parse_args(["--lpc-heap"])
+    env = simulator_process_env(lpc, base_env={"PATH": "/usr/bin"})
+    assert env["CARVERA_SIM_LPC_HEAP"] == "1"
+
 
 def test_prepare_sd_root_copies_seed_payload(tmp_path: Path) -> None:
     seed_root, _, _ = write_seed_tree(tmp_path)

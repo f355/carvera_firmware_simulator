@@ -108,7 +108,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/libs/Adc.cpp
   ${FIRMWARE_SRC}/libs/AppendFileStream.cpp
   ${FIRMWARE_SRC}/libs/Config.cpp
-  ${FIRMWARE_SRC}/libs/ConfigCache.cpp
+  ${CMAKE_SOURCE_DIR}/src/firmware/config_cache.cpp
   ${FIRMWARE_SRC}/libs/ConfigSource.cpp
   ${FIRMWARE_SRC}/libs/ConfigValue.cpp
   ${FIRMWARE_SRC}/libs/Hook.cpp

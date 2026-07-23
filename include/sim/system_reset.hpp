@@ -21,6 +21,7 @@
 namespace sim::system_reset {
 
 void request();
+bool pending();
 bool consume_requested();
 
 }  // namespace sim::system_reset

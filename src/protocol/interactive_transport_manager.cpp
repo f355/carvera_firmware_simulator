@@ -80,8 +80,17 @@ InteractiveTransportManager::InteractiveTransportManager(RuntimeIo& io, RuntimeP
                                                          UploadingQuery uploading)
     : runtime_io_(io), runner_(runner), machine_(machine), uploading_(std::move(uploading)) {}
 
+void InteractiveTransportManager::set_auxiliary_pump(AuxiliaryPump pump) { auxiliary_pump_ = std::move(pump); }
+
+void InteractiveTransportManager::set_boot_loop_abort(BootLoopAbort abort) { boot_loop_abort_ = std::move(abort); }
+
+void InteractiveTransportManager::set_max_consecutive_soft_resets(std::size_t max_resets) {
+  max_consecutive_soft_resets_ = max_resets == 0 ? 1 : max_resets;
+}
+
 InteractiveTransportStartResult InteractiveTransportManager::start(
     const carvera::sim::v1::StartInteractiveTransport& command) {
+  consecutive_soft_resets_ = 0;
   traffic_logging_ = command.log_traffic();
 
   if (command.enable_uart() && !uart_) {
@@ -178,10 +187,27 @@ void InteractiveTransportManager::pump() {
       const auto result =
           runner_.pump_free_running_result(kBaseFreeRunningMainLoops, kBaseFreeRunningTimerTicks);
       if (result.reset_requested) {
+        ++consecutive_soft_resets_;
+        if (consecutive_soft_resets_ >= max_consecutive_soft_resets_) {
+          // Rapid soft-reboot loops (e.g. FATAL during every boot) would otherwise
+          // spin the host forever. Abort power-on like a machine that will not stay up.
+          std::ostringstream message;
+          message << "boot loop aborted after " << consecutive_soft_resets_
+                  << " system_reset cycles; power-on cancelled";
+          logging::event("firmware", message.str());
+          if (boot_loop_abort_) {
+            boot_loop_abort_();
+          }
+          consecutive_soft_resets_ = 0;
+          stop();
+          return;
+        }
         // Match LPC behavior: system_reset tears the MCU down and the next
         // free-running pump reconstructs Kernel (boot loop if the fault repeats).
         logging::event("firmware", "system_reset: rebooting firmware (LPC-like boot loop)");
         (void)runner_.pump_free_running_result(0, 0);
+      } else {
+        consecutive_soft_resets_ = 0;
       }
       pump_transport_io();
       relay_wifi_discovery();
@@ -217,8 +243,6 @@ void InteractiveTransportManager::fill(carvera::sim::v1::InteractiveTransport& t
     endpoint->set_port(bridge->port());
   }
 }
-
-void InteractiveTransportManager::set_auxiliary_pump(AuxiliaryPump pump) { auxiliary_pump_ = std::move(pump); }
 
 void InteractiveTransportManager::log_traffic(const char* channel, const char* direction,
                                               const std::string& bytes) const {
