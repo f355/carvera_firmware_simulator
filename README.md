@@ -336,9 +336,9 @@ Known gaps worth remembering:
 * Things unused by Makera machines are not covered: SCARA, rotary-delta,
   non-Cartesian kinematics, non-CartGrid leveling, Modbus spindle, VESC USB
   spindle, PID autotune, and B-axis machine behavior.
-* Serial/Wi-Fi text I/O defaults to Smoothie protocol in the simulator. The
-  pinned firmware's stock `protocol makera` framing can be selected via config,
-  but host tools and tests currently expect Smoothie text.
+* Stock C1/CA1 configurations use Makera's framed serial/Wi-Fi protocol, like
+  the real machines. Focused test fixtures may select the legacy Smoothie text
+  protocol when framing is irrelevant to the behavior under test.
 * Canned drilling cycles are linked when configured by the firmware, but stock
   C1/CA1 configs do not enable them and the simulator does not spend much effort
   there.

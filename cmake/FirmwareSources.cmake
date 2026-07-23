@@ -19,26 +19,8 @@ function(sim_config_bytes input_path output_var)
   set(${output_var} "${_config_bytes}" PARENT_SCOPE)
 endfunction()
 
-# Stock firmware now defaults to Makera framed serial. The simulator host tools
-# and tests speak Smoothie text, so rewrite the embedded firm defaults.
-function(sim_host_protocol_config input_path output_path)
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${input_path}")
-  file(READ "${input_path}" _config_contents)
-  set(_protocol_makera "protocol \t\t\t\t\tmakera")
-  set(_protocol_smoothie "protocol \t\t\t\t\tsmoothie")
-  string(REPLACE "${_protocol_makera}" "${_protocol_smoothie}" _host_config "${_config_contents}")
-  if(_host_config STREQUAL _config_contents)
-    message(FATAL_ERROR "Pinned ${input_path} no longer contains the expected Makera protocol default")
-  endif()
-  file(WRITE "${output_path}" "${_host_config}")
-endfunction()
-
-set(_config_default_host "${CMAKE_CURRENT_BINARY_DIR}/generated/config.default")
-set(_config2_default_host "${CMAKE_CURRENT_BINARY_DIR}/generated/config2.default")
-sim_host_protocol_config("${FIRMWARE_SRC}/config.default" "${_config_default_host}")
-sim_host_protocol_config("${FIRMWARE_SRC}/config2.default" "${_config2_default_host}")
-sim_config_bytes("${_config_default_host}" SIM_CONFIG_DEFAULT_BYTES)
-sim_config_bytes("${_config2_default_host}" SIM_CONFIG2_DEFAULT_BYTES)
+sim_config_bytes("${FIRMWARE_SRC}/config.default" SIM_CONFIG_DEFAULT_BYTES)
+sim_config_bytes("${FIRMWARE_SRC}/config2.default" SIM_CONFIG2_DEFAULT_BYTES)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/firmware/firm_config_data.cpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/firm_config_data.cpp

@@ -65,6 +65,7 @@ int main() {
   sim::test::TempDirectory temp_root("carvera_sim_runtime_boot_composition");
   const auto& root = temp_root.path();
   write_sd_config(root,
+                  "protocol smoothie\n"
                   "sd_ok true\n"
                   "spindle.delay_s 0\n"
                   "spindle.alarm_pin nc\n"

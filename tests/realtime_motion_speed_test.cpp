@@ -28,6 +28,7 @@ using sim::test::require;
 namespace {
 
 constexpr char kCa1SpeedConfig[] =
+    "protocol smoothie\n"
     "arm_solution cartesian\n"
     "default_feed_rate 1000\n"
     "default_seek_rate 3000\n"

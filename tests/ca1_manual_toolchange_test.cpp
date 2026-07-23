@@ -53,7 +53,7 @@ void press_front_button(sim::FirmwareRuntime& runtime) {
 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_ca1_manual_toolchange");
-  sd.write_config_txt("");
+  sd.write_config_txt("protocol smoothie\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();
   require(runtime.set_factory_settings(sim::FactorySettings{sim::MachineModel::CarveraAirCA1, 0}),

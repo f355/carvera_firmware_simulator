@@ -67,6 +67,7 @@ int main() {
   sd.write_config_txt(
       "# controller handshake config\n"
       "sd_ok true\n"
+      "protocol smoothie\n"
       "soft_endstop.enable true\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& runtime = simulation.firmware();

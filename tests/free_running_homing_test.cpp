@@ -29,7 +29,7 @@ using sim::test::require_near;
 
 int main() {
   sim::test::TempSdCard sd("carvera_sim_free_running_homing_test");
-  sd.write_config_txt("sd_ok true\nsoft_endstop.enable true\n");
+  sd.write_config_txt("protocol smoothie\nsd_ok true\nsoft_endstop.enable true\n");
   sim::SimulationInstance simulation(sd.persistent_config());
   auto& simulator = simulation.machine();
   auto& runtime = simulation.firmware();

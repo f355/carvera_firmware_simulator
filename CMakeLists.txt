@@ -181,6 +181,11 @@ endfunction()
 add_library(carvera_firmware_objects OBJECT ${CARVERA_FIRMWARE_SOURCES})
 target_include_directories(carvera_firmware_objects PRIVATE include)
 target_include_directories(carvera_firmware_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+if(MSVC)
+  target_compile_options(carvera_firmware_objects PRIVATE /J)
+else()
+  target_compile_options(carvera_firmware_objects PRIVATE -funsigned-char)
+endif()
 target_compile_definitions(carvera_firmware_objects PRIVATE
   CHECKSUM_USE_CPP
   ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}

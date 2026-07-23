@@ -43,7 +43,8 @@ bool read_response(int fd, carvera::sim::v1::Response& response) {
 void write_minimal_config(const std::filesystem::path& root) {
   std::filesystem::create_directories(root);
   std::ofstream config(root / "config");
-  config << "arm_solution cartesian\n"
+  config << "protocol smoothie\n"
+         << "arm_solution cartesian\n"
          << "alpha_step_pin 1.28\n"
          << "alpha_dir_pin 1.29\n"
          << "alpha_en_pin nc\n"

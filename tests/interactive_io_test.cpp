@@ -86,7 +86,9 @@ int main() {
           "virtual COM bridge should accept controller homing and jog commands");
   ::close(serial_fd);
 
-  sim::SimulationInstance tcp_simulation;
+  sim::test::TempDirectory tcp_temp_root("carvera_sim_interactive_io_tcp_test");
+  sim::test::write_cartesian_config(tcp_temp_root.path());
+  sim::SimulationInstance tcp_simulation(sim::test::persistent_sd_config(tcp_temp_root.path()));
   auto& tcp_simulator = tcp_simulation.machine();
   auto& tcp_runtime = tcp_simulation.firmware();
   tcp_runtime.boot();
