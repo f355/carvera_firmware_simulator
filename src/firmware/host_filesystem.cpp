@@ -17,6 +17,7 @@
 
 #include "sim/host_filesystem.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdarg>
 #include <cstdlib>
@@ -83,6 +84,10 @@ std::filesystem::path HostFilesystem::translate(const char* path) const {
   }
 
   std::string text(path);
+  const auto control = std::find_if(
+      text.begin(), text.end(), [](unsigned char character) { return character < static_cast<unsigned char>(' '); });
+  text.erase(control, text.end());
+
   if (text.size() < 2 || text[0] != '/') {
     return std::filesystem::path(text);
   }

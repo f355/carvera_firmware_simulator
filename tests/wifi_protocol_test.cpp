@@ -15,6 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <algorithm>
 #include <string>
 
 #include "StreamOutput.h"
@@ -23,6 +24,7 @@
 #include "sim/simulation_instance.hpp"
 #include "sim/simulator_context.hpp"
 #include "support/assertions.hpp"
+#include "support/temp_sdcard.hpp"
 
 using sim::test::require;
 
@@ -69,6 +71,26 @@ int main() {
                                       "WiFi should return one framed Makera status response");
   require(status.find("<") != std::string::npos, "WiFi TCP should return firmware status through M8266 send APIs");
   require(status.find("MPos:") != std::string::npos, "WiFi TCP status should come from the real firmware query path");
+
+  sim::test::TempSdCard sd("carvera_sim_wifi_protocol_test");
+  sd.write_config_txt("download fixture\n");
+  sd.mount();
+
+  const auto download = sim::makera::encode_frame(sim::makera::PacketType::FileStart, "download /sd/config.txt\n");
+  const auto cancel = sim::makera::encode_frame(sim::makera::PacketType::FileCancel, "");
+  runtime.io().write_wifi_tcp(download + cancel);
+  runtime.runner().run_main_loop(1);
+
+  sim::makera::FrameDecoder download_decoder;
+  download_decoder.append(runtime.io().read_wifi_tcp());
+  const auto download_frames = download_decoder.take_frames();
+  const auto download_text = download_decoder.take_text();
+  const bool sent_md5 = std::any_of(download_frames.begin(), download_frames.end(),
+                                    [](const auto& frame) { return frame.type == sim::makera::PacketType::FileMd5; });
+  require(sent_md5, "Makera FILE_START should accept the controller's newline-terminated download command; response: " +
+                        download_text);
+  require(download_text.find("failed to open file") == std::string::npos,
+          "Makera FILE_START must not treat the command terminator as part of the filename");
 
   return 0;
 }
