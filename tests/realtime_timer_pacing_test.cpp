@@ -16,17 +16,18 @@
  */
 
 #include <chrono>
+#include <string>
 #include <thread>
 
 #include "StepTicker.h"
 #include "libs/Kernel.h"
+#include "sim/event_engine.hpp"
 #include "sim/lpc1768.hpp"
 #include "sim/machine_simulator.hpp"
-#include "sim/event_engine.hpp"
+#include "sim/realtime_timer_pacer.hpp"
 #include "support/assertions.hpp"
 
 using sim::test::require;
-
 
 int main() {
   sim::MachineSimulator simulator;
@@ -56,23 +57,26 @@ int main() {
   kernel.step_ticker->start();
 
   auto& timer0 = sim::lpc1768::timer(0);
-  timer0.MR0 = 25'000;  // 1 ms at the LPC1768 timer peripheral clock.
+  timer0.MR0 = 250'000;  // 10 ms at the LPC1768 timer peripheral clock.
   timer0.TCR = 1;
 
-  simulator.set_realtime_speed(1.0);
-  const auto started = std::chrono::steady_clock::now();
-  engine.run_one_timer_event(kernel);
-  engine.run_one_timer_event(kernel);
-  const auto baseline_elapsed = std::chrono::steady_clock::now() - started;
+  const auto measure_timer_events = [&](double speed) {
+    simulator.set_realtime_speed(speed);
+    sim::realtime_timer_pacer::reset();
+    const auto started = std::chrono::steady_clock::now();
+    for (int event = 0; event < 8; ++event) {
+      engine.run_one_timer_event(kernel);
+    }
+    return std::chrono::steady_clock::now() - started;
+  };
+  const auto baseline_elapsed = measure_timer_events(1.0);
+  const auto accelerated_motion_elapsed = measure_timer_events(2.0);
 
-  simulator.set_realtime_speed(2.0);
-  const auto accelerated_started = std::chrono::steady_clock::now();
-  engine.run_one_timer_event(kernel);
-  engine.run_one_timer_event(kernel);
-  const auto accelerated_motion_elapsed = std::chrono::steady_clock::now() - accelerated_started;
-
-  require(accelerated_motion_elapsed < baseline_elapsed,
-          "realtime motion pumping should scale Timer0 wall-clock pacing by the speed multiplier");
+  const auto baseline_us = std::chrono::duration_cast<std::chrono::microseconds>(baseline_elapsed).count();
+  const auto accelerated_us = std::chrono::duration_cast<std::chrono::microseconds>(accelerated_motion_elapsed).count();
+  require(accelerated_motion_elapsed * 4 < baseline_elapsed * 3,
+          "realtime motion pumping should scale Timer0 wall-clock pacing by the speed multiplier; baseline=" +
+              std::to_string(baseline_us) + " us, accelerated=" + std::to_string(accelerated_us) + " us");
 
   return 0;
 }
