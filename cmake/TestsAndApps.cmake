@@ -132,7 +132,13 @@ foreach(test_name IN LISTS SIM_RUNTIME_TESTS)
   sim_add_runtime_test(${test_name})
 endforeach()
 set_tests_properties(atc_m6_runtime_test PROPERTIES TIMEOUT ${SIM_EXTRA_LONG_TEST_TIMEOUT_SECONDS})
-set_tests_properties(realtime_timer_pacing_test realtime_motion_speed_test PROPERTIES RUN_SERIAL TRUE)
+set_tests_properties(
+  atc_m6_runtime_test
+  realtime_motion_speed_test
+  realtime_timer_pacing_test
+  rotary_axis_runtime_test
+  PROPERTIES RUN_SERIAL TRUE
+)
 
 target_compile_definitions(free_running_homing_test PRIVATE CARVERA_FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT}")
 
