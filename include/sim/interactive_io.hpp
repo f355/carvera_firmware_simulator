@@ -53,6 +53,7 @@ class VirtualComPort {
 
   RuntimeIo& runtime_io_;
   std::string device_path_;
+  platform_io::IoHandle slave_anchor_fd_{platform_io::kInvalidHandle};
   NonblockingFdPump io_;
   BackgroundPoller worker_;
   std::mutex mutex_;
@@ -62,7 +63,7 @@ class LocalhostTcpBridge {
  public:
   using UploadingQuery = std::function<bool()>;
 
-  LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading);
+  explicit LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading = [] { return false; });
   ~LocalhostTcpBridge();
 
   bool start(std::uint16_t requested_port);

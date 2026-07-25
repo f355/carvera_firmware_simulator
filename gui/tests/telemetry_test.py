@@ -40,27 +40,20 @@ def emit(buffer: TelemetryBuffer[dict[str, int]], sequence: int) -> None:
 
 def test_telemetry_buffer_ignores_unrelated_events() -> None:
     buffer = make_buffer()
-    assert buffer.take_latest() is None
+    assert buffer.latest_since(0) == (0, None)
 
     buffer.handle_stream_event(FakeEvent("log", SimpleNamespace(seq=1)))
-    assert buffer.take_latest() is None
+    assert buffer.latest_since(0) == (0, None)
 
 
-def test_take_latest_returns_and_consumes_only_the_newest_telemetry() -> None:
+def test_latest_since_reports_only_the_newest_telemetry() -> None:
     buffer = make_buffer()
     emit(buffer, 1)
     emit(buffer, 2)
 
-    assert buffer.take_latest() == {"seq": 2}
-    assert buffer.take_latest() is None
-
-
-def test_latest_is_non_consuming() -> None:
-    buffer = make_buffer()
-    emit(buffer, 3)
-
-    assert buffer.latest() == {"seq": 3}
-    assert buffer.latest() == {"seq": 3}
+    cursor, latest = buffer.latest_since(0)
+    assert latest == {"seq": 2}
+    assert buffer.latest_since(cursor) == (cursor, None)
 
 
 def test_latest_since_advances_each_consumer_cursor() -> None:

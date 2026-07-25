@@ -25,7 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "../test_support.hpp"
+#include "assertions.hpp"
+#include "memory_config.hpp"
 
 #include "Config.h"
 #include "Conveyor.h"

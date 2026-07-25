@@ -22,9 +22,13 @@ import threading
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from gui.protocol.framed_transport import FramedTransport
-from gui.protocol.simulator_process import SimulatorProcess
 from gui.protocol.sim_client import SimulatorClient, SimulatorClientError, pb
+from gui.protocol.simulator_process import SimulatorProcess
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX pipe/pty semantics")
 
 
 def write_fake_stream_server(path: Path, repo_root: Path) -> None:

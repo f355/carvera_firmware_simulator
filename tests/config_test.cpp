@@ -20,7 +20,8 @@
 #include "Config.h"
 #include "ConfigValue.h"
 #include "checksumm.h"
-#include "test_support.hpp"
+#include "support/assertions.hpp"
+#include "support/memory_config.hpp"
 
 namespace {
 

@@ -202,8 +202,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  sim::InteractiveTransportManager transports(runtime.io(), runtime.runner(), simulation.machine(),
-                                              [&runtime]() { return runtime.is_uploading(); });
+  sim::InteractiveTransportManager transports(runtime.io(), runtime.runner(), simulation.machine());
   carvera::sim::v1::StartInteractiveTransport start_transports;
   start_transports.set_enable_uart(enable_uart);
   if (enable_wifi) {

@@ -18,15 +18,12 @@
 #include <filesystem>
 #include <string>
 
-#include "carvera_sim.pb.h"
-#include "sim/api_service.hpp"
-#include "sim/simulation_instance.hpp"
-#include "support/temp_sdcard.hpp"
-#include "support/cartesian_config.hpp"
+#include "support/api_service_harness.hpp"
 #include "support/assertions.hpp"
+#include "support/cartesian_config.hpp"
+#include "support/temp_sdcard.hpp"
 
 using sim::test::require;
-
 
 int main() {
   sim::test::TempDirectory temp_root("carvera_sim_api_jog_test");
@@ -35,37 +32,37 @@ int main() {
   config.include_rotary_axes = true;
   sim::test::write_cartesian_config(root, config);
 
-  sim::SimulationInstance simulation;
-  sim::ApiService api(simulation);
+  sim::test::ApiHarness api;
 
-  carvera::sim::v1::Request request;
-  carvera::sim::v1::Response response;
-
-  request.set_id(1);
-  request.mutable_mount_filesystem()->set_name("sd");
-  request.mutable_mount_filesystem()->set_host_path(root.string());
-  response = api.handle(request);
+  auto response = api.request([&root](auto& request) {
+    request.mutable_mount_filesystem()->set_name("sd");
+    request.mutable_mount_filesystem()->set_host_path(root.string());
+  });
   require(response.ok(), "mount_filesystem should succeed");
 
-  request.Clear();
-  request.set_id(3);
-  auto* jog = request.mutable_jog();
-  auto* delta = jog->add_delta();
-  delta->set_axis(carvera::sim::v1::AXIS_X);
-  delta->set_distance(-1.0);
-  jog->set_feed_rate(1500.0);
-  jog->set_max_step_ticks(100'000);
-  response = api.handle(request);
+  response = api.request([](auto& request) { request.mutable_get_machine_snapshot(); });
+  require(response.ok() && response.machine_snapshot().homed(), "firmware should boot and home before the jog");
+
+  response = api.request([](auto& request) { request.mutable_get_axis_position()->set_axis(0); });
+  require(response.ok(), "initial get_axis_position should succeed");
+  const auto initial_x_steps = response.axis_position().steps();
+
+  response = api.request([](auto& request) {
+    auto* jog = request.mutable_jog();
+    auto* delta = jog->add_delta();
+    delta->set_axis(carvera::sim::v1::AXIS_X);
+    delta->set_distance(-1.0);
+    jog->set_feed_rate(1500.0);
+    jog->set_max_step_ticks(100'000);
+  });
   require(response.ok(), "jog should succeed");
   require(response.jog_result().idle(), "jog should run firmware motion to idle");
   require(response.jog_result().serial_data().find("ok") != std::string::npos,
           "jog should return serial acknowledgements");
 
-  request.Clear();
-  request.set_id(4);
-  request.mutable_get_axis_position()->set_axis(0);
-  response = api.handle(request);
+  response = api.request([](auto& request) { request.mutable_get_axis_position()->set_axis(0); });
   require(response.ok(), "get_axis_position should succeed");
-  require(std::abs(response.axis_position().steps()) >= 100, "typed jog should move the physical X axis");
+  require(std::abs(response.axis_position().steps() - initial_x_steps) >= 100,
+          "typed jog should move the physical X axis from its starting position");
   return 0;
 }

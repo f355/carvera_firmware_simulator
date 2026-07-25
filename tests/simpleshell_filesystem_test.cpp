@@ -31,9 +31,9 @@ using sim::test::require;
 using sim::test::require_contains;
 
 std::string run_shell_command(sim::FirmwareRuntime& runtime, const std::string& command) {
-  runtime.io().write_serial(command + "\n");
+  runtime.io().write_serial_command(command + "\n");
   runtime.runner().run_main_loop(16);
-  return runtime.io().read_serial();
+  return runtime.io().read_serial_text();
 }
 
 }  // namespace
@@ -53,7 +53,7 @@ int main() {
   sim::SimulationInstance simulation(sim::test::persistent_sd_config(root));
   auto& runtime = simulation.firmware();
   runtime.boot();
-  runtime.io().read_serial();
+  runtime.io().read_serial_text();
 
   require_contains(run_shell_command(runtime, "pwd"), "/", "SimpleShell should start at the filesystem root");
   require_contains(run_shell_command(runtime, "ls /sd/jobs"), "demo.cnc",
@@ -77,9 +77,9 @@ int main() {
   require_contains(run_shell_command(runtime, "mv demo.cnc renamed.cnc"),
                    "renamed /sd/jobs/demo.cnc to /sd/jobs/renamed.cnc",
                    "SimpleShell should rename files relative to its working directory");
-  require(!std::filesystem::exists(root / "jobs" / "demo.cnc") &&
-              std::filesystem::exists(root / "jobs" / "renamed.cnc"),
-          "SimpleShell mv should rename the mounted host file");
+  require(
+      !std::filesystem::exists(root / "jobs" / "demo.cnc") && std::filesystem::exists(root / "jobs" / "renamed.cnc"),
+      "SimpleShell mv should rename the mounted host file");
   require_contains(run_shell_command(runtime, "ls"), "renamed.cnc",
                    "SimpleShell relative directory listing should use its working directory");
 

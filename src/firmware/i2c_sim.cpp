@@ -20,6 +20,7 @@
 #include <fstream>
 
 #include "mbed.h"
+#include "sim/crc16.hpp"
 #include "sim/i2c_eeprom.hpp"
 #include "sim/simulator_context.hpp"
 #include "compat/active_context.hpp"
@@ -28,21 +29,6 @@ namespace {
 
 constexpr std::uint16_t factory_page = 16;
 constexpr std::uint16_t factory_page_size = 32;
-
-std::uint16_t crc16_ccitt(const std::uint8_t* data, std::size_t len) {
-  std::uint16_t crc = 0;
-  for (std::size_t i = 0; i < len; ++i) {
-    crc ^= static_cast<std::uint16_t>(data[i] << 8);
-    for (int bit = 0; bit < 8; ++bit) {
-      if ((crc & 0x8000u) != 0) {
-        crc = static_cast<std::uint16_t>((crc << 1) ^ 0x1021u);
-      } else {
-        crc = static_cast<std::uint16_t>(crc << 1);
-      }
-    }
-  }
-  return crc;
-}
 
 }  // namespace
 

@@ -31,6 +31,8 @@
 #include "libs/Kernel.h"
 #include "libs/Watchdog.h"
 #include "libs/gpio.h"
+#include "lpc_memory_layout.hpp"
+#include "platform_memory.h"
 #include "modules/communication/SerialConsole2.h"
 #include "modules/tools/atc/ATCHandler.h"
 #include "modules/tools/drillingcycles/Drillingcycles.h"
@@ -56,6 +58,7 @@
 #include "sim/runtime_temperature.hpp"
 #include "sim/spindle_state.hpp"
 #include "sim/simulator_context.hpp"
+#include "compat/active_context.hpp"
 #include "sim/system_reset.hpp"
 
 #include <algorithm>
@@ -63,6 +66,7 @@
 #include <cstdint>
 #include <fstream>
 #include <string>
+#include <utility>
 
 namespace sim::runtime_modules {
 
@@ -75,6 +79,18 @@ using runtime_pins::default_e_stop_pin;
 using runtime_pins::default_main_button_pin;
 using runtime_pins::drive_configured_input;
 using runtime_pins::pin_address;
+
+template <typename Type, std::uint32_t TargetBytes, typename... Args>
+Type* tracked_firmware_new(const char* type_name, Args&&... args) {
+  Type* object = new Type(std::forward<Args>(args)...);
+  try {
+    if (auto* context = compat::try_active_context(); context != nullptr) {
+      context->memory_accounting().record_main(object, sizeof(Type), TargetBytes, type_name);
+    }
+  } catch (...) {
+  }
+  return object;
+}
 
 std::size_t idle_motion_iterations(const MachineSimulator& simulator) {
   const auto& clock = simulator.context().clock();
@@ -256,9 +272,9 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   SimpleShell::version_command("", kernel.streams);
   attach_configured_stepper_axes(kernel, model, simulator.rotary_accessory_installed());
   runtime_motor_alarm_wiring::configure(kernel, simulator.context().motor_alarm_wiring());
-  kernel.add_module(new Player());
+  kernel.add_module(tracked_firmware_new<Player, lpc_memory::generated::kPlayerBytes>("Player"));
   kernel.add_module(make_atc_physical_module(simulator));
-  kernel.add_module(new ATCHandler());
+  kernel.add_module(tracked_firmware_new<ATCHandler, lpc_memory::generated::kAtcHandlerBytes>("ATCHandler"));
 
   BootModules modules;
   // SerialConsole2 stays on the host heap: with the LPC-sized AHB pool, placing it
@@ -270,30 +286,32 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
 
   drive_configured_input(simulator, kernel, runtime_checksums::main_button_pin, default_main_button_pin(model), false);
   drive_configured_input(simulator, kernel, runtime_checksums::e_stop_pin, default_e_stop_pin(model), false);
-  kernel.add_module(new MainButton());
+  kernel.add_module(tracked_firmware_new<MainButton, lpc_memory::generated::kMainButtonBytes>("MainButton"));
 
-  kernel.add_module(new WifiProvider());
+  kernel.add_module(tracked_firmware_new<WifiProvider, lpc_memory::generated::kWifiProviderBytes>("WifiProvider"));
 
   SwitchPool switch_pool;
   switch_pool.load_tools();
   TemperatureControlPool temperature_pool;
   temperature_pool.load_tools();
-  kernel.add_module(new Endstops());
-  kernel.add_module(new Laser());
+  kernel.add_module(tracked_firmware_new<Endstops, lpc_memory::generated::kEndstopsBytes>("Endstops"));
+  kernel.add_module(tracked_firmware_new<Laser, lpc_memory::generated::kLaserBytes>("Laser"));
   SpindleMaker spindle_maker;
   spindle_maker.load_spindle();
   kernel.add_module(make_spindle_tach_module(simulator));
   kernel.add_module(new SimulatorTimerPumpBridgeModule(simulator, event_engine));
   ZProbe *zprobe = nullptr;
   if (kernel.robot != nullptr && kernel.robot->get_number_registered_motors() >= 3) {
-    zprobe = new ZProbe();
+    zprobe = tracked_firmware_new<ZProbe, lpc_memory::generated::kZProbeBytes>("ZProbe");
     kernel.add_module(zprobe);
   }
   simulator.set_temperature(TemperatureSensor::Spindle, 25.0);
   simulator.set_temperature(TemperatureSensor::Power, 25.0);
   runtime_temperature::warm_adc_filter();
-  kernel.add_module(new TemperatureSwitch());
-  kernel.add_module(new Drillingcycles());
+  kernel.add_module(
+      tracked_firmware_new<TemperatureSwitch, lpc_memory::generated::kTemperatureSwitchBytes>("TemperatureSwitch"));
+  kernel.add_module(
+      tracked_firmware_new<Drillingcycles, lpc_memory::generated::kDrillingcyclesBytes>("Drillingcycles"));
   load_watchdog_if_enabled(kernel);
 
   // Match main.cpp: run config_cache_clear() so LPC heap↔cache collisions can
@@ -302,6 +320,7 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   // so reload the cache afterward when clear did not request a reset.
   if (kernel.config != nullptr) {
     kernel.config->config_cache_clear();
+    simulator.context().memory_accounting().release_config_cache();
     if (sim::system_reset::pending()) {
       // system_reset returns on the host; abort the rest of boot so we do not
       // start motion/tickers against a cleared cache before soft-reboot.
@@ -314,7 +333,6 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
     }
     kernel.config->config_cache_load();
   }
-
   replay_config_override(kernel, simulator);
 
   if (kernel.conveyor != nullptr && kernel.robot != nullptr) {
@@ -332,7 +350,8 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
 void load_watchdog_if_enabled(Kernel& kernel) {
   const float timeout_s = kernel.config->value(runtime_checksums::watchdog_timeout)->as_number(10.0F);
   if (timeout_s > 0.1F) {
-    kernel.add_module(new Watchdog(timeout_s * 1'000'000.0F, WDT_RESET));
+    kernel.add_module(tracked_firmware_new<Watchdog, lpc_memory::generated::kWatchdogBytes>(
+        "Watchdog", timeout_s * 1'000'000.0F, WDT_RESET));
     kernel.streams->printf("Watchdog enabled for %1.3f seconds\n", timeout_s);
   } else {
     kernel.streams->printf("WARNING Watchdog is disabled\n");

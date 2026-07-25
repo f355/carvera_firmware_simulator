@@ -15,8 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef CARVERA_SIMULATOR_TEST_SUPPORT_HPP
-#define CARVERA_SIMULATOR_TEST_SUPPORT_HPP
+#ifndef SIMULATOR_TESTS_SUPPORT_MEMORY_CONFIG_HPP
+#define SIMULATOR_TESTS_SUPPORT_MEMORY_CONFIG_HPP
 
 #include <string>
 #include <utility>
@@ -25,7 +25,6 @@
 #include "ConfigCache.h"
 #include "ConfigSource.h"
 #include "checksumm.h"
-#include "support/assertions.hpp"
 
 namespace sim::test {
 

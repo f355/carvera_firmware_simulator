@@ -15,22 +15,20 @@
 
 from __future__ import annotations
 
-from gui.core.defaults import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
 from gui.protocol.model import Box3D
+from gui.scene.machine_visual_spec import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
+from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import (
-    CA1_BED_SURFACE_SCENE_Z,
-    CA1_ETS_SCENE_XY,
-    CA1_HOME_SWITCH_SCENE_XY,
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
     C1_HOME_SWITCH_SCENE_XYZ,
+    CA1_BED_SURFACE_SCENE_Z,
+    CA1_ETS_SCENE_XY,
+    CA1_HOME_SWITCH_SCENE_XY,
     SceneTransform,
-    ca1_bed_scene_point,
-    ca1_envelope_scene_point,
-    c1_model_point,
-    c1_spindle_face_point,
+    c1_anchors,
+    ca1_anchors,
 )
-from gui.scene.scene_geometry import MachineSceneGeometry
 
 
 def test_scene_transform_centers_xy_and_places_z_on_bed() -> None:
@@ -45,18 +43,18 @@ def test_scene_transform_centers_xy_and_places_z_on_bed() -> None:
 def test_ca1_landmarks_align_with_physical_travel() -> None:
     ca1_physical_travel = Box3D(min_x=-303.0, min_y=-213.0, min_z=-122.0, max_x=-1.0, max_y=-1.0, max_z=-1.0)
     ca1_transform = SceneTransform.from_work_area(ca1_physical_travel)
-    ca1_ets = ca1_bed_scene_point(ca1_transform, -11.0, -7.0, ca1_transform.bed_z)
+    ca1_ets = ca1_anchors(ca1_transform).model_point(-11.0, -7.0, ca1_transform.bed_z)
     assert CA1_HOME_SWITCH_SCENE_XY == (153.016, 107.096)
     assert ca1_ets[:2] == list(CA1_ETS_SCENE_XY)
 
-    ca1_bed_bottom = ca1_bed_scene_point(ca1_transform, -11.0, -7.0, ca1_transform.bed_z)
+    ca1_bed_bottom = ca1_anchors(ca1_transform).model_point(-11.0, -7.0, ca1_transform.bed_z)
     assert ca1_bed_bottom == [
         CA1_ETS_SCENE_XY[0],
         CA1_ETS_SCENE_XY[1],
         CA1_BED_SURFACE_SCENE_Z,
     ]
-    assert ca1_envelope_scene_point(ca1_transform, -2.0, -2.0, -2.0)[2] - CA1_BED_SURFACE_SCENE_Z == 135.0
-    assert ca1_envelope_scene_point(ca1_transform, -302.0, -212.0, -121.0)[2] - CA1_BED_SURFACE_SCENE_Z == 16.0
+    assert ca1_anchors(ca1_transform).envelope_point(-2.0, -2.0, -2.0)[2] - CA1_BED_SURFACE_SCENE_Z == 135.0
+    assert ca1_anchors(ca1_transform).envelope_point(-302.0, -212.0, -121.0)[2] - CA1_BED_SURFACE_SCENE_Z == 16.0
 
 
 def test_c1_landmarks_align_with_machine_model() -> None:
@@ -71,9 +69,9 @@ def test_c1_landmarks_align_with_machine_model() -> None:
 
     assert C1_HOME_SWITCH_SCENE_XYZ == (176.658, 225.068, 160.5)
 
-    rack_midline = c1_model_point(rack_pickup_x, front_pocket_y, toolrack_z)
-    tool_setter = c1_model_point(rack_pickup_x, tool_setter_y, toolrack_z)
-    hard_limit_far_top_right = c1_model_point(
+    rack_midline = c1_anchors().model_point(rack_pickup_x, front_pocket_y, toolrack_z)
+    tool_setter = c1_anchors().model_point(rack_pickup_x, tool_setter_y, toolrack_z)
+    hard_limit_far_top_right = c1_anchors().model_point(
         c1_physical_travel.max_x,
         c1_physical_travel.max_y,
         c1_physical_travel.max_z,
@@ -84,7 +82,7 @@ def test_c1_landmarks_align_with_machine_model() -> None:
     assert round(bed_back_y - tool_setter[1], 3) == 30.0
     assert round(C1_ATC_RACK_TOP_SCENE_Z - rack_midline[2], 3) == 15.0
     assert hard_limit_far_top_right == [177.658, 226.068, 161.5]
-    assert c1_spindle_face_point(
+    assert c1_anchors().spindle_face_point(
         c1_physical_travel.max_x,
         c1_physical_travel.max_y,
         c1_physical_travel.max_z,
@@ -128,11 +126,13 @@ def test_machine_scene_geometry_mapper_keeps_view_placement_math_pure() -> None:
     component_positions = c1_geometry.axis_component_positions(raw_position, c1_scene_position)
 
     assert [round(value, 3) for value in c1_geometry.spindle_marker_position(raw_position, c1_scene_position)] == [
-        round(c1_spindle_face_point(*raw_position)[0], 3),
+        round(c1_anchors().spindle_face_point(*raw_position)[0], 3),
         -6.092,
-        round(c1_spindle_face_point(*raw_position)[2], 3),
+        round(c1_anchors().spindle_face_point(*raw_position)[2], 3),
     ]
-    assert round(component_positions.bed_y_delta, 3) == round(-6.092 - c1_spindle_face_point(*raw_position)[1], 3)
+    assert round(component_positions.bed_y_delta, 3) == round(
+        -6.092 - c1_anchors().spindle_face_point(*raw_position)[1], 3
+    )
     assert round(component_positions.positions["y3"][1], 3) == round(
         13.0 + component_positions.bed_y_delta + C1_BED_MESH_Y_ALIGNMENT_MM,
         3,

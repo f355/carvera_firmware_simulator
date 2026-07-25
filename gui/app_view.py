@@ -14,6 +14,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -22,11 +23,12 @@ from gui.views.atc_tab import AtcTabView
 from gui.views.comms_log_tab import CommsLogTabView
 from gui.views.eeprom_panel import EepromPanelView
 from gui.views.environment_tab import EnvironmentTabView
-from gui.views.gpio_tab import GpioTabView
 from gui.views.io_panel import IoPanelView
-from gui.views.machine_tab import FirmwareStateView, MachineTabView
 from gui.views.machine_status import AtcPanelView, AxisPanelView
+from gui.views.machine_tab import FirmwareStateView, MachineTabView
+from gui.views.memory_panel import MemoryPanelView
 from gui.views.signals_tab import SignalsTabView
+from gui.views.stock_tab import StockTabView
 from gui.views.transport_panel import TransportPanelView
 
 
@@ -50,11 +52,12 @@ class AppView:
     transport_panel_view: TransportPanelView | None = None
     comms_log_view: CommsLogTabView | None = None
     eeprom_panel_view: EepromPanelView | None = None
+    memory_panel_view: MemoryPanelView | None = None
     machine_tab_view: MachineTabView | None = None
     signals_tab_view: SignalsTabView | None = None
     environment_tab_view: EnvironmentTabView | None = None
     atc_tab_view: AtcTabView | None = None
-    stock_tab_view: GpioTabView | None = None
+    stock_tab_view: StockTabView | None = None
     firmware_state_view: FirmwareStateView | None = None
     transport_log_cursor: int = 0
     telemetry_cursor: int = 0
@@ -99,17 +102,13 @@ class AppView:
 
     @property
     def front_panel_controls(self) -> dict[str, Any]:
-        controls = dict(self.machine_tab_view.front_panel_controls) if self.machine_tab_view is not None else {}
-        if self.header.e_stop_switch is not None:
-            controls["e_stop"] = self.header.e_stop_switch
-        return controls
+        if self.header.e_stop_switch is None:
+            return {}
+        return {"e_stop": self.header.e_stop_switch}
 
     @property
     def front_panel_badges(self) -> dict[str, Any]:
-        badges = dict(self.machine_tab_view.front_panel_badges) if self.machine_tab_view is not None else {}
-        if self.signals_tab_view is not None:
-            badges.update(self.signals_tab_view.front_panel_badges)
-        return badges
+        return dict(self.signals_tab_view.front_panel_badges) if self.signals_tab_view is not None else {}
 
     @property
     def firmware_switch_controls(self) -> dict[str, dict[str, Any]]:
@@ -154,7 +153,3 @@ class AppView:
     @property
     def box_controls(self) -> dict[str, dict[str, Any]]:
         return self.stock_tab_view.box_controls if self.stock_tab_view is not None else {}
-
-    @property
-    def pin_badges(self) -> dict[str, Any]:
-        return self.stock_tab_view.pin_badges if self.stock_tab_view is not None else {}

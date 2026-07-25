@@ -42,7 +42,6 @@ enum class TimerBudgetPolicy {
 struct EventRunOptions {
   std::size_t main_loop_iterations{0};
   std::size_t max_timer_events{0};
-  bool drain_serial_lines{false};
   // Free-running mode spends the complete timer budget so SlowTicker users
   // continue to observe time even when the conveyor is idle.
   TimerBudgetPolicy timer_budget_policy{TimerBudgetPolicy::StopWhenMotionIdle};

@@ -16,8 +16,14 @@
 from __future__ import annotations
 
 from gui.core.gui_state import GuiStateStore
-from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, SpindleSnapshot
-from gui.protocol.model import TransportEndpoint
+from gui.protocol.model import (
+    AxisSnapshot,
+    Box3D,
+    InteractiveTransportState,
+    MachineState,
+    SpindleSnapshot,
+    TransportEndpoint,
+)
 
 
 def test_gui_state_store_publishes_versioned_snapshots() -> None:
@@ -75,6 +81,7 @@ def test_gui_state_store_publishes_versioned_snapshots() -> None:
 
 def test_gui_state_store_merges_telemetry_into_latest_full_machine_state() -> None:
     store = GuiStateStore()
+    memory = object()
     full_state = MachineState(
         firmware_booted=True,
         homed=True,
@@ -85,6 +92,7 @@ def test_gui_state_store_merges_telemetry_into_latest_full_machine_state() -> No
         atc=None,
         spindle=SpindleSnapshot(False, 0.0, 0.0, 14_500.0),
         tool_setter=Box3D(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0),
+        memory=memory,  # type: ignore[arg-type]
     )
     telemetry = MachineState(
         firmware_booted=True,
@@ -108,6 +116,7 @@ def test_gui_state_store_merges_telemetry_into_latest_full_machine_state() -> No
     assert snapshot.machine_state.tool_setter == full_state.tool_setter
     assert snapshot.machine_state.axes == telemetry.axes
     assert snapshot.machine_state.spindle == telemetry.spindle
+    assert snapshot.machine_state.memory is memory
 
 
 def test_gui_state_store_preserves_live_axes_when_full_snapshot_lags() -> None:

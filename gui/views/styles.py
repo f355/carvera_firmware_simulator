@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-
 SIM_CSS = """
 html, body, #app { height: 100%; margin: 0; overflow: hidden; }
 body { background: #f6f7f9; color: #1f2933; }
@@ -70,6 +69,10 @@ body { background: #f6f7f9; color: #1f2933; }
 .panel-section:last-child { border-bottom: 0; margin-bottom: 0; }
 .section-title { font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; }
 .section-subtle { font-size: 12px; color: #64748b; }
+.memory-details {
+  margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
 .metrics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .metric {
   min-width: 0; border-left: 3px solid #d7dde5; padding: 5px 8px; background: #fbfcfd;

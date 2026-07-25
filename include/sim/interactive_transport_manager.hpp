@@ -47,7 +47,8 @@ class InteractiveTransportManager {
 
   static constexpr std::size_t kDefaultMaxConsecutiveSoftResets = 8;
 
-  InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine, UploadingQuery uploading);
+  InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine,
+                              UploadingQuery uploading = [] { return false; });
 
   InteractiveTransportStartResult start(const carvera::sim::v1::StartInteractiveTransport& command);
   void stop();

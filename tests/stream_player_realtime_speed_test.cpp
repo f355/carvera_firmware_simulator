@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "carvera_sim.pb.h"
+#include "sim/makera_protocol.hpp"
 #include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
@@ -131,16 +132,16 @@ int main(int argc, char** argv) {
     fcntl(controller, F_SETFL, controller_flags | O_NONBLOCK);
   }
 
-  const char start_job[] = "M23 speedtest\nM24\n";
-  if (!expect(sim::test::write_exact(controller, start_job, sizeof(start_job) - 1), "failed to start Player job")) {
+  const auto start_job = sim::makera::encode_console_input("M23 speedtest\nM24\n");
+  if (!expect(sim::test::write_exact(controller, start_job.data(), start_job.size()), "failed to start Player job")) {
     return 1;
   }
 
   std::atomic_bool polling{true};
+  const auto status_query = sim::makera::encode_console_input("?");
   std::thread status_poller([&] {
     while (polling.load()) {
-      static constexpr char status_query[] = "?";
-      (void)::write(controller, status_query, sizeof(status_query) - 1);
+      (void)::write(controller, status_query.data(), status_query.size());
       (void)sim::test::read_available(controller, 2048);
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }

@@ -74,7 +74,7 @@ void AdcState::set_channel_raw(std::uint8_t channel, std::uint16_t raw12) {
   }
 
   raw_channels_[channel] = std::min<std::uint16_t>(raw12, 4095);
-  publish_sample(channel, 32);
+  publish_sample(channel, AdcState::isr_repeats_per_sample);
 }
 
 std::uint16_t AdcState::channel_raw(std::uint8_t channel) const {
@@ -193,7 +193,7 @@ void ADC::setup(PinName pin, int state) {
       LPC_ADC->ADCR &= ~0xFFu;
     }
     LPC_ADC->ADCR |= (1u << channel);
-    sim::adc::active().publish_sample(channel, 32);
+    sim::adc::active().publish_sample(channel, sim::AdcState::isr_repeats_per_sample);
   } else {
     LPC_ADC->ADCR &= ~(1u << channel);
   }
@@ -242,7 +242,7 @@ void ADC::interrupt_state(PinName pin, int state) {
     LPC_ADC->ADINTEN &= ~0x100u;
     LPC_ADC->ADINTEN |= 1u << channel;
     NVIC_EnableIRQ(ADC_IRQn);
-    sim::adc::active().publish_sample(channel, 32);
+    sim::adc::active().publish_sample(channel, sim::AdcState::isr_repeats_per_sample);
   } else {
     LPC_ADC->ADINTEN &= ~(1u << channel);
     if ((LPC_ADC->ADINTEN & 0xFFu) == 0) {

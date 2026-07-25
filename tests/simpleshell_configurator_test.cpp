@@ -19,13 +19,13 @@
 #include <regex>
 
 #include "sim/simulation_instance.hpp"
+#include "sim/simulator_context.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/assertions.hpp"
 
 using sim::test::require;
 using sim::test::require_contains;
-
 
 int main() {
   sim::test::TempDirectory temp_root("carvera_sim_simpleshell_configurator_test");
@@ -37,50 +37,85 @@ int main() {
   auto& runtime = simulation.firmware();
   runtime.boot();
 
-  runtime.io().write_serial("version\nmodel\ntime 1234567890\ntime\n");
+  runtime.io().write_serial_command("version\nmodel\ntime 1234567890\ntime\n");
   runtime.runner().run_main_loop(16);
-  auto serial = runtime.io().read_serial();
+  auto serial = runtime.io().read_serial_text();
   require(std::regex_search(serial, std::regex(R"(version = [0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9\-_]*)")),
           "SimpleShell version should satisfy the controller's semantic-version parser");
   require_contains(serial, "model = C1", "SimpleShell model should keep the controller-visible model format");
   require_contains(serial, "time = 1234567890",
                    "SimpleShell time sync should persist through the simulator clock stub");
 
-  runtime.io().write_serial("config-get alpha_steps_per_mm\n");
+  runtime.io().write_serial_command("mem -v\n");
   runtime.runner().run_main_loop(8);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
+  require_contains(serial, "LPC1768 Main SRAM:", "mem should report the target main SRAM layout");
+  require_contains(serial, "Config cache: released", "mem should retain the boot-time cache accounting after release");
+  require_contains(serial, "LPC1768 AHB SRAM:", "mem should report the target AHB SRAM layout");
+  require_contains(serial, "Block[]", "verbose mem output should identify the motion queue's target allocation type");
+  require_contains(serial, "Robot", "verbose mem output should identify core firmware object allocations");
+  require_contains(serial, "host request -> LPC charge", "verbose mem output should distinguish host and target sizes");
+  const auto memory = simulation.machine().context().memory_accounting().snapshot();
+  require(!memory.main.config_cache_active, "normal C1 boot should release the temporary config cache");
+  require(!memory.main.config_cache_collision, "normal C1 boot should not report a config-cache collision");
+  for (const auto& group : memory.allocation_groups) {
+    if (group.type_name == "ConfigCache") {
+      require(group.live_count == 0, "released config cache object should not remain in the LPC heap model");
+    }
+  }
+  require(!memory.main.heap_limit_collision, "normal C1 boot should fit in the modeled main heap (committed=" +
+                                                 std::to_string(memory.main.heap_committed_bytes) + ", failed=" +
+                                                 std::to_string(memory.main.failed_allocation_count) + ")\n" + serial);
+  require(memory.ahb.failed_allocation_count == 0, "normal C1 boot should fit in the modeled AHB pool");
+  bool saw_attributed_unresolved_allocation = false;
+  bool saw_tracked_string_allocation = false;
+  for (const auto& group : memory.allocation_groups) {
+    require(group.region != sim::lpc_memory::MemoryRegion::AhbSram || group.target_size_exact,
+            "all AHB allocations in the pinned firmware should have exact LPC byte counts");
+    saw_attributed_unresolved_allocation |=
+        group.type_name.starts_with("ABI-unresolved @ ") && group.type_name.find("::") != std::string::npos;
+    saw_tracked_string_allocation |=
+        group.type_name == "strdup char[]" && group.target_size_exact && group.total_count > 0;
+  }
+  require(saw_attributed_unresolved_allocation,
+          "memory details should identify the firmware origin of ABI-dependent allocations");
+  require(saw_tracked_string_allocation, "firmware strdup buffers should be charged to the LPC heap exactly");
+
+  runtime.io().write_serial_command("config-get alpha_steps_per_mm\n");
+  runtime.runner().run_main_loop(8);
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "cached: alpha_steps_per_mm is set to 200",
                    "real SimpleShell/Configurator should answer config-get through the serial console");
 
-  runtime.io().write_serial("config-set sd simulator.test_value 20\n");
+  runtime.io().write_serial_command("config-set sd simulator.test_value 20\n");
   runtime.runner().run_main_loop(8);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "sd: simulator.test_value has been set to 20",
                    "real Configurator should persist config-set to the host-backed SD config");
 
-  runtime.io().write_serial("config-get sd simulator.test_value\n");
+  runtime.io().write_serial_command("config-get sd simulator.test_value\n");
   runtime.runner().run_main_loop(8);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "sd: simulator.test_value is set to 20",
                    "real Configurator should read the updated value from the sd source");
 
-  runtime.io().write_serial("config-delete sd simulator.test_value\n");
+  runtime.io().write_serial_command("config-delete sd simulator.test_value\n");
   runtime.runner().run_main_loop(8);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "sd: simulator.test_value has been removed",
                    "real Configurator should remove values from the host-backed SD config");
 
-  runtime.io().write_serial("config-get sd simulator.test_value\n");
+  runtime.io().write_serial_command("config-get sd simulator.test_value\n");
   runtime.runner().run_main_loop(8);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "sd: simulator.test_value is not in config",
                    "real Configurator should report a deleted source value as missing");
 
   require((runtime.factory_settings().function_setting & 0x01) == 0,
           "test should start with the optional rotary A-axis factory flag disabled");
-  runtime.io().write_serial("enable_4th_hd\n");
+  runtime.io().write_serial_command("enable_4th_hd\n");
   runtime.runner().run_main_loop(16);
-  serial = runtime.io().read_serial();
+  serial = runtime.io().read_serial_text();
   require_contains(serial, "successed! enalbe Harmonic Drive 4th Axis ok!",
                    "real SimpleShell should run the C1 harmonic-drive enable path");
   require((runtime.factory_settings().function_setting & 0x01) != 0,

@@ -37,7 +37,7 @@ if [[ "$EXPECTED_ARCHITECTURE" != "$ARTIFACT_ARCHITECTURE" ]]; then
 fi
 
 BACKEND_NAME="Carvera Backend"
-BUILD_DIR="${CARVERA_SIM_PACKAGE_BUILD_DIR:-"$ROOT_DIR/build-linux-appimage-$ARTIFACT_ARCHITECTURE"}"
+BUILD_DIR="${CARVERA_SIM_PACKAGE_BUILD_DIR:-"$ROOT_DIR/build"}"
 OUTPUT_DIR="${CARVERA_SIM_PACKAGE_OUTPUT_DIR:-"$ROOT_DIR/dist/linux"}"
 PACKAGE_WORK_DIR="${CARVERA_SIM_PACKAGE_WORK_DIR:-"$BUILD_DIR/package"}"
 PYINSTALLER_DIST="$PACKAGE_WORK_DIR/pyinstaller-dist"
@@ -56,10 +56,11 @@ JOBS="$(nproc)"
 export UV_PROJECT_ENVIRONMENT="$BUILD_DIR/python-environment"
 export UV_LINK_MODE=copy
 
-uv sync --project "$ROOT_DIR" --locked --no-dev --group package-linux --python 3.13
+uv sync --project "$ROOT_DIR" --locked --no-dev --group package-linux
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCARVERA_SIM_ENABLE_COVERAGE=OFF \
   -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
 cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$JOBS"
 

@@ -50,9 +50,6 @@ EventRunResult EventEngine::run(Kernel& kernel, const EventRunOptions& options, 
   }
 
   for (std::size_t i = 0; i < options.main_loop_iterations; ++i) {
-    if (options.drain_serial_lines && (kernel.serial == nullptr || !kernel.serial->has_char('\n'))) {
-      break;
-    }
     if (!run_firmware_iteration(kernel, result, reset)) {
       return result;
     }
@@ -125,6 +122,9 @@ bool EventEngine::run_one_timer_event(Kernel& kernel) {
 
 bool EventEngine::run_firmware_iteration(Kernel& kernel, EventRunResult& result, const ResetCallback& reset) {
   lpc_memory::begin_firmware_stack_sample();
+  if (kernel.serial != nullptr && kernel.serial->serial != nullptr) {
+    kernel.serial->serial->service_rx_irq();
+  }
   kernel.call_event(ON_MAIN_LOOP);
   kernel.call_event(ON_IDLE);
   lpc_memory::check_firmware_stack_sample();

@@ -78,7 +78,10 @@ namespace sim {
 
 InteractiveTransportManager::InteractiveTransportManager(RuntimeIo& io, RuntimePump& runner, MachineSimulator& machine,
                                                          UploadingQuery uploading)
-    : runtime_io_(io), runner_(runner), machine_(machine), uploading_(std::move(uploading)) {}
+    : runtime_io_(io),
+      runner_(runner),
+      machine_(machine),
+      uploading_(uploading ? std::move(uploading) : UploadingQuery{[] { return false; }}) {}
 
 void InteractiveTransportManager::set_auxiliary_pump(AuxiliaryPump pump) { auxiliary_pump_ = std::move(pump); }
 

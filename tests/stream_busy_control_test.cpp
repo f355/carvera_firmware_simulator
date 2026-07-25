@@ -20,6 +20,7 @@
 #include <iostream>
 
 #include "carvera_sim.pb.h"
+#include "sim/makera_protocol.hpp"
 #include "support/assertions.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/posix_io.hpp"
@@ -109,8 +110,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  const char probing_command[] = "G38.6 Z-118 F500\n";
-  if (!expect(sim::test::write_exact(controller, probing_command, sizeof(probing_command) - 1),
+  const auto probing_command = sim::makera::encode_console_input("G38.6 Z-118 F500\n");
+  if (!expect(sim::test::write_exact(controller, probing_command.data(), probing_command.size()),
               "failed to write probing command")) {
     return 1;
   }
@@ -167,6 +168,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  request.Clear();
+  request.set_id(24);
+  request.mutable_get_memory_details();
+  if (!expect(simulator.write_request(request), "failed to write memory details request")) {
+    return 1;
+  }
+
   response.Clear();
   const bool stale_snapshot_rejected = simulator.wait_response(20, response, kBusyResponseDeadline) && !response.ok();
   if (!expect(stale_snapshot_rejected, "busy stream should reject non-urgent snapshot reads quickly")) {
@@ -190,6 +198,13 @@ int main(int argc, char** argv) {
   const bool realtime_speed_acknowledged =
       simulator.wait_response(23, response, kBusyResponseDeadline) && response.ok();
   if (!expect(realtime_speed_acknowledged, "busy stream should acknowledge realtime speed changes quickly")) {
+    return 1;
+  }
+
+  response.Clear();
+  const bool memory_details_acknowledged =
+      simulator.wait_response(24, response, kBusyResponseDeadline) && response.ok() && response.has_memory_details();
+  if (!expect(memory_details_acknowledged, "busy stream should return memory accounting details")) {
     return 1;
   }
 

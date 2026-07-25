@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from gui.protocol.model import AxisSnapshot, AtcPocketSnapshot, AtcSnapshot, MachineState, ToolKind, ToolSnapshot
+from gui.protocol.model import AtcPocketSnapshot, AtcSnapshot, AxisSnapshot, MachineState, ToolKind, ToolSnapshot
 from gui.tests.fakes import FakeLabel
 from gui.views.machine_status import AtcPanelView, AxisPanelView
 

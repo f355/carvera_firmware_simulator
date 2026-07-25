@@ -20,6 +20,8 @@
 
 #include <cstddef>
 
+#include "sim/lpc_memory_accounting.hpp"
+
 #define LOCATED_IN_AHBSRAM
 
 namespace sim::lpc_memory {
@@ -33,9 +35,12 @@ template <typename Type, std::size_t Capacity>
 Type* simulator_config_cache_storage() {
   constexpr std::size_t bytes = Capacity * sizeof(Type);
   if (sim::lpc_memory::lpc_heap_enabled()) {
-    return reinterpret_cast<Type*>(sim::lpc_memory::config_cache_base(bytes));
+    auto* storage = reinterpret_cast<Type*>(sim::lpc_memory::config_cache_base(bytes));
+    sim::lpc_memory::config_cache_storage_acquired();
+    return storage;
   }
   alignas(Type) static unsigned char storage[bytes]{};
+  sim::lpc_memory::config_cache_storage_acquired();
   return reinterpret_cast<Type*>(storage);
 }
 

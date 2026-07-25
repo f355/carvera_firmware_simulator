@@ -17,13 +17,26 @@
 
 #include "sim/lpc_memory_constraints.hpp"
 
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <string_view>
+#include <tuple>
 
+#include "Block.h"
+#include "Conveyor.h"
+#include "SlowTicker.h"
+#include "StepTicker.h"
 #include "StreamOutput.h"
+#include "compat/active_context.hpp"
+#include "lpc_memory_layout.hpp"
+#include "modules/communication/SerialConsole.h"
+#include "modules/communication/SerialConsole2.h"
+#include "sim/lpc_memory_accounting.hpp"
+#include "sim/simulator_context.hpp"
 #include "sim/system_reset.hpp"
 
 #ifndef STACK_SIZE
@@ -157,6 +170,64 @@ void apply_environment_defaults_locked() {
 
 SimMemoryPool simulator_ahb;
 
+namespace {
+
+struct AhbTypeLayout {
+  std::size_t host_bytes;
+  std::uint32_t target_bytes;
+  const char* name;
+};
+
+std::tuple<std::size_t, std::string, bool> target_ahb_payload(std::size_t host_bytes) {
+  if (host_bytes >= 2 * sizeof(Block) && host_bytes % sizeof(Block) == 0) {
+    return {
+        (host_bytes / sizeof(Block)) * sim::lpc_memory::generated::kBlockBytes,
+        "Block[]",
+        true,
+    };
+  }
+
+  constexpr std::array layouts{
+      AhbTypeLayout{sizeof(Conveyor), sim::lpc_memory::generated::kConveyorBytes, "Conveyor"},
+      AhbTypeLayout{sizeof(SerialConsole), sim::lpc_memory::generated::kSerialConsoleBytes, "SerialConsole"},
+      AhbTypeLayout{sizeof(SerialConsole2), sim::lpc_memory::generated::kSerialConsole2Bytes, "SerialConsole2"},
+      AhbTypeLayout{sizeof(SlowTicker), sim::lpc_memory::generated::kSlowTickerBytes, "SlowTicker"},
+      AhbTypeLayout{sizeof(StepTicker), sim::lpc_memory::generated::kStepTickerBytes, "StepTicker"},
+  };
+  const AhbTypeLayout* match = nullptr;
+  for (const auto& layout : layouts) {
+    if (layout.host_bytes != host_bytes) {
+      continue;
+    }
+    if (match != nullptr &&
+        (match->target_bytes != layout.target_bytes || std::string_view(match->name) != layout.name)) {
+      return {host_bytes, "ABI-unresolved", false};
+    }
+    match = &layout;
+  }
+  if (match != nullptr) {
+    return {match->target_bytes, match->name, true};
+  }
+  // Every remaining direct AHB.alloc() call in the pinned firmware is a byte
+  // or float buffer, whose requested byte count is identical on the LPC.
+  return {host_bytes, "raw buffer", true};
+}
+
+void record_ahb_allocation(void* pointer, std::size_t host_bytes) {
+  if (pointer == nullptr) {
+    return;
+  }
+  try {
+    if (auto* context = sim::compat::try_active_context(); context != nullptr) {
+      const auto [target_bytes, type_name, exact] = target_ahb_payload(host_bytes);
+      context->memory_accounting().record_ahb(pointer, host_bytes, target_bytes, type_name, exact);
+    }
+  } catch (...) {
+  }
+}
+
+}  // namespace
+
 SimMemoryPool::SimMemoryPool() = default;
 
 void SimMemoryPool::rebuild_capped_pool() {
@@ -209,48 +280,53 @@ std::size_t SimMemoryPool::capacity() const { return unlimited_ ? 0 : capacity_;
 bool SimMemoryPool::unlimited() const { return unlimited_; }
 
 void* SimMemoryPool::alloc(std::size_t bytes) {
-  std::lock_guard<std::mutex> lock(g_mutex);
-  ensure_configured();
-  if (bytes == 0) {
-    bytes = 1;
-  }
-  bytes = align4(bytes);
-
-  if (unlimited_) {
-    return std::malloc(bytes);
-  }
-  if (arena_ == nullptr || arena_bytes_ == 0) {
-    return nullptr;
-  }
-
-  const std::uint32_t need = static_cast<std::uint32_t>(bytes + kHeaderSize);
-  std::uint8_t* cursor = arena_;
-  const std::uint8_t* end = arena_ + arena_bytes_;
-  while (cursor + kHeaderSize <= end) {
-    auto* header = reinterpret_cast<PoolHeader*>(cursor);
-    const std::uint32_t block = header_size(header->word);
-    if (block < kHeaderSize || cursor + block > end) {
-      return nullptr;
+  void* pointer = nullptr;
+  std::size_t requested = bytes;
+  {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    ensure_configured();
+    if (bytes == 0) {
+      bytes = 1;
     }
-    if (!header_used(header->word) && block >= need) {
-      if (block >= need + kMinSplitTail) {
-        auto* next = reinterpret_cast<PoolHeader*>(cursor + need);
-        next->word = make_header(false, block - need);
-        header->word = make_header(true, need);
-      } else {
-        header->word = make_header(true, block);
+    bytes = align4(bytes);
+    requested = bytes;
+
+    if (unlimited_) {
+      pointer = std::malloc(bytes);
+    } else if (arena_ != nullptr && arena_bytes_ != 0) {
+      const std::uint32_t need = static_cast<std::uint32_t>(bytes + kHeaderSize);
+      std::uint8_t* cursor = arena_;
+      const std::uint8_t* end = arena_ + arena_bytes_;
+      while (cursor + kHeaderSize <= end) {
+        auto* header = reinterpret_cast<PoolHeader*>(cursor);
+        const std::uint32_t block = header_size(header->word);
+        if (block < kHeaderSize || cursor + block > end) {
+          break;
+        }
+        if (!header_used(header->word) && block >= need) {
+          if (block >= need + kMinSplitTail) {
+            auto* next = reinterpret_cast<PoolHeader*>(cursor + need);
+            next->word = make_header(false, block - need);
+            header->word = make_header(true, need);
+          } else {
+            header->word = make_header(true, block);
+          }
+          pointer = cursor + kHeaderSize;
+          break;
+        }
+        cursor += block;
       }
-      return cursor + kHeaderSize;
     }
-    cursor += block;
   }
-  return nullptr;
+  record_ahb_allocation(pointer, requested);
+  return pointer;
 }
 
 void SimMemoryPool::dealloc(void* ptr) {
   if (ptr == nullptr) {
     return;
   }
+  sim::lpc_memory::release_host_allocation(ptr);
   std::lock_guard<std::mutex> lock(g_mutex);
   ensure_configured();
   if (unlimited_) {

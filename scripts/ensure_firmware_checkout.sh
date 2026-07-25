@@ -129,6 +129,15 @@ if [[ ! -d "$FIRMWARE_DIR/.git" ]]; then
   git clone "$FIRMWARE_REPO" "$FIRMWARE_DIR" >&2
 fi
 
+# Existing checkouts keep whatever origin they were cloned from, so retarget it
+# when the pinned repository changes; otherwise the fetch below looks for the
+# new commit in the old repository.
+CURRENT_ORIGIN="$(git -C "$FIRMWARE_DIR" remote get-url origin 2>/dev/null || true)"
+if [[ -n "$CURRENT_ORIGIN" && "$CURRENT_ORIGIN" != "$FIRMWARE_REPO" ]]; then
+  echo "note: repointing firmware origin from $CURRENT_ORIGIN to $FIRMWARE_REPO" >&2
+  git -C "$FIRMWARE_DIR" remote set-url origin "$FIRMWARE_REPO" >&2
+fi
+
 if ! git -C "$FIRMWARE_DIR" cat-file -e "${FIRMWARE_COMMIT}^{commit}" 2>/dev/null; then
   git -C "$FIRMWARE_DIR" fetch origin "$FIRMWARE_COMMIT" >&2 || git -C "$FIRMWARE_DIR" fetch origin >&2
 fi

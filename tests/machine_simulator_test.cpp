@@ -25,8 +25,10 @@
 #include "sim/machine_simulator.hpp"
 #include "us_ticker_api.h"
 #include "support/assertions.hpp"
+#include "support/waiting.hpp"
 
 using sim::test::require;
+using sim::test::eventually;
 
 namespace {
 
@@ -39,18 +41,6 @@ struct EdgeProbe {
 
   int rises{0};
 };
-
-template <typename Predicate>
-bool eventually(Predicate&& predicate, std::chrono::milliseconds timeout) {
-  const auto deadline = std::chrono::steady_clock::now() + timeout;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (predicate()) {
-      return true;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  return predicate();
-}
 
 }  // namespace
 

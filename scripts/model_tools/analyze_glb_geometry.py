@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 COMPONENT_FORMATS = {
     5121: "B",
     5122: "h",

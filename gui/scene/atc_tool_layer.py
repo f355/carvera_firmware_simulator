@@ -21,7 +21,10 @@ from typing import Any
 from gui.protocol.model import AtcSnapshot
 
 from .scene_geometry import MachineSceneGeometry
-from .spindle_overlay_layer import TOOL_ROTATION_X
+from .scene_primitives import vertical_cylinder
+
+ATC_RACK_TOOL_RADIUS_MM = 3.0
+ATC_RACK_TOOL_HEIGHT_MM = 20.0
 
 
 @dataclass
@@ -42,14 +45,18 @@ class AtcToolLayer:
             visible_pockets.add(pocket_id)
             tool_object = self.tool_objects.get(pocket_id)
             if tool_object is None:
-                tool_object = (
-                    self.scene.cylinder(top_radius=3.0, bottom_radius=3.0, height=20.0, radial_segments=24)
-                    .material("#0f766e")
-                    .rotate(TOOL_ROTATION_X, 0.0, 0.0)
+                tool_object = vertical_cylinder(
+                    self.scene,
+                    radius=ATC_RACK_TOOL_RADIUS_MM,
+                    height=ATC_RACK_TOOL_HEIGHT_MM,
+                    color="#0f766e",
+                    radial_segments=24,
                 )
                 self.tool_objects[pocket_id] = tool_object
             rack_position = geometry.atc_rack_tool_position(pocket.x, pocket.y, pocket.z, bed_y_delta)
-            tool_object.move(rack_position[0], rack_position[1], rack_position[2] + 10.0).visible(pocket.occupied)
+            tool_object.move(
+                rack_position[0], rack_position[1], rack_position[2] + ATC_RACK_TOOL_HEIGHT_MM / 2.0
+            ).visible(pocket.occupied)
         for pocket_id, tool_object in self.tool_objects.items():
             if pocket_id not in visible_pockets:
                 tool_object.visible(False)

@@ -30,6 +30,8 @@ namespace sim {
 class AdcState {
  public:
   static constexpr std::uint8_t channel_count = 8;
+  // Matches the stock firmware's per-sample ISR burst from hardware oversampling.
+  static constexpr int isr_repeats_per_sample = 32;
 
   void reset();
   void set_channel_raw(std::uint8_t channel, std::uint16_t raw12);

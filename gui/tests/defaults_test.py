@@ -19,7 +19,6 @@ from gui.core.defaults import (
     DEFAULT_C1_TOOLS,
     DEFAULT_LOOSE_TOOLS,
     DEFAULT_SD_CONFIG,
-    PIN_WATCHES,
     PWM_WATCHES,
     SWITCH_WATCHES,
 )
@@ -38,8 +37,13 @@ def test_default_tools_describe_a_loaded_c1_rack_and_locked_probes() -> None:
 
 
 def test_default_signal_watches_use_valid_pins() -> None:
-    for label, port, pin in PIN_WATCHES + PWM_WATCHES:
+    for label, port, pin in PWM_WATCHES:
         assert label
         assert 0 <= port <= 4
         assert 0 <= pin <= 31
     assert "beep" in {name for name, _ in SWITCH_WATCHES}
+
+
+def test_pwm_watches_cover_each_hardware_pwm_channel_once() -> None:
+    # LPC1768 PWM1 channels 1-6 live on P2.0-P2.5.
+    assert sorted((port, pin) for _, port, pin in PWM_WATCHES) == [(2, pin) for pin in range(6)]

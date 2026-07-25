@@ -1,5 +1,5 @@
 # mypy: disable-error-code="var-annotated"
-# source-schema-sha256: 8a6764099d0fe140aad59755571e36c0bf918b5566c415eea849d7e2827b78a5
+# source-schema-sha256: f21932fbb69310f16c216bc104bbafe9ce240b8add41cf528b3173e60ea32b44
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -8,6 +8,12 @@ from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class MemoryRegion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MEMORY_REGION_UNSPECIFIED: _ClassVar[MemoryRegion]
+    MEMORY_REGION_MAIN_SRAM: _ClassVar[MemoryRegion]
+    MEMORY_REGION_AHB_SRAM: _ClassVar[MemoryRegion]
 
 class TimeMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -60,6 +66,9 @@ class ToolKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TOOL_KIND_CUTTING_TOOL: _ClassVar[ToolKind]
     TOOL_KIND_STOCK_Z_PROBE: _ClassVar[ToolKind]
     TOOL_KIND_THREE_AXIS_PROBE: _ClassVar[ToolKind]
+MEMORY_REGION_UNSPECIFIED: MemoryRegion
+MEMORY_REGION_MAIN_SRAM: MemoryRegion
+MEMORY_REGION_AHB_SRAM: MemoryRegion
 TIME_MODE_UNSPECIFIED: TimeMode
 TIME_MODE_MANUAL: TimeMode
 TIME_MODE_REALTIME: TimeMode
@@ -93,7 +102,7 @@ TOOL_KIND_STOCK_Z_PROBE: ToolKind
 TOOL_KIND_THREE_AXIS_PROBE: ToolKind
 
 class Request(_message.Message):
-    __slots__ = ("id", "reset", "poll", "get_status", "set_time_mode", "advance_time", "set_realtime_speed", "set_machine_model", "mount_filesystem", "start_interactive_transport", "stop_interactive_transport", "write_serial", "read_serial", "run_until_idle", "jog", "set_cover_open", "get_cover_open", "set_motor_alarm", "get_motor_alarm", "set_spindle_alarm", "get_spindle_alarm", "set_atc_pocket_tools", "set_main_button_pressed", "set_e_stop_pressed", "get_front_panel_state", "set_temperature", "set_limit_switch", "get_limit_switch", "set_spindle_tool", "set_probe_tool_installed", "set_stock_box", "get_machine_snapshot", "get_pwm_output", "get_switch_state", "get_laser_state", "set_rotary_accessory_installed", "get_eeprom_bytes", "set_eeprom_bytes", "get_eeprom_contents", "set_eeprom_contents", "get_probe_inputs", "get_adc_input", "set_gpio_input", "get_gpio_level", "attach_step_dir_axis", "get_axis_position", "trigger_interrupt_rise", "set_probe_inputs", "set_tool_setter_box", "set_adc_input", "set_switch_state")
+    __slots__ = ("id", "reset", "poll", "get_status", "set_time_mode", "advance_time", "set_realtime_speed", "set_machine_model", "mount_filesystem", "start_interactive_transport", "stop_interactive_transport", "write_serial", "read_serial", "run_until_idle", "jog", "set_cover_open", "get_cover_open", "set_motor_alarm", "get_motor_alarm", "set_spindle_alarm", "get_spindle_alarm", "set_atc_pocket_tools", "set_main_button_pressed", "set_e_stop_pressed", "get_front_panel_state", "set_temperature", "set_limit_switch", "get_limit_switch", "set_spindle_tool", "set_probe_tool_installed", "set_stock_box", "get_machine_snapshot", "get_pwm_output", "get_switch_state", "get_laser_state", "set_rotary_accessory_installed", "get_eeprom_bytes", "set_eeprom_bytes", "get_eeprom_contents", "set_eeprom_contents", "get_memory_details", "get_probe_inputs", "get_adc_input", "set_gpio_input", "get_gpio_level", "attach_step_dir_axis", "get_axis_position", "trigger_interrupt_rise", "set_probe_inputs", "set_tool_setter_box", "set_adc_input", "set_switch_state")
     ID_FIELD_NUMBER: _ClassVar[int]
     RESET_FIELD_NUMBER: _ClassVar[int]
     POLL_FIELD_NUMBER: _ClassVar[int]
@@ -134,6 +143,7 @@ class Request(_message.Message):
     SET_EEPROM_BYTES_FIELD_NUMBER: _ClassVar[int]
     GET_EEPROM_CONTENTS_FIELD_NUMBER: _ClassVar[int]
     SET_EEPROM_CONTENTS_FIELD_NUMBER: _ClassVar[int]
+    GET_MEMORY_DETAILS_FIELD_NUMBER: _ClassVar[int]
     GET_PROBE_INPUTS_FIELD_NUMBER: _ClassVar[int]
     GET_ADC_INPUT_FIELD_NUMBER: _ClassVar[int]
     SET_GPIO_INPUT_FIELD_NUMBER: _ClassVar[int]
@@ -185,6 +195,7 @@ class Request(_message.Message):
     set_eeprom_bytes: SetEepromBytes
     get_eeprom_contents: GetEepromContents
     set_eeprom_contents: SetEepromContents
+    get_memory_details: GetMemoryDetails
     get_probe_inputs: GetProbeInputs
     get_adc_input: GetAdcInput
     set_gpio_input: SetGpioInput
@@ -196,10 +207,10 @@ class Request(_message.Message):
     set_tool_setter_box: SetToolSetterBox
     set_adc_input: SetAdcInput
     set_switch_state: SetSwitchState
-    def __init__(self, id: _Optional[int] = ..., reset: _Optional[_Union[Reset, _Mapping]] = ..., poll: _Optional[_Union[Poll, _Mapping]] = ..., get_status: _Optional[_Union[GetStatus, _Mapping]] = ..., set_time_mode: _Optional[_Union[SetTimeMode, _Mapping]] = ..., advance_time: _Optional[_Union[AdvanceTime, _Mapping]] = ..., set_realtime_speed: _Optional[_Union[SetRealtimeSpeed, _Mapping]] = ..., set_machine_model: _Optional[_Union[SetMachineModel, _Mapping]] = ..., mount_filesystem: _Optional[_Union[MountFilesystem, _Mapping]] = ..., start_interactive_transport: _Optional[_Union[StartInteractiveTransport, _Mapping]] = ..., stop_interactive_transport: _Optional[_Union[StopInteractiveTransport, _Mapping]] = ..., write_serial: _Optional[_Union[WriteSerial, _Mapping]] = ..., read_serial: _Optional[_Union[ReadSerial, _Mapping]] = ..., run_until_idle: _Optional[_Union[RunUntilIdle, _Mapping]] = ..., jog: _Optional[_Union[Jog, _Mapping]] = ..., set_cover_open: _Optional[_Union[SetCoverOpen, _Mapping]] = ..., get_cover_open: _Optional[_Union[GetCoverOpen, _Mapping]] = ..., set_motor_alarm: _Optional[_Union[SetMotorAlarm, _Mapping]] = ..., get_motor_alarm: _Optional[_Union[GetMotorAlarm, _Mapping]] = ..., set_spindle_alarm: _Optional[_Union[SetSpindleAlarm, _Mapping]] = ..., get_spindle_alarm: _Optional[_Union[GetSpindleAlarm, _Mapping]] = ..., set_atc_pocket_tools: _Optional[_Union[SetAtcPocketTools, _Mapping]] = ..., set_main_button_pressed: _Optional[_Union[SetMainButtonPressed, _Mapping]] = ..., set_e_stop_pressed: _Optional[_Union[SetEStopPressed, _Mapping]] = ..., get_front_panel_state: _Optional[_Union[GetFrontPanelState, _Mapping]] = ..., set_temperature: _Optional[_Union[SetTemperature, _Mapping]] = ..., set_limit_switch: _Optional[_Union[SetLimitSwitch, _Mapping]] = ..., get_limit_switch: _Optional[_Union[GetLimitSwitch, _Mapping]] = ..., set_spindle_tool: _Optional[_Union[SetSpindleTool, _Mapping]] = ..., set_probe_tool_installed: _Optional[_Union[SetProbeToolInstalled, _Mapping]] = ..., set_stock_box: _Optional[_Union[SetStockBox, _Mapping]] = ..., get_machine_snapshot: _Optional[_Union[GetMachineSnapshot, _Mapping]] = ..., get_pwm_output: _Optional[_Union[GetPwmOutput, _Mapping]] = ..., get_switch_state: _Optional[_Union[GetSwitchState, _Mapping]] = ..., get_laser_state: _Optional[_Union[GetLaserState, _Mapping]] = ..., set_rotary_accessory_installed: _Optional[_Union[SetRotaryAccessoryInstalled, _Mapping]] = ..., get_eeprom_bytes: _Optional[_Union[GetEepromBytes, _Mapping]] = ..., set_eeprom_bytes: _Optional[_Union[SetEepromBytes, _Mapping]] = ..., get_eeprom_contents: _Optional[_Union[GetEepromContents, _Mapping]] = ..., set_eeprom_contents: _Optional[_Union[SetEepromContents, _Mapping]] = ..., get_probe_inputs: _Optional[_Union[GetProbeInputs, _Mapping]] = ..., get_adc_input: _Optional[_Union[GetAdcInput, _Mapping]] = ..., set_gpio_input: _Optional[_Union[SetGpioInput, _Mapping]] = ..., get_gpio_level: _Optional[_Union[GetGpioLevel, _Mapping]] = ..., attach_step_dir_axis: _Optional[_Union[AttachStepDirAxis, _Mapping]] = ..., get_axis_position: _Optional[_Union[GetAxisPosition, _Mapping]] = ..., trigger_interrupt_rise: _Optional[_Union[TriggerInterruptRise, _Mapping]] = ..., set_probe_inputs: _Optional[_Union[SetProbeInputs, _Mapping]] = ..., set_tool_setter_box: _Optional[_Union[SetToolSetterBox, _Mapping]] = ..., set_adc_input: _Optional[_Union[SetAdcInput, _Mapping]] = ..., set_switch_state: _Optional[_Union[SetSwitchState, _Mapping]] = ...) -> None: ...
+    def __init__(self, id: _Optional[int] = ..., reset: _Optional[_Union[Reset, _Mapping]] = ..., poll: _Optional[_Union[Poll, _Mapping]] = ..., get_status: _Optional[_Union[GetStatus, _Mapping]] = ..., set_time_mode: _Optional[_Union[SetTimeMode, _Mapping]] = ..., advance_time: _Optional[_Union[AdvanceTime, _Mapping]] = ..., set_realtime_speed: _Optional[_Union[SetRealtimeSpeed, _Mapping]] = ..., set_machine_model: _Optional[_Union[SetMachineModel, _Mapping]] = ..., mount_filesystem: _Optional[_Union[MountFilesystem, _Mapping]] = ..., start_interactive_transport: _Optional[_Union[StartInteractiveTransport, _Mapping]] = ..., stop_interactive_transport: _Optional[_Union[StopInteractiveTransport, _Mapping]] = ..., write_serial: _Optional[_Union[WriteSerial, _Mapping]] = ..., read_serial: _Optional[_Union[ReadSerial, _Mapping]] = ..., run_until_idle: _Optional[_Union[RunUntilIdle, _Mapping]] = ..., jog: _Optional[_Union[Jog, _Mapping]] = ..., set_cover_open: _Optional[_Union[SetCoverOpen, _Mapping]] = ..., get_cover_open: _Optional[_Union[GetCoverOpen, _Mapping]] = ..., set_motor_alarm: _Optional[_Union[SetMotorAlarm, _Mapping]] = ..., get_motor_alarm: _Optional[_Union[GetMotorAlarm, _Mapping]] = ..., set_spindle_alarm: _Optional[_Union[SetSpindleAlarm, _Mapping]] = ..., get_spindle_alarm: _Optional[_Union[GetSpindleAlarm, _Mapping]] = ..., set_atc_pocket_tools: _Optional[_Union[SetAtcPocketTools, _Mapping]] = ..., set_main_button_pressed: _Optional[_Union[SetMainButtonPressed, _Mapping]] = ..., set_e_stop_pressed: _Optional[_Union[SetEStopPressed, _Mapping]] = ..., get_front_panel_state: _Optional[_Union[GetFrontPanelState, _Mapping]] = ..., set_temperature: _Optional[_Union[SetTemperature, _Mapping]] = ..., set_limit_switch: _Optional[_Union[SetLimitSwitch, _Mapping]] = ..., get_limit_switch: _Optional[_Union[GetLimitSwitch, _Mapping]] = ..., set_spindle_tool: _Optional[_Union[SetSpindleTool, _Mapping]] = ..., set_probe_tool_installed: _Optional[_Union[SetProbeToolInstalled, _Mapping]] = ..., set_stock_box: _Optional[_Union[SetStockBox, _Mapping]] = ..., get_machine_snapshot: _Optional[_Union[GetMachineSnapshot, _Mapping]] = ..., get_pwm_output: _Optional[_Union[GetPwmOutput, _Mapping]] = ..., get_switch_state: _Optional[_Union[GetSwitchState, _Mapping]] = ..., get_laser_state: _Optional[_Union[GetLaserState, _Mapping]] = ..., set_rotary_accessory_installed: _Optional[_Union[SetRotaryAccessoryInstalled, _Mapping]] = ..., get_eeprom_bytes: _Optional[_Union[GetEepromBytes, _Mapping]] = ..., set_eeprom_bytes: _Optional[_Union[SetEepromBytes, _Mapping]] = ..., get_eeprom_contents: _Optional[_Union[GetEepromContents, _Mapping]] = ..., set_eeprom_contents: _Optional[_Union[SetEepromContents, _Mapping]] = ..., get_memory_details: _Optional[_Union[GetMemoryDetails, _Mapping]] = ..., get_probe_inputs: _Optional[_Union[GetProbeInputs, _Mapping]] = ..., get_adc_input: _Optional[_Union[GetAdcInput, _Mapping]] = ..., set_gpio_input: _Optional[_Union[SetGpioInput, _Mapping]] = ..., get_gpio_level: _Optional[_Union[GetGpioLevel, _Mapping]] = ..., attach_step_dir_axis: _Optional[_Union[AttachStepDirAxis, _Mapping]] = ..., get_axis_position: _Optional[_Union[GetAxisPosition, _Mapping]] = ..., trigger_interrupt_rise: _Optional[_Union[TriggerInterruptRise, _Mapping]] = ..., set_probe_inputs: _Optional[_Union[SetProbeInputs, _Mapping]] = ..., set_tool_setter_box: _Optional[_Union[SetToolSetterBox, _Mapping]] = ..., set_adc_input: _Optional[_Union[SetAdcInput, _Mapping]] = ..., set_switch_state: _Optional[_Union[SetSwitchState, _Mapping]] = ...) -> None: ...
 
 class Response(_message.Message):
-    __slots__ = ("id", "ok", "error", "status", "gpio_level", "attached_axis", "axis_position", "serial_data", "run_result", "jog_result", "pwm_output", "adc_input", "probe_inputs", "machine_snapshot", "interactive_transport", "cover_state", "motor_alarm_state", "front_panel_state", "switch_state", "limit_switch_state", "spindle_alarm_state", "laser_state", "eeprom_bytes", "eeprom_contents")
+    __slots__ = ("id", "ok", "error", "status", "gpio_level", "attached_axis", "axis_position", "serial_data", "run_result", "jog_result", "pwm_output", "adc_input", "probe_inputs", "machine_snapshot", "interactive_transport", "cover_state", "motor_alarm_state", "front_panel_state", "switch_state", "limit_switch_state", "spindle_alarm_state", "laser_state", "eeprom_bytes", "eeprom_contents", "memory_details")
     ID_FIELD_NUMBER: _ClassVar[int]
     OK_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
@@ -224,6 +235,7 @@ class Response(_message.Message):
     LASER_STATE_FIELD_NUMBER: _ClassVar[int]
     EEPROM_BYTES_FIELD_NUMBER: _ClassVar[int]
     EEPROM_CONTENTS_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_DETAILS_FIELD_NUMBER: _ClassVar[int]
     id: int
     ok: bool
     error: str
@@ -248,7 +260,8 @@ class Response(_message.Message):
     laser_state: LaserState
     eeprom_bytes: EepromBytes
     eeprom_contents: EepromContents
-    def __init__(self, id: _Optional[int] = ..., ok: _Optional[bool] = ..., error: _Optional[str] = ..., status: _Optional[_Union[Status, _Mapping]] = ..., gpio_level: _Optional[_Union[GpioLevel, _Mapping]] = ..., attached_axis: _Optional[_Union[AttachedAxis, _Mapping]] = ..., axis_position: _Optional[_Union[AxisPosition, _Mapping]] = ..., serial_data: _Optional[_Union[SerialData, _Mapping]] = ..., run_result: _Optional[_Union[RunResult, _Mapping]] = ..., jog_result: _Optional[_Union[JogResult, _Mapping]] = ..., pwm_output: _Optional[_Union[PwmOutput, _Mapping]] = ..., adc_input: _Optional[_Union[AdcInput, _Mapping]] = ..., probe_inputs: _Optional[_Union[ProbeInputs, _Mapping]] = ..., machine_snapshot: _Optional[_Union[MachineSnapshot, _Mapping]] = ..., interactive_transport: _Optional[_Union[InteractiveTransport, _Mapping]] = ..., cover_state: _Optional[_Union[CoverState, _Mapping]] = ..., motor_alarm_state: _Optional[_Union[MotorAlarmState, _Mapping]] = ..., front_panel_state: _Optional[_Union[FrontPanelState, _Mapping]] = ..., switch_state: _Optional[_Union[SwitchState, _Mapping]] = ..., limit_switch_state: _Optional[_Union[LimitSwitchState, _Mapping]] = ..., spindle_alarm_state: _Optional[_Union[SpindleAlarmState, _Mapping]] = ..., laser_state: _Optional[_Union[LaserState, _Mapping]] = ..., eeprom_bytes: _Optional[_Union[EepromBytes, _Mapping]] = ..., eeprom_contents: _Optional[_Union[EepromContents, _Mapping]] = ...) -> None: ...
+    memory_details: MemoryDetails
+    def __init__(self, id: _Optional[int] = ..., ok: _Optional[bool] = ..., error: _Optional[str] = ..., status: _Optional[_Union[Status, _Mapping]] = ..., gpio_level: _Optional[_Union[GpioLevel, _Mapping]] = ..., attached_axis: _Optional[_Union[AttachedAxis, _Mapping]] = ..., axis_position: _Optional[_Union[AxisPosition, _Mapping]] = ..., serial_data: _Optional[_Union[SerialData, _Mapping]] = ..., run_result: _Optional[_Union[RunResult, _Mapping]] = ..., jog_result: _Optional[_Union[JogResult, _Mapping]] = ..., pwm_output: _Optional[_Union[PwmOutput, _Mapping]] = ..., adc_input: _Optional[_Union[AdcInput, _Mapping]] = ..., probe_inputs: _Optional[_Union[ProbeInputs, _Mapping]] = ..., machine_snapshot: _Optional[_Union[MachineSnapshot, _Mapping]] = ..., interactive_transport: _Optional[_Union[InteractiveTransport, _Mapping]] = ..., cover_state: _Optional[_Union[CoverState, _Mapping]] = ..., motor_alarm_state: _Optional[_Union[MotorAlarmState, _Mapping]] = ..., front_panel_state: _Optional[_Union[FrontPanelState, _Mapping]] = ..., switch_state: _Optional[_Union[SwitchState, _Mapping]] = ..., limit_switch_state: _Optional[_Union[LimitSwitchState, _Mapping]] = ..., spindle_alarm_state: _Optional[_Union[SpindleAlarmState, _Mapping]] = ..., laser_state: _Optional[_Union[LaserState, _Mapping]] = ..., eeprom_bytes: _Optional[_Union[EepromBytes, _Mapping]] = ..., eeprom_contents: _Optional[_Union[EepromContents, _Mapping]] = ..., memory_details: _Optional[_Union[MemoryDetails, _Mapping]] = ...) -> None: ...
 
 class StreamFrame(_message.Message):
     __slots__ = ("response", "event")
@@ -343,8 +356,8 @@ class GetAxisPosition(_message.Message):
 class WriteSerial(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
-    data: str
-    def __init__(self, data: _Optional[str] = ...) -> None: ...
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
 class ReadSerial(_message.Message):
     __slots__ = ()
@@ -815,8 +828,8 @@ class AxisPosition(_message.Message):
 class SerialData(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
-    data: str
-    def __init__(self, data: _Optional[str] = ...) -> None: ...
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
 class RunResult(_message.Message):
     __slots__ = ("idle",)
@@ -861,7 +874,7 @@ class AdcInput(_message.Message):
     def __init__(self, channel: _Optional[int] = ..., raw: _Optional[int] = ...) -> None: ...
 
 class MachineSnapshot(_message.Message):
-    __slots__ = ("firmware_booted", "homed", "soft_endstop_enabled", "work_area", "axes", "atc", "physical_travel", "spindle", "tool_setter", "tool_setter_available")
+    __slots__ = ("firmware_booted", "homed", "soft_endstop_enabled", "work_area", "axes", "atc", "physical_travel", "spindle", "tool_setter", "tool_setter_available", "memory")
     FIRMWARE_BOOTED_FIELD_NUMBER: _ClassVar[int]
     HOMED_FIELD_NUMBER: _ClassVar[int]
     SOFT_ENDSTOP_ENABLED_FIELD_NUMBER: _ClassVar[int]
@@ -872,6 +885,7 @@ class MachineSnapshot(_message.Message):
     SPINDLE_FIELD_NUMBER: _ClassVar[int]
     TOOL_SETTER_FIELD_NUMBER: _ClassVar[int]
     TOOL_SETTER_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
     firmware_booted: bool
     homed: bool
     soft_endstop_enabled: bool
@@ -882,7 +896,126 @@ class MachineSnapshot(_message.Message):
     spindle: SpindleState
     tool_setter: Box
     tool_setter_available: bool
-    def __init__(self, firmware_booted: _Optional[bool] = ..., homed: _Optional[bool] = ..., soft_endstop_enabled: _Optional[bool] = ..., work_area: _Optional[_Union[Box, _Mapping]] = ..., axes: _Optional[_Iterable[_Union[AxisState, _Mapping]]] = ..., atc: _Optional[_Union[AtcState, _Mapping]] = ..., physical_travel: _Optional[_Union[Box, _Mapping]] = ..., spindle: _Optional[_Union[SpindleState, _Mapping]] = ..., tool_setter: _Optional[_Union[Box, _Mapping]] = ..., tool_setter_available: _Optional[bool] = ...) -> None: ...
+    memory: MemorySummary
+    def __init__(self, firmware_booted: _Optional[bool] = ..., homed: _Optional[bool] = ..., soft_endstop_enabled: _Optional[bool] = ..., work_area: _Optional[_Union[Box, _Mapping]] = ..., axes: _Optional[_Iterable[_Union[AxisState, _Mapping]]] = ..., atc: _Optional[_Union[AtcState, _Mapping]] = ..., physical_travel: _Optional[_Union[Box, _Mapping]] = ..., spindle: _Optional[_Union[SpindleState, _Mapping]] = ..., tool_setter: _Optional[_Union[Box, _Mapping]] = ..., tool_setter_available: _Optional[bool] = ..., memory: _Optional[_Union[MemorySummary, _Mapping]] = ...) -> None: ...
+
+class GetMemoryDetails(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class MainSramSummary(_message.Message):
+    __slots__ = ("capacity_bytes", "static_bytes", "stack_reserved_bytes", "heap_committed_bytes", "live_payload_bytes", "peak_live_payload_bytes", "allocator_overhead_bytes", "fragmented_free_bytes", "largest_free_block_bytes", "top_unallocated_bytes", "minimum_margin_bytes", "config_cache_active", "config_cache_start", "config_cache_bytes", "config_cache_collision", "failed_allocation_count", "failed_allocation_bytes", "heap_limit_collision", "total_free_bytes")
+    CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    STATIC_BYTES_FIELD_NUMBER: _ClassVar[int]
+    STACK_RESERVED_BYTES_FIELD_NUMBER: _ClassVar[int]
+    HEAP_COMMITTED_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    PEAK_LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATOR_OVERHEAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    FRAGMENTED_FREE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_FREE_BLOCK_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TOP_UNALLOCATED_BYTES_FIELD_NUMBER: _ClassVar[int]
+    MINIMUM_MARGIN_BYTES_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_CACHE_ACTIVE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_CACHE_START_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_CACHE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_CACHE_COLLISION_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_COUNT_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_BYTES_FIELD_NUMBER: _ClassVar[int]
+    HEAP_LIMIT_COLLISION_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_FREE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    capacity_bytes: int
+    static_bytes: int
+    stack_reserved_bytes: int
+    heap_committed_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    fragmented_free_bytes: int
+    largest_free_block_bytes: int
+    top_unallocated_bytes: int
+    minimum_margin_bytes: int
+    config_cache_active: bool
+    config_cache_start: int
+    config_cache_bytes: int
+    config_cache_collision: bool
+    failed_allocation_count: int
+    failed_allocation_bytes: int
+    heap_limit_collision: bool
+    total_free_bytes: int
+    def __init__(self, capacity_bytes: _Optional[int] = ..., static_bytes: _Optional[int] = ..., stack_reserved_bytes: _Optional[int] = ..., heap_committed_bytes: _Optional[int] = ..., live_payload_bytes: _Optional[int] = ..., peak_live_payload_bytes: _Optional[int] = ..., allocator_overhead_bytes: _Optional[int] = ..., fragmented_free_bytes: _Optional[int] = ..., largest_free_block_bytes: _Optional[int] = ..., top_unallocated_bytes: _Optional[int] = ..., minimum_margin_bytes: _Optional[int] = ..., config_cache_active: _Optional[bool] = ..., config_cache_start: _Optional[int] = ..., config_cache_bytes: _Optional[int] = ..., config_cache_collision: _Optional[bool] = ..., failed_allocation_count: _Optional[int] = ..., failed_allocation_bytes: _Optional[int] = ..., heap_limit_collision: _Optional[bool] = ..., total_free_bytes: _Optional[int] = ...) -> None: ...
+
+class AhbSramSummary(_message.Message):
+    __slots__ = ("capacity_bytes", "static_bytes", "dynamic_capacity_bytes", "live_payload_bytes", "peak_live_payload_bytes", "allocator_overhead_bytes", "total_free_bytes", "largest_free_block_bytes", "failed_allocation_count", "failed_allocation_bytes")
+    CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    STATIC_BYTES_FIELD_NUMBER: _ClassVar[int]
+    DYNAMIC_CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    PEAK_LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATOR_OVERHEAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_FREE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_FREE_BLOCK_BYTES_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_COUNT_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_BYTES_FIELD_NUMBER: _ClassVar[int]
+    capacity_bytes: int
+    static_bytes: int
+    dynamic_capacity_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    total_free_bytes: int
+    largest_free_block_bytes: int
+    failed_allocation_count: int
+    failed_allocation_bytes: int
+    def __init__(self, capacity_bytes: _Optional[int] = ..., static_bytes: _Optional[int] = ..., dynamic_capacity_bytes: _Optional[int] = ..., live_payload_bytes: _Optional[int] = ..., peak_live_payload_bytes: _Optional[int] = ..., allocator_overhead_bytes: _Optional[int] = ..., total_free_bytes: _Optional[int] = ..., largest_free_block_bytes: _Optional[int] = ..., failed_allocation_count: _Optional[int] = ..., failed_allocation_bytes: _Optional[int] = ...) -> None: ...
+
+class MemorySummary(_message.Message):
+    __slots__ = ("main", "ahb", "unresolved_main_live_host_bytes", "unresolved_main_peak_host_bytes", "unresolved_ahb_live_host_bytes", "unresolved_ahb_peak_host_bytes")
+    MAIN_FIELD_NUMBER: _ClassVar[int]
+    AHB_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_MAIN_LIVE_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_MAIN_PEAK_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_AHB_LIVE_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_AHB_PEAK_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    main: MainSramSummary
+    ahb: AhbSramSummary
+    unresolved_main_live_host_bytes: int
+    unresolved_main_peak_host_bytes: int
+    unresolved_ahb_live_host_bytes: int
+    unresolved_ahb_peak_host_bytes: int
+    def __init__(self, main: _Optional[_Union[MainSramSummary, _Mapping]] = ..., ahb: _Optional[_Union[AhbSramSummary, _Mapping]] = ..., unresolved_main_live_host_bytes: _Optional[int] = ..., unresolved_main_peak_host_bytes: _Optional[int] = ..., unresolved_ahb_live_host_bytes: _Optional[int] = ..., unresolved_ahb_peak_host_bytes: _Optional[int] = ...) -> None: ...
+
+class MemoryAllocationGroup(_message.Message):
+    __slots__ = ("region", "type_name", "host_payload_bytes", "target_payload_bytes", "live_count", "peak_live_count", "total_count", "live_target_bytes", "peak_target_bytes", "target_size_exact")
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    TYPE_NAME_FIELD_NUMBER: _ClassVar[int]
+    HOST_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TARGET_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LIVE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    PEAK_LIVE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_COUNT_FIELD_NUMBER: _ClassVar[int]
+    LIVE_TARGET_BYTES_FIELD_NUMBER: _ClassVar[int]
+    PEAK_TARGET_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SIZE_EXACT_FIELD_NUMBER: _ClassVar[int]
+    region: MemoryRegion
+    type_name: str
+    host_payload_bytes: int
+    target_payload_bytes: int
+    live_count: int
+    peak_live_count: int
+    total_count: int
+    live_target_bytes: int
+    peak_target_bytes: int
+    target_size_exact: bool
+    def __init__(self, region: _Optional[_Union[MemoryRegion, str]] = ..., type_name: _Optional[str] = ..., host_payload_bytes: _Optional[int] = ..., target_payload_bytes: _Optional[int] = ..., live_count: _Optional[int] = ..., peak_live_count: _Optional[int] = ..., total_count: _Optional[int] = ..., live_target_bytes: _Optional[int] = ..., peak_target_bytes: _Optional[int] = ..., target_size_exact: _Optional[bool] = ...) -> None: ...
+
+class MemoryDetails(_message.Message):
+    __slots__ = ("summary", "allocation_groups")
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATION_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    summary: MemorySummary
+    allocation_groups: _containers.RepeatedCompositeFieldContainer[MemoryAllocationGroup]
+    def __init__(self, summary: _Optional[_Union[MemorySummary, _Mapping]] = ..., allocation_groups: _Optional[_Iterable[_Union[MemoryAllocationGroup, _Mapping]]] = ...) -> None: ...
 
 class InteractiveTransport(_message.Message):
     __slots__ = ("uart_supported", "uart_path", "tcp_endpoints")

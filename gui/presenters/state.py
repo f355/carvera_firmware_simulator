@@ -20,7 +20,7 @@ from typing import Any
 from gui.app_view import AppView
 from gui.presenters.base import SessionPresenter
 from gui.protocol.model import InteractiveTransportState, MachineState, pb, snapshot_to_state
-from gui.views.ui_helpers import event_bool, set_control_locked, set_status_badge
+from gui.views.ui_helpers import event_bool, set_control_locked
 
 
 class StatePresenter(SessionPresenter):
@@ -81,13 +81,15 @@ class StatePresenter(SessionPresenter):
 
     def _render_machine_state(self, view: AppView, state: MachineState) -> None:
         assert view.firmware_state_view is not None
-        set_status_badge(view.firmware_state_view.firmware_badge, state.firmware_booted, "booted", "off")
-        set_status_badge(view.firmware_state_view.homed_badge, state.homed, "homed", "not homed")
-        set_status_badge(view.firmware_state_view.soft_limit_badge, state.soft_endstop_enabled, "enabled", "disabled")
+        view.firmware_state_view.render(
+            booted=state.firmware_booted, homed=state.homed, soft_limit=state.soft_endstop_enabled
+        )
         if view.axis_panel_view is not None:
             view.axis_panel_view.update(state)
         if view.atc_panel_view is not None:
             view.atc_panel_view.update(state.atc)
+        if view.memory_panel_view is not None and state.memory is not None:
+            view.memory_panel_view.update_summary(state.memory)
         self.update_machine_scene(view, state)
 
     def drain_telemetry(self, view: AppView) -> None:

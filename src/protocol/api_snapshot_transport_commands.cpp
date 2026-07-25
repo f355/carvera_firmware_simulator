@@ -18,6 +18,10 @@
 #include "sim/api_service.hpp"
 
 #include "sim/api_snapshot.hpp"
+#include "sim/firmware_runtime.hpp"
+#include "sim/lpc_memory_proto.hpp"
+#include "sim/machine_simulator.hpp"
+#include "sim/simulator_context.hpp"
 
 namespace sim {
 
@@ -33,6 +37,14 @@ std::optional<ApiService::Response> ApiService::handle_snapshot_transport_comman
       }
       return response;
     }
+    case Request::kGetMemoryDetails: {
+      if (!firmware_.booted()) {
+        return error(request.id(), "firmware is not running");
+      }
+      auto response = ok(request.id());
+      api::fill_memory_details(*response.mutable_memory_details(), machine_.context().memory_accounting().snapshot());
+      return response;
+    }
     case Request::kStartInteractiveTransport: {
       const auto result = interactive_transport_.start(request.start_interactive_transport());
       if (!result.ok) {
@@ -45,6 +57,18 @@ std::optional<ApiService::Response> ApiService::handle_snapshot_transport_comman
     case Request::kStopInteractiveTransport:
       interactive_transport_.stop();
       return ok(request.id());
+    default:
+      return std::nullopt;
+  }
+}
+
+std::optional<ApiService::Response> ApiService::handle_cooperative_snapshot_transport_command(
+    const carvera::sim::v1::Request& request) {
+  using Request = carvera::sim::v1::Request;
+
+  switch (request.command_case()) {
+    case Request::kGetMemoryDetails:
+      return handle_snapshot_transport_command(request);
     default:
       return std::nullopt;
   }

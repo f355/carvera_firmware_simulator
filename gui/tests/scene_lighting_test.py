@@ -15,8 +15,13 @@
 
 from __future__ import annotations
 
-from gui.scene.lighting import ModelMaterialSettings, SceneLightingSettings
-from gui.scene.lighting import scene_lighting_patch_javascript, scene_material_patch_javascript
+from gui.scene.lighting import (
+    ModelMaterialSettings,
+    SceneLightingSettings,
+    configure_scene_lighting,
+    scene_lighting_patch_javascript,
+    scene_material_patch_javascript,
+)
 
 
 def test_scene_lighting_defaults_are_tuned_for_machine_models() -> None:
@@ -102,3 +107,34 @@ def test_material_patch_updates_selected_scene_objects() -> None:
     )
     for text in material_expected:
         assert text in material_script
+
+
+def test_configure_scene_lighting_emits_the_patch_on_scene_init() -> None:
+    scripts: list[str] = []
+    events: dict[str, object] = {}
+
+    class InitScene:
+        id = 7
+
+        def on(self, name: str, handler: object) -> None:
+            events[name] = handler
+
+    configure_scene_lighting(InitScene(), run_javascript=scripts.append)
+    assert not scripts
+    handler = events["init"]
+    assert callable(handler)
+    handler()
+    assert len(scripts) == 1
+    assert scripts[0] == scene_lighting_patch_javascript(7)
+
+
+def test_patches_report_failures_visibly() -> None:
+    lighting = scene_lighting_patch_javascript(3)
+    assert 'fail("missing-scene")' in lighting
+    assert 'fail("missing-light-constructors")' in lighting
+    assert "console.warn" in lighting
+
+    material = scene_material_patch_javascript(3, [4], ModelMaterialSettings())
+    assert 'fail("missing-scene")' in material
+    assert 'fail("missing-objects")' in material
+    assert 'dataset.carveraMaterial = "patched"' in material

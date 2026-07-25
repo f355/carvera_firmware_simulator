@@ -17,10 +17,8 @@
 
 #include <sstream>
 
-#include "carvera_sim.pb.h"
-#include "sim/api_service.hpp"
 #include "sim/framed_proto.hpp"
-#include "sim/simulation_instance.hpp"
+#include "support/api_service_harness.hpp"
 #include "support/posix_io.hpp"
 #include "support/assertions.hpp"
 
@@ -28,20 +26,15 @@ using sim::test::require;
 
 
 int main() {
-  sim::SimulationInstance simulation;
-  sim::ApiService api(simulation);
+  sim::test::ApiHarness api;
 
-  carvera::sim::v1::Request request;
-  request.set_id(10);
-  request.mutable_advance_time()->set_delta_us(123);
-  auto response = api.handle(request);
+  auto response = api.request([](auto& request) { request.mutable_advance_time()->set_delta_us(123); });
   require(response.ok(), "advance_time should succeed");
-  require(response.id() == 10, "response should preserve request id");
+  require(response.id() == 1, "response should preserve request id");
 
-  request.Clear();
-  request.set_id(11);
-  request.mutable_get_status();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_get_status();
+  });
   require(response.ok(), "get_status should succeed");
   require(response.status().time_us() == 123, "status should report simulator time");
   require(response.status().time_mode() == carvera::sim::v1::TIME_MODE_MANUAL, "default time mode should be manual");
@@ -49,67 +42,58 @@ int main() {
   require(response.status().machine_model() == carvera::sim::v1::MACHINE_MODEL_CARVERA_C1,
           "default machine model should be C1");
 
-  request.Clear();
-  request.set_id(20);
-  request.mutable_set_realtime_speed()->set_multiplier(5.0);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_set_realtime_speed()->set_multiplier(5.0);
+  });
   require(response.ok(), "set_realtime_speed should accept positive multipliers");
 
-  request.Clear();
-  request.set_id(21);
-  request.mutable_get_status();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_get_status();
+  });
   require(response.ok(), "get_status after set_realtime_speed should succeed");
   require(response.status().realtime_speed() == 5.0, "status should report configured realtime speed");
 
-  request.Clear();
-  request.set_id(211);
-  request.mutable_set_time_mode()->set_mode(carvera::sim::v1::TIME_MODE_REALTIME);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_set_time_mode()->set_mode(carvera::sim::v1::TIME_MODE_REALTIME);
+  });
   require(response.ok(), "set_time_mode realtime should succeed");
 
-  request.Clear();
-  request.set_id(212);
-  request.mutable_reset();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_reset();
+  });
   require(response.ok(), "firmware reset should succeed");
 
-  request.Clear();
-  request.set_id(213);
-  request.mutable_get_status();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_get_status();
+  });
   require(response.ok(), "get_status after firmware reset should succeed");
   require(response.status().time_mode() == carvera::sim::v1::TIME_MODE_REALTIME,
           "firmware reset should preserve host realtime mode");
   require(response.status().realtime_speed() == 5.0, "firmware reset should preserve host realtime speed");
 
-  request.Clear();
-  request.set_id(22);
-  request.mutable_set_realtime_speed()->set_multiplier(0.0);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_set_realtime_speed()->set_multiplier(0.0);
+  });
   require(!response.ok(), "set_realtime_speed should reject non-positive multipliers");
 
-  request.Clear();
-  request.set_id(120);
-  request.mutable_set_machine_model()->set_machine_model(carvera::sim::v1::MACHINE_MODEL_CARVERA_AIR_CA1);
-  request.mutable_set_machine_model()->set_function_setting(0);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_set_machine_model()->set_machine_model(carvera::sim::v1::MACHINE_MODEL_CARVERA_AIR_CA1);
+    request.mutable_set_machine_model()->set_function_setting(0);
+  });
   require(response.ok(), "set_machine_model should succeed before firmware boots");
 
-  request.Clear();
-  request.set_id(121);
-  request.mutable_get_status();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_get_status();
+  });
   require(response.ok(), "get_status after set_machine_model should succeed");
   require(response.status().machine_model() == carvera::sim::v1::MACHINE_MODEL_CARVERA_AIR_CA1,
           "status should report configured CA1 model");
   require(response.status().function_setting() == 0, "status should report configured function flags");
 
-  request.Clear();
-  request.set_id(122);
-  request.mutable_start_interactive_transport()->set_enable_uart(false);
-  request.mutable_start_interactive_transport()->add_tcp_ports(0);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_start_interactive_transport()->set_enable_uart(false);
+    request.mutable_start_interactive_transport()->add_tcp_ports(0);
+  });
   require(response.ok(), "start_interactive_transport should start a localhost TCP bridge");
   require(response.interactive_transport().tcp_endpoints_size() == 1,
           "start_interactive_transport should report the TCP endpoint");
@@ -118,19 +102,17 @@ int main() {
   require(sim::test::localhost_accepts_tcp(first_tcp_port),
           "started interactive TCP bridge should accept localhost connects");
 
-  request.Clear();
-  request.set_id(123);
-  request.mutable_stop_interactive_transport();
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_stop_interactive_transport();
+  });
   require(response.ok(), "stop_interactive_transport should stop active endpoints");
   require(!sim::test::localhost_accepts_tcp(first_tcp_port),
           "stopped interactive TCP bridge should close its localhost port");
 
-  request.Clear();
-  request.set_id(124);
-  request.mutable_start_interactive_transport()->set_enable_uart(false);
-  request.mutable_start_interactive_transport()->add_tcp_ports(first_tcp_port);
-  response = api.handle(request);
+  response = api.request([&](auto& request) {
+    request.mutable_start_interactive_transport()->set_enable_uart(false);
+    request.mutable_start_interactive_transport()->add_tcp_ports(first_tcp_port);
+  });
   require(response.ok(), "start_interactive_transport should restart after an explicit stop");
   require(response.interactive_transport().tcp_endpoints_size() == 1,
           "restarted interactive transport should report a fresh TCP endpoint");

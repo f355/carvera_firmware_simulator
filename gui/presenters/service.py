@@ -19,37 +19,42 @@ from nicegui import ui
 
 from gui.app_view import AppView
 from gui.presenters.base import SessionPresenter
-from gui.protocol.sim_client import SimulatorClientError
 
 
 class ServicePresenter(SessionPresenter):
+    async def refresh_memory_details(self, view: AppView) -> None:
+        if view.memory_panel_view is None:
+            return
+        if not self.machine_online:
+            ui.notify("Power on the simulator before reading memory details.", type="warning")
+            return
+        with self.notify_client_errors():
+            details = await self.session.process_controller.call(self.session.client.get_memory_details)
+            view.memory_panel_view.set_details(details)
+
     async def refresh_eeprom(self, view: AppView, *, notify: bool = True) -> None:
         if view.eeprom_panel_view is None:
             return
-        if not self.session.state_store.snapshot().machine_online:
-            view.eeprom_panel_view.status_label.text = "Power on and refresh to view EEPROM contents."
+        if not self.machine_online:
+            view.eeprom_panel_view.reset()
             if notify:
                 ui.notify("Power on the simulator before reading EEPROM.", type="warning")
             return
-        try:
+        with self.notify_client_errors():
             contents = await self.session.process_controller.call(self.session.client.get_eeprom_contents)
             view.eeprom_panel_view.set_contents(contents)
             if notify:
                 ui.notify("EEPROM contents refreshed", type="positive")
-        except SimulatorClientError as exc:
-            ui.notify(str(exc), type="negative")
 
     async def write_eeprom(self, view: AppView) -> None:
         if view.eeprom_panel_view is None:
             return
-        if not self.session.state_store.snapshot().machine_online:
+        if not self.machine_online:
             ui.notify("Power on the simulator before writing EEPROM.", type="warning")
             return
-        try:
+        with self.notify_client_errors(TypeError, ValueError):
             await self.session.process_controller.call(
                 self.session.client.set_eeprom_contents, view.eeprom_panel_view.edited_contents()
             )
             await self.refresh_eeprom(view, notify=False)
             ui.notify("EEPROM contents written; reset firmware to reload running modules.", type="positive")
-        except (SimulatorClientError, TypeError, ValueError) as exc:
-            ui.notify(str(exc), type="negative")

@@ -25,6 +25,10 @@ namespace sim {
 struct PinAddress {
   std::uint8_t port;
   std::uint8_t pin;
+
+  friend constexpr bool operator==(PinAddress lhs, PinAddress rhs) {
+    return lhs.port == rhs.port && lhs.pin == rhs.pin;
+  }
 };
 
 }  // namespace sim

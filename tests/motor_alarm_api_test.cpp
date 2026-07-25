@@ -19,6 +19,7 @@
 
 #include "carvera_sim.pb.h"
 #include "sim/api_service.hpp"
+#include "sim/makera_protocol.hpp"
 #include "sim/simulation_instance.hpp"
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
@@ -28,6 +29,8 @@ using sim::test::require;
 using sim::test::require_contains;
 
 namespace {
+
+sim::makera::FrameDecoder serial_decoder;
 
 carvera::sim::v1::Response send(sim::ApiService& api, carvera::sim::v1::Request& request) {
   const auto response = api.handle(request);
@@ -42,11 +45,14 @@ void run_until_idle(sim::ApiService& api, carvera::sim::v1::Request& request) {
 }
 
 std::string serial_status(sim::ApiService& api, carvera::sim::v1::Request& request) {
-  request.mutable_write_serial()->set_data("?\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("?"));
   (void)send(api, request);
   run_until_idle(api, request);
   request.mutable_read_serial();
-  return send(api, request).serial_data().data();
+  serial_decoder.append(send(api, request).serial_data().data());
+  auto text = serial_decoder.take_text();
+  (void)serial_decoder.take_frames();
+  return text;
 }
 
 }  // namespace
@@ -90,7 +96,7 @@ int main() {
   require_contains(status, "<Alarm", "motor alarm should move firmware into Alarm state");
   require_contains(status, "|H:22", "X motor alarm should report halt reason 22");
 
-  request.mutable_write_serial()->set_data("M999\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("M999\n"));
   (void)send(api, request);
   run_until_idle(api, request);
   status = serial_status(api, request);
@@ -100,7 +106,7 @@ int main() {
   request.mutable_set_motor_alarm()->set_axis(carvera::sim::v1::AXIS_X);
   request.mutable_set_motor_alarm()->set_triggered(false);
   (void)send(api, request);
-  request.mutable_write_serial()->set_data("M999\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("M999\n"));
   (void)send(api, request);
   run_until_idle(api, request);
   status = serial_status(api, request);
@@ -119,7 +125,7 @@ int main() {
 
   request.mutable_set_spindle_alarm()->set_triggered(false);
   (void)send(api, request);
-  request.mutable_write_serial()->set_data("M999\n");
+  request.mutable_write_serial()->set_data(sim::makera::encode_console_input("M999\n"));
   (void)send(api, request);
   run_until_idle(api, request);
   status = serial_status(api, request);

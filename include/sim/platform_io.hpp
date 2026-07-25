@@ -33,7 +33,7 @@ void close_fd(IoHandle& fd);
 std::string read_available(IoHandle fd, bool* still_open = nullptr);
 bool write_all(IoHandle fd, const std::string& bytes);
 bool drain_write_buffer(IoHandle fd, std::string& bytes);
-void set_raw_terminal(const std::string& path);
+void set_raw_terminal(IoHandle fd);
 
 IoHandle open_tcp_listener(std::uint16_t requested_port, std::uint16_t& bound_port);
 IoHandle accept_pending_client(IoHandle listener);

@@ -20,9 +20,28 @@
 
 #include <google/protobuf/message_lite.h>
 
+#include <array>
+#include <cstdint>
 #include <iosfwd>
 
 namespace sim::proto_framing {
+
+inline constexpr std::uint32_t kMaxFrameSize = 16 * 1024 * 1024;
+
+inline std::array<char, 4> encode_frame_size(std::uint32_t size) {
+  return {
+      static_cast<char>(size & 0xFF),
+      static_cast<char>((size >> 8) & 0xFF),
+      static_cast<char>((size >> 16) & 0xFF),
+      static_cast<char>((size >> 24) & 0xFF),
+  };
+}
+
+inline std::uint32_t decode_frame_size(const void* bytes) {
+  const auto* octets = static_cast<const unsigned char*>(bytes);
+  return static_cast<std::uint32_t>(octets[0]) | (static_cast<std::uint32_t>(octets[1]) << 8) |
+         (static_cast<std::uint32_t>(octets[2]) << 16) | (static_cast<std::uint32_t>(octets[3]) << 24);
+}
 
 bool write_message(std::ostream& stream, const google::protobuf::MessageLite& message);
 bool read_message(std::istream& stream, google::protobuf::MessageLite& message);

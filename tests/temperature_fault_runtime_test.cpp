@@ -76,7 +76,7 @@ int main() {
     require(kernel.is_halted(), "spindle over-temperature should halt through real TemperatureControl");
     require(kernel.get_halt_reason() == SPINDLE_OVERHEATED,
             "spindle over-temperature should report the firmware spindle fault reason");
-    require(runtime.io().read_serial().find("Spindle overheated") != std::string::npos,
+    require(runtime.io().read_serial_text().find("Spindle overheated") != std::string::npos,
             "spindle over-temperature should print the firmware error");
   }
 
@@ -96,7 +96,7 @@ int main() {
     require(kernel.is_halted(), "power-cabinet over-temperature should halt through real TemperatureControl");
     require(kernel.get_halt_reason() == POWER_OVERHEATED,
             "power-cabinet over-temperature should report the firmware power fault reason");
-    require(runtime.io().read_serial().find("Power cabinet overheated") != std::string::npos,
+    require(runtime.io().read_serial_text().find("Power cabinet overheated") != std::string::npos,
             "power-cabinet over-temperature should print the firmware error");
   }
 

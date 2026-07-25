@@ -20,14 +20,15 @@ from nicegui import ui
 from gui.app_view import AppView
 from gui.presenters.base import SessionPresenter
 from gui.protocol.model import ToolKind
-from gui.protocol.sim_client import SimulatorClientError
 from gui.views.tool_table import (
     clear_tool_occupancy,
     collect_box_values,
     collect_tool_table,
     inferred_tool_kind,
-    load_default_tools as load_default_tool_controls,
     physical_length_from_stickout,
+)
+from gui.views.tool_table import (
+    load_default_tools as load_default_tool_controls,
 )
 from gui.views.ui_helpers import event_bool
 
@@ -35,16 +36,14 @@ from gui.views.ui_helpers import event_bool
 class ToolingPresenter(SessionPresenter):
     async def apply_atc_table(self, view: AppView, *, notify: bool = True) -> None:
         tools = collect_tool_table(view.tool_rows, rack_only=True)
-        if not self.session.state_store.snapshot().machine_online:
+        if not self.machine_online:
             if notify:
                 ui.notify("Tool table will be applied when the simulator powers on.", type="info")
             return
-        try:
+        with self.notify_client_errors():
             await self.session.process_controller.call(self.session.client.set_atc_pocket_tools, tools)
             if notify:
                 ui.notify("ATC rack updated", type="positive")
-        except SimulatorClientError as exc:
-            ui.notify(str(exc), type="negative")
 
     def load_default_tools(self, view: AppView) -> None:
         load_default_tool_controls(view.tool_rows)
@@ -56,11 +55,11 @@ class ToolingPresenter(SessionPresenter):
         return collect_box_values(view.box_controls[name])
 
     async def apply_physical_boxes(self, view: AppView, *, notify: bool = True) -> None:
-        if not self.session.state_store.snapshot().machine_online:
+        if not self.machine_online:
             if notify:
                 ui.notify("Stock geometry will be applied when the simulator powers on.", type="info")
             return
-        try:
+        with self.notify_client_errors():
             await self.session.process_controller.call(
                 self.session.client.set_stock_box,
                 self.collect_box(view, "stock"),
@@ -68,8 +67,6 @@ class ToolingPresenter(SessionPresenter):
             )
             if notify:
                 ui.notify("Stock geometry updated", type="positive")
-        except SimulatorClientError as exc:
-            ui.notify(str(exc), type="negative")
 
     async def load_spindle_tool(
         self,
@@ -80,10 +77,10 @@ class ToolingPresenter(SessionPresenter):
         kind: ToolKind | str = ToolKind.UNSPECIFIED,
         probe_tip_diameter_mm: float = 0.0,
     ) -> None:
-        if not self.session.state_store.snapshot().machine_online:
+        if not self.machine_online:
             ui.notify("Power on the simulator before loading a spindle tool.", type="warning")
             return
-        try:
+        with self.notify_client_errors():
             await self.session.process_controller.call(
                 self.session.client.set_spindle_tool,
                 tool,
@@ -93,8 +90,6 @@ class ToolingPresenter(SessionPresenter):
                 probe_tip_diameter_mm=probe_tip_diameter_mm,
             )
             ui.notify(f"Tool {tool} loaded in spindle", type="positive")
-        except SimulatorClientError as exc:
-            ui.notify(str(exc), type="negative")
 
     async def load_spindle_tool_from_pocket(self, view: AppView, pocket: int) -> None:
         row = view.tool_rows.get(pocket)
@@ -114,10 +109,8 @@ class ToolingPresenter(SessionPresenter):
         )
 
     async def unload_spindle_tool(self, view: AppView) -> None:
-        if not self.session.state_store.snapshot().machine_online:
+        if not self.machine_online:
             return
-        try:
+        with self.notify_client_errors():
             await self.session.process_controller.call(self.session.client.set_spindle_tool, 0, 0.0, installed=False)
             ui.notify("Spindle tool removed", type="positive")
-        except SimulatorClientError as exc:
-            ui.notify(str(exc), type="negative")

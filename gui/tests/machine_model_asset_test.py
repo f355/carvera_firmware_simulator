@@ -15,14 +15,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import json
 import struct
+from pathlib import Path
 
 import pytest
 
 from gui.scene.machine_model_asset import is_remote_model, local_model_url, machine_model_kind, read_glb_bounds
-
 
 PART_HIERARCHIES = {
     "carvera_air_ca1": {

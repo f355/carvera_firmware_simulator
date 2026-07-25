@@ -15,26 +15,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from collections.abc import Mapping
-from typing import Any, Callable
+from typing import Any
 
+from gui.generated import carvera_sim_pb2 as pb
 from gui.protocol.client_error import SimulatorClientError as SimulatorClientError
 from gui.protocol.framed_transport import FramedTransport
 from gui.protocol.simulator_process import SimulatorProcess
-from gui.generated import carvera_sim_pb2 as pb
 
 from .model import (
     EepromContents,
     InteractiveTransportState,
+    MemoryDetails,
     ToolConfig,
     ToolKind,
     eeprom_contents_to_proto,
     eeprom_contents_to_state,
     interactive_transport_to_state,
+    memory_details_to_state,
     tool_kind_to_proto,
 )
-
 
 AXIS_TO_PROTO = {
     "X": pb.AXIS_X,
@@ -137,6 +138,11 @@ class SimulatorClient:
         request = pb.Request()
         request.get_status.SetInParent()
         return self.request(request).status
+
+    def get_memory_details(self) -> MemoryDetails:
+        request = pb.Request()
+        request.get_memory_details.SetInParent()
+        return memory_details_to_state(self.request(request).memory_details)
 
     def get_gpio_level(self, port: int, pin: int) -> bool:
         request = pb.Request()

@@ -32,8 +32,7 @@ def default_stream_simulator(simulator_root: Path, *, platform: str | None = Non
     packaged_binary = simulator_root / "bin" / executable_name
     if packaged_binary.exists():
         return packaged_binary
-    build_directory = "build-windows" if platform == "win32" else "build"
-    return simulator_root / build_directory / executable_name
+    return simulator_root / "build" / executable_name
 
 
 def default_sd_root() -> Path:

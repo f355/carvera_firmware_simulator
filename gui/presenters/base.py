@@ -15,9 +15,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from nicegui import ui
+
 from gui.core.session import SimulatorSession
+from gui.protocol.sim_client import SimulatorClientError
 
 
 class SessionPresenter:
     def __init__(self, session: SimulatorSession) -> None:
         self.session = session
+
+    @property
+    def machine_online(self) -> bool:
+        return self.session.state_store.snapshot().machine_online
+
+    @contextmanager
+    def notify_client_errors(self, *extra: type[BaseException]) -> Iterator[None]:
+        """Suppress SimulatorClientError (and any extra types) by surfacing a negative toast."""
+        caught: tuple[type[BaseException], ...] = (SimulatorClientError, *extra)
+        try:
+            yield
+        except caught as exc:
+            ui.notify(str(exc), type="negative")

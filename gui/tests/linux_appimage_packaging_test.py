@@ -16,10 +16,12 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="inspects the Linux AppImage packaging scripts")
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMON_SCRIPT = ROOT / "scripts" / "linux_appimage_common.sh"

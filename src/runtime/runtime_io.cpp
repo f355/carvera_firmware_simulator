@@ -22,6 +22,7 @@
 #include "libs/Kernel.h"
 #include "modules/communication/SerialConsole.h"
 #include "modules/communication/SerialConsole2.h"
+#include "StreamOutput.h"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_boot_session.hpp"
 #include "sim/simulator_context.hpp"
@@ -46,6 +47,21 @@ std::string RuntimeIo::read_serial() {
   return kernel.serial->serial->take_tx();
 }
 
+void RuntimeIo::write_serial_command(const std::string& command) {
+  boot_();
+  write_serial(communication_protocol == PROTOCOL_MAKERA ? makera::encode_console_input(command) : command);
+}
+
+std::string RuntimeIo::read_serial_text() {
+  auto bytes = read_serial();
+  if (communication_protocol == PROTOCOL_SMOOTHIE) {
+    return bytes;
+  }
+  serial_decoder_.append(bytes);
+  (void)serial_decoder_.take_frames();
+  return serial_decoder_.take_text();
+}
+
 void RuntimeIo::write_wifi_tcp(const std::string& data) {
   auto& wifi = simulator_.context().m8266_wifi();
   const bool had_client = wifi.has_tcp_client();
@@ -59,6 +75,21 @@ void RuntimeIo::write_wifi_tcp(const std::string& data) {
 std::string RuntimeIo::read_wifi_tcp() {
   boot_();
   return simulator_.context().m8266_wifi().take_tcp_tx();
+}
+
+void RuntimeIo::write_wifi_command(const std::string& command) {
+  boot_();
+  write_wifi_tcp(communication_protocol == PROTOCOL_MAKERA ? makera::encode_console_input(command) : command);
+}
+
+std::string RuntimeIo::read_wifi_text() {
+  auto bytes = read_wifi_tcp();
+  if (communication_protocol == PROTOCOL_SMOOTHIE) {
+    return bytes;
+  }
+  wifi_decoder_.append(bytes);
+  (void)wifi_decoder_.take_frames();
+  return wifi_decoder_.take_text();
 }
 
 void RuntimeIo::set_wifi_client_connected(bool connected) {

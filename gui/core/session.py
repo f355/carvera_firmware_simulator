@@ -25,7 +25,7 @@ from gui.core.app_config import default_sd_seed_root, parse_args, parse_vec3, si
 from gui.core.gui_state import GuiStateStore
 from gui.core.process_controller import SimulatorProcessController
 from gui.core.telemetry import TelemetryBuffer
-from gui.core.transport_log import TransportLogStore, parse_transport_log_line
+from gui.core.transport_log import TransportLogFormatter, TransportLogStore, parse_transport_log_line
 from gui.protocol.model import (
     MachineState,
     PhysicalIoState,
@@ -33,8 +33,8 @@ from gui.protocol.model import (
     snapshot_to_state,
     telemetry_to_state,
 )
-from gui.scene.backplot_layer import BackplotHistoryStore
 from gui.protocol.sim_client import SimulatorClient
+from gui.scene.backplot_layer import BackplotHistoryStore
 from gui.scene.model_registry import MachineModelRegistry
 
 
@@ -75,6 +75,7 @@ class SimulatorSession:
         snapshot_buffer = TelemetryBuffer(snapshot_to_state, event_name="machine_snapshot")
         physical_io_buffer = TelemetryBuffer(physical_io_to_state, event_name="physical_io")
         transport_log_store = TransportLogStore()
+        transport_log_formatter = TransportLogFormatter()
         backplot_history = BackplotHistoryStore()
         state_store = GuiStateStore()
 
@@ -86,7 +87,8 @@ class SimulatorSession:
         def handle_transport_stderr(line: str) -> None:
             entry = parse_transport_log_line(line)
             if entry is not None:
-                transport_log_store.append(entry)
+                for formatted_entry in transport_log_formatter.format_entry(entry):
+                    transport_log_store.append(formatted_entry)
 
         client = SimulatorClient(
             args.simulator,

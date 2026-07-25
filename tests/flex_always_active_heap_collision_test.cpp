@@ -21,7 +21,7 @@
 #include <fstream>
 #include <string>
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
 
 #include "libs/Kernel.h"
 #include "sim/lpc_memory_constraints.hpp"
@@ -68,7 +68,7 @@ std::string ca1_grid_config(bool always_active) {
          std::string(always_active ? "true" : "false") + "\n";
 }
 
-void run_case(bool always_active, bool expect_collision) {
+void run_case(bool always_active) {
   sim::lpc_memory::set_lpc_heap_enabled(true);
 
   sim::test::TempSdCard sd(always_active ? "carvera_sim_flex_heap_boot_on" : "carvera_sim_flex_heap_boot_off");
@@ -87,13 +87,10 @@ void run_case(bool always_active, bool expect_collision) {
   const bool reset_seen = sim::system_reset::consume_requested();
   const bool rebooted = sim::lpc_memory::firmware_reboot_count() > reboots_before;
 
-  if (expect_collision) {
-    require(reset_seen || rebooted,
-            "always_active=true should FATAL/reset on config_cache_clear during boot");
-  } else {
-    require(runtime.kernel().conveyor != nullptr, "always_active=false should finish boot");
-    require(!reset_seen && !rebooted, "always_active=false should not FATAL/reboot during boot");
-  }
+  // Firmware loads always-active flex only after config_cache_clear(), so boot
+  // must complete without a heap↔cache FATAL whether or not always_active is set.
+  require(runtime.kernel().conveyor != nullptr, "flex boot should finish with LPC heap enabled");
+  require(!reset_seen && !rebooted, "deferred flex load should not FATAL/reboot during boot");
 
   sim::lpc_memory::set_lpc_heap_enabled(false);
 }
@@ -101,7 +98,7 @@ void run_case(bool always_active, bool expect_collision) {
 }  // namespace
 
 int main() {
-  run_case(/*always_active=*/false, /*expect_collision=*/false);
-  run_case(/*always_active=*/true, /*expect_collision=*/true);
+  run_case(/*always_active=*/false);
+  run_case(/*always_active=*/true);
   return 0;
 }

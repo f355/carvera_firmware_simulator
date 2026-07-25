@@ -95,6 +95,7 @@ class GuiStateStore:
                     atc=full_snapshot.atc or previous.atc,
                     spindle=full_snapshot.spindle or previous.spindle,
                     tool_setter=full_snapshot.tool_setter,
+                    memory=full_snapshot.memory or previous.memory,
                 )
             self._snapshot = replace(self._snapshot, machine_state=merged)
             self._version += 1
@@ -116,6 +117,7 @@ class GuiStateStore:
                     atc=telemetry.atc or previous.atc,
                     spindle=telemetry.spindle or previous.spindle,
                     tool_setter=previous.tool_setter,
+                    memory=previous.memory,
                 )
             self._snapshot = replace(self._snapshot, machine_state=merged)
             self._version += 1

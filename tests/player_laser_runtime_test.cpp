@@ -27,6 +27,7 @@
 
 extern "C" void TIMER2_IRQHandler(void);
 #include "support/assertions.hpp"
+#include "support/runtime_wait.hpp"
 
 using sim::test::require;
 
@@ -56,11 +57,11 @@ sim::RuntimePumpOptions button_scan_options() {
 }
 
 void select_and_start(sim::FirmwareRuntime& runtime, const std::string& name) {
-  runtime.io().write_serial("M23 " + name + "\n");
+  runtime.io().write_serial_command("M23 " + name + "\n");
   runtime.runner().run_main_loop(1);
-  runtime.io().write_serial("M24\n");
+  runtime.io().write_serial_command("M24\n");
   runtime.runner().run_main_loop(1);
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
 }
 
 void pump_player_line(sim::FirmwareRuntime& runtime) { runtime.runner().run_main_loop(1); }
@@ -157,13 +158,13 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
           "CA1 factory settings should apply before boot");
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "CA1 runtime should boot before plain M321 laser test");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
 
-  runtime.io().write_serial("M321\n");
+  runtime.io().write_serial_command("M321\n");
   std::string serial;
   for (int i = 0; i < 120 && !kernel.is_tool_waiting(); ++i) {
     runtime.runner().pump_free_running(8, 100'000);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (!kernel.is_tool_waiting()) {
     std::cerr << serial << '\n';
@@ -178,7 +179,7 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   for (int i = 0; i < 800 && serial.find("Done ATC") == std::string::npos && serial.find("ERROR:") == std::string::npos;
        ++i) {
     runtime.runner().pump_free_running(8, 100'000);
-    serial += runtime.io().read_serial();
+    serial += runtime.io().read_serial_text();
   }
   if (serial.find("Done ATC") == std::string::npos) {
     std::cerr << serial << '\n';
@@ -190,8 +191,8 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 8888, "virtual CA1 laser tool should remain in the spindle");
 
-  runtime.io().write_serial("M322\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "M322 should settle after CA1 laser tool test");
+  runtime.io().write_serial_command("M322\n");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "M322 should settle after CA1 laser tool test");
   require(!runtime.inputs().laser_state().mode, "M322 should return the CA1 runtime to CNC mode");
 }
 
@@ -217,7 +218,7 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
   require(!kernel.is_halted(), "runtime should boot before Player laser playback");
-  (void)runtime.io().read_serial();
+  (void)runtime.io().read_serial_text();
 
   test_player_laser_test_mode(runtime);
   test_player_laser_cutting_move(runtime, simulator);

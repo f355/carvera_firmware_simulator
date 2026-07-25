@@ -108,10 +108,48 @@ endif()
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
+set(SIM_LPC_MEMORY_LAYOUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/firmware/lpc_memory_layout.json")
+file(READ "${SIM_LPC_MEMORY_LAYOUT_FILE}" SIM_LPC_MEMORY_LAYOUT_JSON)
+string(JSON SIM_LPC_LAYOUT_SCHEMA_VERSION GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" schema_version)
+if(NOT SIM_LPC_LAYOUT_SCHEMA_VERSION EQUAL 1)
+  message(FATAL_ERROR
+    "${SIM_LPC_MEMORY_LAYOUT_FILE} has unsupported schema version ${SIM_LPC_LAYOUT_SCHEMA_VERSION}"
+  )
+endif()
+string(JSON SIM_LPC_LAYOUT_FIRMWARE_COMMIT GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" firmware_commit)
+if(NOT SIM_LPC_LAYOUT_FIRMWARE_COMMIT STREQUAL SIM_COMPATIBLE_FIRMWARE_COMMIT)
+  message(FATAL_ERROR
+    "${SIM_LPC_MEMORY_LAYOUT_FILE} describes firmware ${SIM_LPC_LAYOUT_FIRMWARE_COMMIT}, but the simulator is "
+    "pinned to ${SIM_COMPATIBLE_FIRMWARE_COMMIT}. Rebuild the firmware and regenerate the layout with "
+    "scripts/lpc_memory_layout.py."
+  )
+endif()
+foreach(layout_value IN ITEMS
+    ram_start ram_end static_end stack_top stack_limit heap_limit config_cache_bytes)
+  string(JSON SIM_LPC_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" main_sram ${layout_value})
+endforeach()
+foreach(layout_value IN ITEMS region_start region_end dynamic_start)
+  string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
+endforeach()
+# The JSON is the source of truth for tracked types; the template maps each
+# entry to its generated constant name.
+string(JSON SIM_LPC_TYPE_COUNT LENGTH "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes)
+math(EXPR SIM_LPC_TYPE_LAST_INDEX "${SIM_LPC_TYPE_COUNT} - 1")
+foreach(type_index RANGE ${SIM_LPC_TYPE_LAST_INDEX})
+  string(JSON type_name MEMBER "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_index})
+  string(JSON SIM_LPC_TYPE_${type_name} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_name})
+endforeach()
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/lpc_memory_layout.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/lpc_memory_layout.hpp
+  @ONLY
+)
+
 include(cmake/FirmwareSources.cmake)
 include(cmake/CompilerDiagnostics.cmake)
 
 set(CARVERA_FIRMWARE_INCLUDE_DIRS
+  ${_firmware_override_include}
   ${CARVERA_FIRMWARE_ROOT}/mbed/src/capi
   ${FIRMWARE_SRC}
   ${FIRMWARE_SRC}/libs
@@ -161,6 +199,7 @@ set(CARVERA_FIRMWARE_COMPILE_DEFINITIONS
   NO_TOOLS_EXTRUDER
   NO_TOOLS_ROTARYDELTACALIBRATION
   NO_MODBUS_SPINDLE=1
+  NO_VESC_SPINDLE=1
   CARTGRID_ONLY=1
   CARTESIAN_ONLY=1
   NO_PID_AUTOTUNE=1
@@ -180,6 +219,14 @@ endfunction()
 add_library(carvera_firmware_objects OBJECT ${CARVERA_FIRMWARE_SOURCES})
 target_include_directories(carvera_firmware_objects PRIVATE include)
 target_include_directories(carvera_firmware_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+if(MSVC)
+  target_compile_options(carvera_firmware_objects PRIVATE /J)
+else()
+  target_compile_options(carvera_firmware_objects PRIVATE -funsigned-char)
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  target_compile_options(carvera_firmware_objects PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-finstrument-functions>)
+endif()
 target_compile_definitions(carvera_firmware_objects PRIVATE
   CHECKSUM_USE_CPP
   ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
@@ -193,7 +240,7 @@ add_library(carvera_sim_host_objects OBJECT
   ${SIM_PROTOCOL_SOURCES}
   ${SIM_RUNTIME_SUPPORT_SOURCES}
 )
-target_include_directories(carvera_sim_host_objects PRIVATE include src)
+target_include_directories(carvera_sim_host_objects PRIVATE include src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_include_directories(carvera_sim_host_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
 target_compile_definitions(carvera_sim_host_objects PRIVATE
   CHECKSUM_USE_CPP
@@ -208,12 +255,21 @@ add_library(carvera_firmware_sim STATIC
 )
 target_include_directories(carvera_firmware_sim PUBLIC include)
 target_include_directories(carvera_firmware_sim SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+target_link_libraries(carvera_firmware_sim PUBLIC ${CMAKE_DL_LIBS})
+if(WIN32)
+  target_link_libraries(carvera_firmware_sim PUBLIC dbghelp)
+  if(MINGW)
+    target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-all-symbols)
+  endif()
+elseif(NOT APPLE)
+  target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-dynamic)
+endif()
 target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
 sim_enable_instrumentation(carvera_firmware_sim)
 
 set_property(
   SOURCE
-  ${FIRMWARE_SRC}/modules/utils/simpleshell/SimpleShell.cpp
+  ${_simpleshell_host_source}
   APPEND PROPERTY COMPILE_OPTIONS
   "-include;${CMAKE_CURRENT_SOURCE_DIR}/include/sim/dirent_compat.h"
   "$<$<PLATFORM_ID:Windows>:-fpermissive>"
@@ -228,6 +284,7 @@ add_library(carvera_sim_runtime
   src/runtime/simulation_instance.cpp
 )
 target_include_directories(carvera_sim_runtime PUBLIC include)
+target_include_directories(carvera_sim_runtime PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(carvera_sim_runtime PUBLIC carvera_firmware_sim)
 sim_force_include(carvera_sim_runtime ${HOST_PRELUDE})
 sim_enable_project_diagnostics(carvera_sim_runtime)
@@ -265,6 +322,7 @@ add_library(carvera_sim_api
   src/protocol/discovery_beacon.cpp
   src/protocol/interactive_transport_manager.cpp
   src/protocol/localhost_tcp_bridge.cpp
+  src/protocol/lpc_memory_proto.cpp
   src/protocol/machine_state_proto.cpp
   src/protocol/nonblocking_fd_pump.cpp
   src/protocol/api_service.cpp

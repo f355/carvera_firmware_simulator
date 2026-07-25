@@ -259,23 +259,23 @@ std::string absolute_from_relative(std::string path) {
   return (!cwd.empty() && cwd.back() == '/') ? cwd + path : cwd + '/' + path;
 }
 
-std::string change_to_md5_path(std::string origin) {
-  const auto found = origin.find("gcodes/");
-  const auto filename = found == std::string::npos ? origin : origin.substr(found + 7);
+namespace {
+
+std::string change_to_gcodes_subdir(const std::string& origin, const std::string& subdir) {
+  constexpr std::string_view gcodes_prefix = "gcodes/";
+  const auto found = origin.find(gcodes_prefix);
+  const auto filename = found == std::string::npos ? origin : origin.substr(found + gcodes_prefix.size());
   sim::host_filesystem::ensure_mount("sd");
   fwfs::mkdir("/sd/gcodes", 0);
-  fwfs::mkdir("/sd/gcodes/.md5", 0);
-  return "/sd/gcodes/.md5/" + filename;
+  fwfs::mkdir(("/sd/gcodes/" + subdir).c_str(), 0);
+  return "/sd/gcodes/" + subdir + "/" + filename;
 }
 
-std::string change_to_lz_path(std::string origin) {
-  const auto found = origin.find("gcodes/");
-  const auto filename = found == std::string::npos ? origin : origin.substr(found + 7);
-  sim::host_filesystem::ensure_mount("sd");
-  fwfs::mkdir("/sd/gcodes", 0);
-  fwfs::mkdir("/sd/gcodes/.lz", 0);
-  return "/sd/gcodes/.lz/" + filename;
-}
+}  // namespace
+
+std::string change_to_md5_path(std::string origin) { return change_to_gcodes_subdir(origin, ".md5"); }
+
+std::string change_to_lz_path(std::string origin) { return change_to_gcodes_subdir(origin, ".lz"); }
 
 void check_and_make_path(std::string origin) {
   std::size_t pos = 0;
@@ -309,7 +309,8 @@ void advance_delay_time(std::uint64_t delay_us) {
     sim::us_ticker::dispatch_due_events();
   }
   if (sim::delay_hooks::run()) {
-    std::this_thread::yield();
+    const auto wall_delay_us = std::min<std::uint64_t>(delay_us, 1000);
+    std::this_thread::sleep_for(std::chrono::microseconds(wall_delay_us));
   }
   if (THEKERNEL != nullptr) {
     THEKERNEL->call_event(ON_IDLE, nullptr);

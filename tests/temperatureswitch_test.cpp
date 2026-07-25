@@ -15,7 +15,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
+#include "support/memory_config.hpp"
 
 #include "Config.h"
 #include "PublicData.h"

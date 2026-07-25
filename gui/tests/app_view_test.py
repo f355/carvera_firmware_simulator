@@ -20,9 +20,9 @@ from types import SimpleNamespace
 from gui.app_view import AppView, HeaderView
 from gui.views.atc_tab import AtcTabView
 from gui.views.environment_tab import EnvironmentTabView
-from gui.views.gpio_tab import GpioTabView
 from gui.views.machine_tab import MachineTabView
 from gui.views.signals_tab import SignalsTabView
+from gui.views.stock_tab import StockTabView
 
 
 def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
@@ -30,7 +30,6 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
     view.header.e_stop_switch = SimpleNamespace(value=False)
     view.header.axis_readouts["X"] = SimpleNamespace(name="x-dro")
     view.machine_tab_view = MachineTabView()
-    view.machine_tab_view.front_panel_controls["cover"] = SimpleNamespace(value=True)
     view.machine_tab_view.axis_detail_labels["X"] = {"physical": SimpleNamespace(text="")}
     view.machine_tab_view.axis_endstop_badges["X"] = SimpleNamespace(text="")
     view.machine_tab_view.axis_detail_rows["X"] = [SimpleNamespace(visible=True)]
@@ -46,9 +45,8 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
     view.environment_tab_view.temperature_celsius = SimpleNamespace(value=25.0)
     view.environment_tab_view.temperature_status = SimpleNamespace(text="")
     view.environment_tab_view.realtime_speed = SimpleNamespace(value=5.0)
-    view.stock_tab_view = GpioTabView()
+    view.stock_tab_view = StockTabView()
     view.stock_tab_view.box_controls["stock"] = {"enabled": SimpleNamespace(value=True)}
-    view.stock_tab_view.pin_badges["unused"] = SimpleNamespace(text="")
     view.atc_tab_view = AtcTabView(
         available_badge=SimpleNamespace(text=""),
         active_tool_label=SimpleNamespace(text=""),
@@ -60,7 +58,6 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
 
     assert view.power_switch is None
     assert view.front_panel_controls["e_stop"] is view.header.e_stop_switch
-    assert view.front_panel_controls["cover"].value is True
     assert view.front_panel_badges["v12"].text == ""
     assert view.axis_readouts["X"].name == "x-dro"
     assert view.axis_detail_labels["X"]["physical"].text == ""
@@ -71,7 +68,6 @@ def test_app_view_aggregates_typed_subviews_without_copy_bags() -> None:
     assert view.motor_alarm_switches["X"].value is False
     assert view.motor_alarm_badges["X"].text == ""
     assert view.box_controls["stock"]["enabled"].value is True
-    assert view.pin_badges["unused"].text == ""
     assert view.tool_rows[1]["occupied"].value is True
     assert view.temperature_sensor is not None
     assert view.temperature_celsius is not None

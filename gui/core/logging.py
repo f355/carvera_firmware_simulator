@@ -15,8 +15,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import sys
+from datetime import UTC, datetime
 
 
 def iso8601_utc_now() -> str:

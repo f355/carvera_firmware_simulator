@@ -21,6 +21,7 @@
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/runtime_wait.hpp"
 #include "sim/simulator_context.hpp"
 
 namespace {
@@ -42,9 +43,9 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.boot();
 
-  runtime.io().write_serial("M493.2 T2\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
-  (void)runtime.io().read_serial();
+  runtime.io().write_serial_command("M493.2 T2\n");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "direct firmware tool-state command should run");
+  (void)runtime.io().read_serial_text();
   require(kernel.eeprom_data->TOOL == 2, "M493.2 should persist the active tool in firmware EEPROM data");
   require(!scene.atc_spindle().has_tool, "M493.2 should not physically move a rack tool into the spindle");
 

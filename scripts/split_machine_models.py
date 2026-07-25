@@ -4,7 +4,6 @@ import json
 import struct
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "machine_models"
 CA1_SOURCE = MODEL_DIR / "carvera_air_ca1.glb"

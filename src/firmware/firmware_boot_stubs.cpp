@@ -35,7 +35,7 @@ int SDFileSystem::disk_status = 1;
 #else
 #define SIM_WEAK_FIRMWARE_GLOBAL __attribute__((weak))
 #endif
-SDFAT mounter SIM_WEAK_FIRMWARE_GLOBAL ("sd", nullptr);
+SDFAT mounter SIM_WEAK_FIRMWARE_GLOBAL("sd", nullptr);
 GPIO leds[4] SIM_WEAK_FIRMWARE_GLOBAL = {
     GPIO(P4_29),
     GPIO(P4_28),

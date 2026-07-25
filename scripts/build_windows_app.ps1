@@ -89,7 +89,7 @@ $WebView2Sha256 = "9e347ba96d031e381d1041d1c20fd434d457875c422eeac3f40eee4a5e0ab
 $BuildDir = if ($env:CARVERA_SIM_PACKAGE_BUILD_DIR) {
     $env:CARVERA_SIM_PACKAGE_BUILD_DIR
 } else {
-    Join-Path $RootDir "build-windows-app"
+    Join-Path $RootDir "build"
 }
 $OutputDir = if ($env:CARVERA_SIM_PACKAGE_OUTPUT_DIR) {
     $env:CARVERA_SIM_PACKAGE_OUTPUT_DIR
@@ -132,7 +132,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $FirmwareRoot "src\main.cpp") -PathT
 $env:UV_PROJECT_ENVIRONMENT = Join-Path $BuildDir "python-environment"
 $env:UV_LINK_MODE = "copy"
 Invoke-NativeCommand $Uv @(
-    "sync", "--project", $RootDir, "--locked", "--no-dev", "--group", "package-windows", "--python", "3.13"
+    "sync", "--project", $RootDir, "--locked", "--no-dev", "--group", "package"
 )
 
 Invoke-NativeCommand $Cmake @(
@@ -140,6 +140,7 @@ Invoke-NativeCommand $Cmake @(
     "-B", $BuildDir,
     "-G", "Ninja",
     "-DCMAKE_BUILD_TYPE=Release",
+    "-DCARVERA_SIM_ENABLE_COVERAGE=OFF",
     "-DCMAKE_MAKE_PROGRAM=$Ninja",
     "-DCARVERA_FIRMWARE_ROOT=$FirmwareRoot"
 )

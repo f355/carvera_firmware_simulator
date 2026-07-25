@@ -72,7 +72,7 @@ std::string LocalhostTcpBridge::take_pending_firmware_input(Client& client, bool
 }
 
 LocalhostTcpBridge::LocalhostTcpBridge(RuntimeIo& io, UploadingQuery uploading)
-    : runtime_io_(io), uploading_(std::move(uploading)) {}
+    : runtime_io_(io), uploading_(uploading ? std::move(uploading) : UploadingQuery{[] { return false; }}) {}
 
 LocalhostTcpBridge::~LocalhostTcpBridge() { stop(); }
 

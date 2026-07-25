@@ -162,15 +162,17 @@ for testing current development code but is not a versioned release.
 
 ### Coverage reports
 
-Configure a separate instrumented build and run its `coverage` target:
+Configure the canonical build with instrumentation and run its `coverage`
+target:
 
 ```sh
-cmake -S . -B build-coverage -G Ninja -DCARVERA_SIM_ENABLE_COVERAGE=ON
-cmake --build build-coverage --target coverage
+cmake -S . -B build -G Ninja -DCARVERA_SIM_ENABLE_COVERAGE=ON
+cmake --build build --target coverage
 ```
 
 The target runs the C++ test suite and writes annotated firmware and simulator
-reports to `build-coverage/coverage/`. The firmware report includes only the
+reports to `build/coverage/`. Desktop packaging scripts reconfigure the same
+build back to a non-instrumented Release build. The firmware report includes only the
 firmware sources compiled for the C1 and CA1 simulator configurations. Coverage
 is informational; the target does not enforce a threshold.
 
@@ -347,8 +349,11 @@ Known gaps worth remembering:
   CA1 manual tool changes, ETS touch-off, stock probing, and 3D probe side
   contact. More failure/recovery cases still need tests.
 * Things unused by Makera machines are not covered: SCARA, rotary-delta,
-  non-Cartesian kinematics, non-CartGrid leveling, Modbus spindle, PID autotune,
-  and B-axis machine behavior.
+  non-Cartesian kinematics, non-CartGrid leveling, Modbus spindle, VESC USB
+  spindle, PID autotune, and B-axis machine behavior.
+* Stock C1/CA1 configurations use Makera's framed serial/Wi-Fi protocol, like
+  the real machines. Focused test fixtures may select the legacy Smoothie text
+  protocol when framing is irrelevant to the behavior under test.
 * Canned drilling cycles are linked when configured by the firmware, but stock
   C1/CA1 configs do not enable them and the simulator does not spend much effort
   there.
@@ -404,6 +409,14 @@ uv run ruff format gui
 uv run ruff check gui
 uv run mypy gui
 PYTHONPATH=. uv run pytest gui/tests
+```
+
+When bumping the pinned firmware commit, regenerate
+`firmware/lpc_memory_layout.json` (the build hard-depends on it matching the
+pin):
+
+```sh
+uv run python scripts/lpc_memory_layout.py --firmware-root firmware/Carvera_Community_Firmware --output firmware/lpc_memory_layout.json --build
 ```
 
 ## License

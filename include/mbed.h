@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "PinNames.h"
+#include "Ticker.h"
 #include "us_ticker_api.h"
 
 namespace mbed {
@@ -48,14 +49,6 @@ class SPI {
 }  // namespace mbed
 
 class Timeout {
- public:
-  template <typename T>
-  void attach(T*, void (T::*)(), float) {}
-
-  void detach() {}
-};
-
-class Ticker {
  public:
   template <typename T>
   void attach(T*, void (T::*)(), float) {}

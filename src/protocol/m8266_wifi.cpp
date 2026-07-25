@@ -232,6 +232,18 @@ void Module::connect_sta(std::string ssid, std::string password) {
 
 void Module::disconnect_sta() { sta_connected_ = false; }
 
+std::int8_t Module::sta_rssi() const {
+  if (!sta_connected_) {
+    return 31;  // driver convention for "error / not connected"
+  }
+  for (const auto& ap : scanned_access_points_) {
+    if (ap.ssid == sta_ssid_) {
+      return ap.rssi;
+    }
+  }
+  return -40;
+}
+
 Module& active() { return compat::active_context().m8266_wifi(); }
 
 }  // namespace sim::m8266_wifi
@@ -253,9 +265,7 @@ extern "C" {
 
 u8 M8266HostIf_SPI_Select(uint32_t, uint32_t, u16* status) {
   sim::m8266_wifi::active().reset();
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -269,25 +279,19 @@ u8 M8266WIFI_SPI_Interface_Communication_OK(u8* byte) {
 u32 M8266WIFI_SPI_Interface_Communication_Stress_Test(u32 max_times) { return max_times; }
 
 u8 M8266WIFI_SPI_Set_Tx_Max_Power(u8, u16* status) {
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Setup_Connection(u8 tcp_udp, u16 local_port, char*, u16, u8 link_no, u8, u16* status) {
   sim::m8266_wifi::active().set_connection(tcp_udp, local_port, link_no);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Delete_Connection(u8 link_no, u16* status) {
   sim::m8266_wifi::active().delete_connection(link_no);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -296,9 +300,7 @@ u8 M8266WIFI_SPI_Disconnect_Connection(u8 link_no, u16* status) {
 }
 
 u8 M8266WIFI_SPI_Set_TcpServer_Auto_Discon_Timeout(u8, u16, u16* status) {
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -306,9 +308,7 @@ u8 M8266WIFI_SPI_List_Clients_On_A_TCP_Server(u8, u8* clients, ClientInfo[], u16
   if (clients != nullptr) {
     *clients = sim::m8266_wifi::active().has_tcp_client() ? 1 : 0;
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -316,33 +316,25 @@ u8 M8266WIFI_SPI_Get_STA_Connection_Status(u8* connection_status, u16* status) {
   if (connection_status != nullptr) {
     *connection_status = sim::m8266_wifi::active().sta_connection_status();
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Query_AP_Param(AP_PARAM_TYPE param_type, u8* param, u8* param_len, u16* status) {
   sim::m8266_wifi::copy_string_param(sim::m8266_wifi::active().ap_param(param_type), param, param_len);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Query_STA_Param(STA_PARAM_TYPE param_type, u8* param, u8* param_len, u16* status) {
   sim::m8266_wifi::copy_string_param(sim::m8266_wifi::active().sta_param(param_type), param, param_len);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Config_AP_Param(AP_PARAM_TYPE param_type, u8* param, u8 param_len, u8, u16* status) {
   sim::m8266_wifi::active().set_ap_param(param_type, param, param_len);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -350,49 +342,59 @@ u8 M8266WIFI_SPI_Get_Opmode(u8* op_mode, u16* status) {
   if (op_mode != nullptr) {
     *op_mode = sim::m8266_wifi::active().op_mode();
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Set_Opmode(u8 op_mode, u8, u16* status) {
   sim::m8266_wifi::active().set_op_mode(op_mode);
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_STA_Connect_Ap(u8 ssid[32], u8 password[64], u8, u8, u16* status) {
   sim::m8266_wifi::active().connect_sta(reinterpret_cast<const char*>(ssid), reinterpret_cast<const char*>(password));
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_STA_DisConnect_Ap(u16* status) {
   sim::m8266_wifi::active().disconnect_sta();
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_Get_STA_IP_Addr(char* sta_ip, u16* status) {
   const auto ip = sim::m8266_wifi::active().sta_param(STA_PARAM_TYPE_IP_ADDR);
   std::strcpy(sta_ip, ip.c_str());
-  if (status != nullptr) {
-    *status = 0;
+  sim::m8266_wifi::set_status(status);
+  return 1;
+}
+
+u8 M8266WIFI_SPI_STA_Query_Current_SSID_And_RSSI(u8 ssid[32], s8* rssi, u16* status) {
+  auto& wifi = sim::m8266_wifi::active();
+  if (!wifi.sta_connection_status()) {
+    if (rssi != nullptr) {
+      *rssi = 31;
+    }
+    sim::m8266_wifi::set_status(status, 0x0100);
+    return 0;
   }
+
+  const auto current_ssid = wifi.sta_ssid();
+  if (ssid != nullptr) {
+    std::memset(ssid, 0, 32);
+    std::memcpy(ssid, current_ssid.data(), std::min<std::size_t>(current_ssid.size(), 31));
+  }
+  if (rssi != nullptr) {
+    *rssi = wifi.sta_rssi();
+  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
 u8 M8266WIFI_SPI_STA_ScanSignals(struct ScannedSigs[], u8, u8, u8, u8, u32, u32, u8, u16* status) {
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -405,16 +407,19 @@ u8 M8266WIFI_SPI_STA_Fetch_Last_Scanned_Signals(struct ScannedSigs scanned_signa
     scanned_signals[i].rssi = aps[i].rssi;
     scanned_signals[i].authmode = aps[i].authmode;
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return static_cast<u8>(count);
 }
 
 u8 M8266WIFI_SPI_Has_DataReceived(void) { return sim::m8266_wifi::active().has_received_data() ? 1 : 0; }
 
-u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t, u8* link_no, u16* status) {
-  return sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u16* status) {
+  const auto received = sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
+  auto& clock = sim::compat::active_context().clock();
+  if (received == 0 && max_wait_in_ms != 0 && !clock.is_realtime()) {
+    clock.advance_us(static_cast<std::uint64_t>(max_wait_in_ms) * 1'000);
+  }
+  return received;
 }
 
 u16 M8266WIFI_SPI_RecvData_ex(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u8[4], u16*, u16* status) {
@@ -445,9 +450,7 @@ u8 M8266WIFI_SPI_Query_Connection(u8 link_no, u8* connection_type, u8* connectio
   if (local_port != nullptr) {
     *local_port = link_no == wifi.tcp_link_no() ? wifi.tcp_server_port() : wifi.udp_listen_port();
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
@@ -461,9 +464,7 @@ u8 M8266WIFI_SPI_Get_Module_Info(u32* module_id, u8* flash_size, char* fw_ver, u
   if (fw_ver != nullptr) {
     std::strcpy(fw_ver, "sim-m8266");
   }
-  if (status != nullptr) {
-    *status = 0;
-  }
+  sim::m8266_wifi::set_status(status);
   return 1;
 }
 
