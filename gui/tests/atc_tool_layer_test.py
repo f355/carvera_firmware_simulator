@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from gui.core.defaults import C1_SPINDLE_FACE_LOCAL
 from gui.protocol.model import AtcPocketSnapshot, AtcSnapshot, Box3D, ToolKind, ToolSnapshot
 from gui.scene.atc_tool_layer import AtcToolLayer
+from gui.scene.machine_visual_spec import C1_SPINDLE_FACE_LOCAL
 from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import C1_ATC_RACK_TOP_SCENE_Z, SceneTransform
 from gui.tests.fakes import FakeScene

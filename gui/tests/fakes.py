@@ -15,9 +15,14 @@
 
 from __future__ import annotations
 
+import itertools
+
+_fake_ids = itertools.count(1)
+
 
 class FakeObject:
     def __init__(self) -> None:
+        self.id = next(_fake_ids)
         self.last_move: tuple[float, float, float] | None = None
         self.visibility: list[bool] = []
         self.materials: list[object] = []
@@ -61,6 +66,7 @@ class FakeLine(FakeObject):
 
 class FakeScene:
     def __init__(self) -> None:
+        self.id = next(_fake_ids)
         self.lines: list[FakeLine] = []
         self.objects: list[FakeObject] = []
         self.cylinders: list[FakeObject] = []

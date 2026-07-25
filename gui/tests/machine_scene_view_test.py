@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-from gui.core.defaults import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
 from gui.protocol.model import (
     AtcSnapshot,
     AxisSnapshot,
@@ -25,17 +24,22 @@ from gui.protocol.model import (
     ToolKind,
     ToolSnapshot,
 )
+from gui.scene.lighting import ModelMaterialSettings
 from gui.scene.machine_model_asset import MachineModelAsset
 from gui.scene.machine_scene_view import MachineSceneView, box_key, visible_shell_components
+from gui.scene.machine_visual_spec import (
+    C1_SPINDLE_FACE_LOCAL,
+    C1_VISUAL_SPEC,
+    CA1_SPINDLE_FACE_LOCAL,
+    CA1_VISUAL_SPEC,
+)
 from gui.scene.scene_transform import (
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
     CA1_ETS_TOP_SCENE_Z,
     SceneTransform,
-    c1_model_point,
-    c1_spindle_face_point,
-    ca1_bed_scene_point,
-    ca1_spindle_face_scene_point,
+    c1_anchors,
+    ca1_anchors,
 )
 from gui.tests.fakes import FakeControl, FakeLabel, FakeObject, FakeScene
 
@@ -133,7 +137,7 @@ def ca1_asset() -> MachineModelAsset:
     return split_asset(
         label="CA1",
         machine_model="ca1",
-        offset=(-82.5, -13.5, 33.0),
+        offset=CA1_VISUAL_SPEC.model_offset,
         spindle_face_local=CA1_SPINDLE_FACE_LOCAL,
     )
 
@@ -142,7 +146,7 @@ def c1_asset() -> MachineModelAsset:
     return split_asset(
         label="C1",
         machine_model="c1",
-        offset=(-141.5, 13.0, 86.0),
+        offset=C1_VISUAL_SPEC.model_offset,
         spindle_face_local=C1_SPINDLE_FACE_LOCAL,
     )
 
@@ -153,7 +157,8 @@ def make_view(
     asset: MachineModelAsset | None,
     axis_mode: object = "3",
 ) -> MachineSceneView:
-    return MachineSceneView(
+    scripts: list[str] = []
+    view = MachineSceneView(
         scene=scene,
         model_asset_for=lambda _model: asset,
         machine_model_label=FakeLabel(),
@@ -162,7 +167,10 @@ def make_view(
         axis_readouts={},
         axis_detail_rows={},
         machine_model_scale=1000.0,
+        run_javascript=scripts.append,
     )
+    view.captured_scripts = scripts  # type: ignore[attr-defined]
+    return view
 
 
 def rounded_tuple(values: tuple[float, ...] | list[float], places: int = 3) -> tuple[float, ...]:
@@ -274,7 +282,7 @@ def test_c1_tool_setter_button_protrudes_above_rack_surface() -> None:
     )
     assert c1_ets_scene.cylinder_kwargs[-1]["height"] == 8.0
 
-    expected_button_center = c1_model_point(-4.158, -54.568, c1_trigger_z)
+    expected_button_center = c1_anchors().model_point(-4.158, -54.568, c1_trigger_z)
     expected_button_center[2] = C1_ATC_RACK_TOP_SCENE_Z + 4.0
     expected_button_center[1] += 2.0
     assert c1_ets_scene.cylinders[-1].last_move == tuple(expected_button_center)
@@ -304,7 +312,7 @@ def test_ca1_tool_setter_button_sits_above_modeled_ets_top() -> None:
 
     ca1_transform = SceneTransform.from_work_area(ca1_physical_travel)
     ca1_bed_y_delta = -ca1_transform.point(-2.0, -2.0, -2.0)[1]
-    expected_ca1_center = ca1_bed_scene_point(ca1_transform, -11.0, -7.0, ca1_trigger_z)
+    expected_ca1_center = ca1_anchors(ca1_transform).model_point(-11.0, -7.0, ca1_trigger_z)
     expected_ca1_center[2] = CA1_ETS_TOP_SCENE_Z + 1.0 - 1.5
     expected_ca1_center[1] += ca1_bed_y_delta
     actual_ca1_center = ca1_ets_scene.cylinders[-1].last_move
@@ -381,7 +389,7 @@ def test_c1_axis_components_keep_spindle_y_fixed_and_move_bed() -> None:
     c1_spindle = view._geometry().spindle_marker_position(
         c1_homed_position, view.scene_transform.point(*c1_homed_position)
     )
-    c1_bed_z = c1_model_point(physical.min_x, physical.min_y, physical.min_z)[2]
+    c1_bed_z = c1_anchors().model_point(physical.min_x, physical.min_y, physical.min_z)[2]
     assert round(c1_spindle[2] - c1_bed_z, 3) == 153.0
 
     raw_position = [-2.0, -2.0, -2.0]
@@ -394,7 +402,7 @@ def test_c1_axis_components_keep_spindle_y_fixed_and_move_bed() -> None:
         z_move[1] + C1_SPINDLE_FACE_LOCAL[1],
         z_move[2] + C1_SPINDLE_FACE_LOCAL[2],
     )
-    expected_face = tuple(c1_spindle_face_point(*raw_position))
+    expected_face = tuple(c1_anchors().spindle_face_point(*raw_position))
     fixed_spindle_y = asset.offset[1] + C1_SPINDLE_FACE_LOCAL[1]
     assert rounded_tuple(spindle_face) == (
         round(expected_face[0], 3),
@@ -429,7 +437,7 @@ def test_c1_work_envelope_tracks_spindle_face_and_loaded_tool_tip() -> None:
     unloaded_view.work_envelope.line_objects = unloaded_view.work_envelope.draw_box_lines(
         physical, "#dc2626", unloaded_view._geometry()
     )
-    assert any(line.end == c1_spindle_face_point(1.0, 1.0, 1.0) for line in fake_scene.lines)
+    assert any(line.end == c1_anchors().spindle_face_point(1.0, 1.0, 1.0) for line in fake_scene.lines)
     unloaded_view._move_work_area_lines(bed_y_delta)
     assert all(line.last_move == (0.0, bed_y_delta, 0.0) for line in fake_scene.lines)
 
@@ -460,12 +468,37 @@ def test_backplot_tracks_transformed_spindle_motion_and_can_be_cleared() -> None
     )
 
     backplot_line = scene.lines[-1]
-    expected_start = ca1_spindle_face_scene_point(SceneTransform.from_work_area(physical), -2.0, -2.0, -2.0)
-    expected_end = ca1_spindle_face_scene_point(SceneTransform.from_work_area(physical), -12.0, -2.0, -2.0)
+    expected_start = ca1_anchors(SceneTransform.from_work_area(physical)).spindle_face_point(-2.0, -2.0, -2.0)
+    expected_end = ca1_anchors(SceneTransform.from_work_area(physical)).spindle_face_point(-12.0, -2.0, -2.0)
     assert len(view.backplot.segments) == 1
     assert rounded_tuple(view.backplot.segments[0].start) == rounded_tuple(expected_start)
     assert rounded_tuple(view.backplot.segments[0].end) == rounded_tuple(expected_end)
 
+    backplot_scripts = [script for script in view.captured_scripts if "carveraBackplot" in script]  # type: ignore[attr-defined]
+    assert backplot_scripts, "recording a segment should emit the backplot geometry patch"
+    payload = backplot_scripts[-1]
+    assert f'"{backplot_line.id}"' in payload
+    for value in (*expected_start, *expected_end):
+        assert f"{value:.6f}" in payload
+
     view.clear_backplot()
     assert backplot_line.deleted is True
     assert view.backplot.segments == []
+
+
+def test_apply_model_material_emits_a_payload_for_every_shell_object() -> None:
+    scene = FakeScene()
+    view = make_view(scene=scene, asset=split_asset())
+    view.update_shell_model("ca1")
+
+    view.captured_scripts.clear()  # type: ignore[attr-defined]
+    view.apply_model_material(ModelMaterialSettings(opacity=0.5, roughness=0.3, metalness=0.2))
+
+    material_scripts = view.captured_scripts  # type: ignore[attr-defined]
+    assert len(material_scripts) == 1
+    payload = material_scripts[0]
+    for model_object in view.machine_shell_objects.values():
+        assert f'"{model_object.id}"' in payload
+    assert '"opacity": 0.5' in payload
+    assert '"roughness": 0.3' in payload
+    assert '"metalness": 0.2' in payload

@@ -19,10 +19,11 @@ from dataclasses import dataclass
 
 from gui.protocol.model import Box3D
 
+# Firmware G53 offset of the CA1 ETS top-face center; the home-switch anchor
+# below was measured by aligning this point with the ETS mesh in
+# carvera_air_ca1_y_axis_3.glb (see scripts/model_tools/analyze_glb_geometry.py).
 CA1_ETS_MACHINE_XY = (-11.0, -7.0)
-# CA1 model-space coordinates for the physical G53 home switch point. The ETS
-# top-face center in carvera_air_ca1_y_axis_3.glb sits at this point plus the
-# firmware ETS offset.
+# CA1 model-space coordinates for the physical G53 home switch point.
 CA1_HOME_SWITCH_SCENE_XY = (153.016, 107.096)
 CA1_ETS_SCENE_XY = (
     CA1_HOME_SWITCH_SCENE_XY[0] + CA1_ETS_MACHINE_XY[0],
@@ -65,41 +66,58 @@ class SceneTransform:
         ]
 
 
-def _ca1_alignment_offset(transform: SceneTransform) -> tuple[float, float]:
-    firmware_ets = transform.point(CA1_ETS_MACHINE_XY[0], CA1_ETS_MACHINE_XY[1], transform.bed_z)
-    return (
-        CA1_ETS_SCENE_XY[0] - firmware_ets[0],
-        CA1_ETS_SCENE_XY[1] - firmware_ets[1],
+@dataclass(frozen=True)
+class FrameAnchors:
+    """Additive anchors mapping firmware G53 coordinates into scene frames.
+
+    Every placement is anchor + (x, y, z); machines differ only in where each
+    frame's anchor sits, not in the mapping itself. The envelope frame takes
+    its XY from the model frame and its Z from the spindle-face frame, so the
+    envelope hugs the bed while tracking the active tool height.
+    """
+
+    model: tuple[float, float, float]
+    spindle_face: tuple[float, float, float]
+
+    def model_point(self, x: float, y: float, z: float) -> list[float]:
+        return [self.model[0] + x, self.model[1] + y, self.model[2] + z]
+
+    def spindle_face_point(self, x: float, y: float, z: float) -> list[float]:
+        return [self.spindle_face[0] + x, self.spindle_face[1] + y, self.spindle_face[2] + z]
+
+    def envelope_point(self, x: float, y: float, z: float) -> list[float]:
+        return [self.model[0] + x, self.model[1] + y, self.spindle_face[2] + z]
+
+
+def c1_anchors() -> FrameAnchors:
+    home_x, home_y, home_z = C1_HOME_SWITCH_SCENE_XYZ
+    return FrameAnchors(
+        model=C1_HOME_SWITCH_SCENE_XYZ,
+        spindle_face=(home_x, home_y, home_z + C1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM),
     )
 
 
-def ca1_bed_scene_point(transform: SceneTransform, x: float, y: float, z: float) -> list[float]:
-    """Map firmware coordinates to the CA1 bed/model frame."""
-    point = transform.point(x, y, z)
-    offset_x, offset_y = _ca1_alignment_offset(transform)
-    return [point[0] + offset_x, point[1] + offset_y, point[2] + CA1_BED_SURFACE_SCENE_Z]
+def ca1_anchors(transform: SceneTransform) -> FrameAnchors:
+    # Historically the CA1 bed frame routed through the work-area-centered
+    # transform and re-added an ETS alignment offset; the centering terms
+    # cancel, leaving home-switch + firmware coordinates exactly like the C1.
+    # Only the Z anchor depends on the work area, and only the moving
+    # spindle-face frame stays work-area-centered.
+    return FrameAnchors(
+        model=(
+            CA1_HOME_SWITCH_SCENE_XY[0],
+            CA1_HOME_SWITCH_SCENE_XY[1],
+            CA1_BED_SURFACE_SCENE_Z - transform.bed_z,
+        ),
+        spindle_face=(
+            -transform.center_x,
+            -transform.center_y,
+            CA1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM - transform.bed_z,
+        ),
+    )
 
 
-def ca1_spindle_face_scene_point(transform: SceneTransform, x: float, y: float, z: float) -> list[float]:
-    """Map firmware coordinates to the CA1 moving spindle-face frame."""
-    point = transform.point(x, y, z)
-    point[2] += CA1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM
-    return point
-
-
-def ca1_envelope_scene_point(transform: SceneTransform, x: float, y: float, z: float) -> list[float]:
-    """Draw the CA1 work envelope over the bed, but at the active spindle/tool Z."""
-    point = ca1_bed_scene_point(transform, x, y, z)
-    point[2] = ca1_spindle_face_scene_point(transform, x, y, z)[2]
-    return point
-
-
-def c1_model_point(x: float, y: float, z: float) -> list[float]:
-    home_x, home_y, home_z = C1_HOME_SWITCH_SCENE_XYZ
-    return [home_x + x, home_y + y, home_z + z]
-
-
-def c1_spindle_face_point(x: float, y: float, z: float) -> list[float]:
-    point = c1_model_point(x, y, z)
-    point[2] += C1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM
-    return point
+def transform_anchors(transform: SceneTransform) -> FrameAnchors:
+    """Fallback frame for machines without a calibrated model: all frames coincide."""
+    anchor = (-transform.center_x, -transform.center_y, -transform.bed_z)
+    return FrameAnchors(model=anchor, spindle_face=anchor)

@@ -16,8 +16,9 @@
 from __future__ import annotations
 
 from gui.protocol.model import Box3D
+from gui.scene.machine_visual_spec import C1_VISUAL_SPEC
 from gui.scene.scene_geometry import MachineSceneGeometry
-from gui.scene.scene_transform import SceneTransform, c1_spindle_face_point
+from gui.scene.scene_transform import SceneTransform, c1_anchors
 from gui.scene.work_envelope_layer import WorkEnvelopeLayer
 from gui.tests.fakes import FakeScene
 
@@ -31,8 +32,8 @@ def test_work_envelope_layer_draws_and_moves_physical_and_soft_boxes() -> None:
         asset_machine_model="c1",
         has_split_components=True,
         transform=SceneTransform.from_work_area(physical),
-        model_offset=(-141.5, 13.0, 86.0),
-        spindle_face_local=(-29.954, -19.092, 66.625),
+        model_offset=C1_VISUAL_SPEC.model_offset,
+        spindle_face_local=C1_VISUAL_SPEC.spindle_face_local,
     )
     layer = WorkEnvelopeLayer(scene=scene)
 
@@ -41,7 +42,7 @@ def test_work_envelope_layer_draws_and_moves_physical_and_soft_boxes() -> None:
     assert layer.key == ("physical", "soft")
     assert len(scene.lines) == 24
     assert {line.color for line in scene.lines} == {"#dc2626", "#2563eb"}
-    assert any(line.end == c1_spindle_face_point(1.0, 1.0, 1.0) for line in scene.lines)
+    assert any(line.end == c1_anchors().spindle_face_point(1.0, 1.0, 1.0) for line in scene.lines)
 
     layer.move(y_delta=12.0, z_delta=-25.0)
     assert all(line.last_move == (0.0, 12.0, -25.0) for line in scene.lines)

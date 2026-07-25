@@ -35,7 +35,7 @@ class PhysicalPresenter(SessionPresenter):
         self.state = state
 
     def _controls_ready(self, view: AppView) -> bool:
-        return view.io_panel_view is not None and not view.io_panel_view.updating_controls and self.machine_online
+        return view.io_panel_view is not None and self.machine_online
 
     async def press_main_button(self, view: AppView) -> None:
         if not self.machine_online:
@@ -58,6 +58,10 @@ class PhysicalPresenter(SessionPresenter):
                 await self.session.process_controller.call(self.session.client.set_e_stop_pressed, event_bool(event))
 
     async def cover_changed(self, view: AppView, event: Any) -> None:
+        # Claim first, and unconditionally: an echo left unclaimed would be
+        # mistaken for the user's next real toggle.
+        if view.io_panel_view is not None and view.io_panel_view.consume_echoed_write("cover", event_bool(event)):
+            return
         if not self._controls_ready(view):
             return
         with self.notify_client_errors():

@@ -28,6 +28,9 @@ BACKPLOT_MIN_DISTANCE_MM = 1.0
 BACKPLOT_MAX_SEGMENTS = 2000
 BACKPLOT_AXIS_EPSILON_MM = 1e-6
 BACKPLOT_PATCH_MAX_FRAMES = 120
+# Incremental ops between full geometry resyncs. The periodic resync heals
+# clients that missed earlier ops (a second browser tab joining mid-run).
+BACKPLOT_FULL_SYNC_EVERY = 40
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +97,7 @@ class BackplotLayer:
     last_point: list[float] | None = None
     last_sample_time_s: float | None = None
     y_delta: float = 0.0
+    ops_since_full_sync: int = 0
 
     def __post_init__(self) -> None:
         self._load_history_snapshot()
@@ -128,21 +132,22 @@ class BackplotLayer:
         if self._coalesce_last_segment(current):
             self.last_point = current
             self.last_sample_time_s = sample_time_s
-            self._render()
+            self._render("replace_last")
             self._store_history()
             return
 
         self.segments.append(BackplotSegment(start=self.last_point, end=current))
-        if len(self.segments) > self.max_segments:
+        pruned = len(self.segments) > self.max_segments
+        if pruned:
             self.segments = self.segments[-self.max_segments :]
         self.last_point = current
         self.last_sample_time_s = sample_time_s
-        self._render()
+        self._render("reset" if pruned else "append")
         self._store_history()
 
     def move(self, *, y_delta: float) -> None:
         self.y_delta = y_delta
-        if self.line_object is not None and hasattr(self.line_object, "move"):
+        if self.line_object is not None:
             self.line_object.move(0.0, y_delta, 0.0)
         self._store_history()
 
@@ -153,18 +158,26 @@ class BackplotLayer:
             self._render()
             self.move(y_delta=self.y_delta)
 
-    def _ensure_line_object(self) -> Any | None:
+    def _ensure_line_object(self) -> tuple[Any | None, bool]:
         if self.line_object is None:
             self.line_object = self.scene.line([0.0, 0.0, 0.0], [0.0, 0.0, 0.0]).material(BACKPLOT_LINE_COLOR)
-        return self.line_object
+            return self.line_object, True
+        return self.line_object, False
 
-    def _render(self) -> None:
-        line_object = self._ensure_line_object()
+    def _render(self, op: str = "reset") -> None:
+        line_object, created = self._ensure_line_object()
         if line_object is None:
             return
-        if not (hasattr(self.scene, "id") and hasattr(line_object, "id")):
-            return
-        self.run_javascript(backplot_patch_javascript(self.scene.id, line_object.id, self.segments))
+        if created or op == "reset" or self.ops_since_full_sync >= BACKPLOT_FULL_SYNC_EVERY:
+            self.ops_since_full_sync = 0
+            script = backplot_patch_javascript(self.scene.id, line_object.id, op="reset", segments=self.segments)
+        else:
+            self.ops_since_full_sync += 1
+            base = len(self.segments) - 1 if op == "append" else len(self.segments)
+            script = backplot_patch_javascript(
+                self.scene.id, line_object.id, op=op, segments=[self.segments[-1]], base=base
+            )
+        self.run_javascript(script)
 
     def _coalesce_last_segment(self, current: list[float]) -> bool:
         if not self.segments:
@@ -218,31 +231,53 @@ def axis_aligned_delta(start: list[float], end: list[float]) -> tuple[int, int] 
     return moving_axes[0]
 
 
-def backplot_patch_javascript(scene_id: int, line_object_id: int, segments: list[BackplotSegment]) -> str:
+def backplot_patch_javascript(
+    scene_id: int,
+    line_object_id: int,
+    segments: list[BackplotSegment],
+    *,
+    op: str = "reset",
+    base: int = 0,
+) -> str:
+    """Emit one geometry op for the backplot polyline.
+
+    The browser keeps the authoritative positions array per line object;
+    "append"/"replace_last" ops carry only the changed segment plus the
+    expected prior segment count, so a client that missed ops (late join,
+    reload) marks itself stale and waits for the next "reset" full sync
+    instead of applying the op to the wrong base.
+    """
     positions: list[float] = []
     for segment in segments:
         positions.extend((*segment.start, *segment.end))
     positions_literal = "[" + ",".join(f"{value:.6f}" for value in positions) + "]"
     return f"""
 (() => {{
-  const positions = {positions_literal};
+  const op = {{ kind: "{op}", values: {positions_literal}, base: {base} }};
   const maxFrames = {BACKPLOT_PATCH_MAX_FRAMES};
-  const findBackplotObject = () => {{
-    const root = document.getElementById("c{scene_id}");
-    const element = typeof getElement === "function" ? getElement("{scene_id}") : null;
-    let object = element?.objects?.get("{line_object_id}");
-    if (!object) {{
-      const scene = root ? window["scene_" + root.id] : null;
-      scene?.traverse((candidate) => {{
-        if (!object && candidate.object_id === "{line_object_id}") {{
-          object = candidate;
-        }}
-      }});
+  const root = document.getElementById("c{scene_id}");
+  const store = (window.__carveraBackplotState ||= new Map());
+  let state = store.get("{line_object_id}");
+  if (op.kind === "reset") {{
+    state = {{ positions: op.values }};
+    store.set("{line_object_id}", state);
+  }} else if (!state || state.stale || state.positions.length !== op.base * 6) {{
+    if (state) {{
+      state.stale = true;
     }}
-    return {{ root, object }};
-  }};
+    if (root) {{
+      root.dataset.carveraBackplot = "awaiting-full-sync";
+    }}
+    return;
+  }} else if (op.kind === "append") {{
+    state.positions.push(...op.values);
+  }} else if (op.kind === "replace_last") {{
+    state.positions.splice(-6, 6, ...op.values);
+  }}
+  const positions = state.positions;
   const patchBackplot = (attempt = 0) => {{
-    const {{ root, object }} = findBackplotObject();
+    const element = typeof getElement === "function" ? getElement("{scene_id}") : null;
+    const object = element?.objects?.get("{line_object_id}");
     if (!object?.geometry?.setAttribute || !object?.material) {{
       if (attempt < maxFrames) {{
         requestAnimationFrame(() => patchBackplot(attempt + 1));
@@ -252,6 +287,7 @@ def backplot_patch_javascript(scene_id: int, line_object_id: int, segments: list
         root.dataset.carveraBackplot = "missing-object";
         root.dataset.carveraBackplotAttempts = String(attempt);
       }}
+      console.warn("carvera backplot patch failed: missing-object");
       return;
     }}
     const attributeCtor = object.geometry.attributes.position?.constructor;
@@ -259,6 +295,7 @@ def backplot_patch_javascript(scene_id: int, line_object_id: int, segments: list
       if (root) {{
         root.dataset.carveraBackplot = "missing-attribute-constructor";
       }}
+      console.warn("carvera backplot patch failed: missing-attribute-constructor");
       return;
     }}
     object.geometry.setAttribute("position", new attributeCtor(positions, 3));

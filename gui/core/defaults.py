@@ -58,10 +58,6 @@ MACHINE_COMPONENT_COLORS = {
     "a_chuck": "#c7cdd4",
     "shell": "#d9dee4",
 }
-# Local to the transformed split-model Z-axis components. These anchors are
-# the physical spindle face, not a firmware coordinate.
-CA1_SPINDLE_FACE_LOCAL = (58.597, 12.939, 49.0)
-C1_SPINDLE_FACE_LOCAL = (-29.954, -19.092, 66.625)
 PinWatch = tuple[str, int, int]
 SwitchWatch = tuple[str, str]
 

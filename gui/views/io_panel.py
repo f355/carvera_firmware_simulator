@@ -15,8 +15,9 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from gui.core.defaults import PinWatch
@@ -90,44 +91,69 @@ class IoPanelView:
     pwm_labels: dict[str, Any]
     main_button_control: Any | None = None
     ca1_led_strip_indicators: Sequence[Any] = ()
-    updating_controls: bool = False
+    # Values we wrote into two-way controls whose change events have not been
+    # handled yet, in write order per control. See mirror_control().
+    echoed_writes: dict[str, deque[bool]] = field(default_factory=dict)
+
+    def mirror_control(self, name: str, control: Any, value: bool) -> None:
+        """Show simulator state in a two-way control without commanding it back.
+
+        Writing a control's value fires its change handler just like a click
+        does, and an async handler runs as a background task well after this
+        call returns - so a re-entrancy flag, cleared synchronously, can never
+        mark the difference. Record the value instead and let the handler claim
+        it via consume_echoed_write().
+        """
+        if control is None or bool(control.value) == value:
+            return  # an unchanged assignment fires no handler, so owe nothing
+        self.echoed_writes.setdefault(name, deque()).append(value)
+        control.value = value
+
+    def consume_echoed_write(self, name: str, value: bool) -> bool:
+        """True when this change event is one of our own writes, not the user's.
+
+        Matching on the value keeps a click that was queued *before* our write
+        from claiming our echo: a click always carries the opposite of what the
+        control held, so it can never match the oldest value we wrote.
+        """
+        pending = self.echoed_writes.get(name)
+        if not pending or pending[0] != value:
+            return False
+        pending.popleft()
+        return True
 
     def apply_snapshot(self, snapshot: PhysicalIoState) -> None:
-        self.updating_controls = True
-        try:
-            set_badge(self.probe_badge, snapshot.probe_contact, "contact", "open", warn=True)
-            set_badge(self.tool_setter_badge, snapshot.tool_setter_contact, "contact", "open", warn=True)
-            self.cover_switch.value = snapshot.cover_open
-            set_badge(self.cover_badge, snapshot.cover_open, "open", "closed", warn=True)
+        set_badge(self.probe_badge, snapshot.probe_contact, "contact", "open", warn=True)
+        set_badge(self.tool_setter_badge, snapshot.tool_setter_contact, "contact", "open", warn=True)
+        self.mirror_control("cover", self.cover_switch, snapshot.cover_open)
+        set_badge(self.cover_badge, snapshot.cover_open, "open", "closed", warn=True)
 
-            self._apply_front_panel(snapshot.front_panel)
-            for axis, triggered in snapshot.motor_alarms.items():
-                if axis in self.motor_alarm_badges:
-                    set_badge(self.motor_alarm_badges[axis], triggered, "alarm", "clear", warn=True)
+        self._apply_front_panel(snapshot.front_panel)
+        for axis, triggered in snapshot.motor_alarms.items():
+            if axis in self.motor_alarm_badges:
+                set_badge(self.motor_alarm_badges[axis], triggered, "alarm", "clear", warn=True)
 
-            if snapshot.spindle_alarm_available:
-                for badge in self._spindle_alarm_badges():
-                    set_badge(badge, snapshot.spindle_alarm_triggered, "alarm", "clear", warn=True)
-            else:
-                for badge in self._spindle_alarm_badges():
-                    set_badge_na(badge)
+        if snapshot.spindle_alarm_available:
+            for badge in self._spindle_alarm_badges():
+                set_badge(badge, snapshot.spindle_alarm_triggered, "alarm", "clear", warn=True)
+        else:
+            for badge in self._spindle_alarm_badges():
+                set_badge_na(badge)
 
-            for name, controls in self.firmware_switch_controls.items():
-                state = snapshot.switches.get(name)
-                if state is None or not state.available:
-                    controls["readback"].text = "n/a"
-                    set_badge(controls["badge"], False, "on", "off")
-                    continue
-                controls["readback"].text = f"{state.value:.1f}"
-                set_badge(controls["badge"], state.on, "on", "off")
+        for name, controls in self.firmware_switch_controls.items():
+            state = snapshot.switches.get(name)
+            if state is None or not state.available:
+                controls["readback"].text = "n/a"
+                set_badge(controls["badge"], False, "on", "off")
+                continue
+            controls["readback"].text = f"{state.value:.1f}"
+            set_badge(controls["badge"], state.on, "on", "off")
 
-            self._apply_laser(snapshot.laser)
-            for name, port, pin in self.pwm_watches:
-                pwm = snapshot.pwm_outputs.get((port, pin))
-                if pwm is not None and name in self.pwm_labels:
-                    self.pwm_labels[name].text = pwm_status_text(pwm)
-        finally:
-            self.updating_controls = False
+        self._apply_laser(snapshot.laser)
+        for name, port, pin in self.pwm_watches:
+            pwm = snapshot.pwm_outputs.get((port, pin))
+            if pwm is not None and name in self.pwm_labels:
+                self.pwm_labels[name].text = pwm_status_text(pwm)
 
     def reset(self, machine_model: str) -> None:
         for control in self.front_panel_controls.values():

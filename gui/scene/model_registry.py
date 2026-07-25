@@ -18,8 +18,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from gui.core.defaults import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
-
 from .machine_model_asset import (
     MachineModelAsset,
     is_remote_model,
@@ -27,6 +25,7 @@ from .machine_model_asset import (
     machine_model_kind,
     read_glb_bounds,
 )
+from .machine_visual_spec import VISUAL_SPECS
 
 BUNDLED_MODEL_MOUNT = "/machine_models"
 CUSTOM_MODEL_MOUNT = "/machine_model_asset"
@@ -101,11 +100,6 @@ class MachineModelRegistry:
                 "y4": "carvera_c1_y_axis_4_static.glb",
                 "a_chuck": "carvera_c1_a_chuck.glb",
             },
-            # CAD Assistant exports this model in meters. Rotate it upright and
-            # place the C1 bed close to the simulator bed plane.
-            offset=(-141.5, 13.0, 86.0),
-            rotation_degrees=(90.0, 0.0, 0.0),
-            spindle_face_local=C1_SPINDLE_FACE_LOCAL,
         )
 
     def ca1_bundled_asset(self) -> MachineModelAsset | None:
@@ -123,9 +117,6 @@ class MachineModelRegistry:
                 "y4": "carvera_air_ca1_y_axis_4_static.glb",
                 "a_chuck": "carvera_air_ca1_a_chuck.glb",
             },
-            offset=(-82.5, -13.5, 33.0),
-            rotation_degrees=(90.0, 0.0, 0.0),
-            spindle_face_local=CA1_SPINDLE_FACE_LOCAL,
         )
 
     def _bundled_asset(
@@ -134,9 +125,6 @@ class MachineModelRegistry:
         bundled: Path,
         machine_model: str,
         filenames: dict[str, str],
-        offset: tuple[float, float, float],
-        rotation_degrees: tuple[float, float, float],
-        spindle_face_local: tuple[float, float, float],
     ) -> MachineModelAsset:
         component_paths = {
             name: self.bundled_model_dir / filename
@@ -144,6 +132,7 @@ class MachineModelRegistry:
             if (self.bundled_model_dir / filename).exists()
         }
         components = {name: local_model_url(path, self.bundled_mount) for name, path in component_paths.items()}
+        spec = VISUAL_SPECS[machine_model]
         return MachineModelAsset(
             url=local_model_url(bundled, self.bundled_mount),
             kind=machine_model_kind(bundled),
@@ -151,7 +140,7 @@ class MachineModelRegistry:
             machine_model=machine_model,
             bounds=read_glb_bounds(bundled),
             components=components or None,
-            offset=offset,
-            rotation_degrees=rotation_degrees,
-            spindle_face_local=spindle_face_local,
+            offset=spec.model_offset,
+            rotation_degrees=spec.model_rotation_degrees,
+            spindle_face_local=spec.spindle_face_local,
         )

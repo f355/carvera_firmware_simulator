@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -51,16 +52,26 @@ class ModelMaterialSettings:
 
 
 def scene_lighting_patch_javascript(scene_id: int, settings: SceneLightingSettings | None = None) -> str:
+    # This patch depends on NiceGUI internals: getElement(), element.scene,
+    # element.renderer, and NiceGUI's default AmbientLight + DirectionalLight
+    # rig (whose constructors we borrow because THREE is not importable from
+    # run_javascript). If a NiceGUI upgrade changes any of these, the patch
+    # reports failure via dataset.carveraLighting and console.warn instead of
+    # silently rendering with default lights and no shadows.
     payload = json.dumps(asdict(settings or SceneLightingSettings()))
     return f"""
 (() => {{
   const settings = {payload};
   const root = document.getElementById("c{scene_id}");
+  const fail = (marker) => {{
+    if (root) {{
+      root.dataset.carveraLighting = marker;
+    }}
+    console.warn("carvera lighting patch failed:", marker);
+  }};
   const element = typeof getElement === "function" ? getElement("{scene_id}") : null;
   if (!element || !element.scene || !element.renderer) {{
-    if (root) {{
-      root.dataset.carveraLighting = "missing-scene";
-    }}
+    fail("missing-scene");
     return;
   }}
 
@@ -71,9 +82,7 @@ def scene_lighting_patch_javascript(scene_id: int, settings: SceneLightingSettin
   const AmbientLight = defaultLights.find((child) => child.isAmbientLight)?.constructor;
   const DirectionalLight = defaultLights.find((child) => child.isDirectionalLight)?.constructor;
   if (!AmbientLight || !DirectionalLight) {{
-    if (root) {{
-      root.dataset.carveraLighting = "missing-light-constructors";
-    }}
+    fail("missing-light-constructors");
     return;
   }}
 
@@ -134,8 +143,16 @@ def scene_material_patch_javascript(
 (() => {{
   const settings = {payload};
   const objectIds = {ids};
+  const root = document.getElementById("c{scene_id}");
+  const fail = (marker) => {{
+    if (root) {{
+      root.dataset.carveraMaterial = marker;
+    }}
+    console.warn("carvera material patch failed:", marker);
+  }};
   const element = typeof getElement === "function" ? getElement("{scene_id}") : null;
   if (!element || !element.objects) {{
+    fail("missing-scene");
     return;
   }}
 
@@ -166,18 +183,34 @@ def scene_material_patch_javascript(
         }}
       }});
     }}
-    if (!touched && remainingAttempts > 0) {{
-      window.setTimeout(() => apply(remainingAttempts - 1), 150);
+    if (touched) {{
+      if (root) {{
+        root.dataset.carveraMaterial = "patched";
+      }}
+      return;
     }}
+    if (remainingAttempts > 0) {{
+      window.setTimeout(() => apply(remainingAttempts - 1), 150);
+      return;
+    }}
+    fail("missing-objects");
   }};
   apply({attempts});
 }})();
 """
 
 
-def apply_scene_lighting(scene: Any, settings: SceneLightingSettings | None = None) -> None:
-    ui.run_javascript(scene_lighting_patch_javascript(scene.id, settings))
+def apply_scene_lighting(
+    scene: Any,
+    settings: SceneLightingSettings | None = None,
+    run_javascript: Callable[[str], Any] = ui.run_javascript,
+) -> None:
+    run_javascript(scene_lighting_patch_javascript(scene.id, settings))
 
 
-def configure_scene_lighting(scene: Any, settings: SceneLightingSettings | None = None) -> None:
-    scene.on("init", lambda: apply_scene_lighting(scene, settings))
+def configure_scene_lighting(
+    scene: Any,
+    settings: SceneLightingSettings | None = None,
+    run_javascript: Callable[[str], Any] = ui.run_javascript,
+) -> None:
+    scene.on("init", lambda: apply_scene_lighting(scene, settings, run_javascript))

@@ -20,13 +20,14 @@ from typing import Any
 
 from gui.protocol.model import SpindleSnapshot
 
-TOOL_ROTATION_X = -1.5707963267948966
+from .machine_visual_spec import C1_VISUAL_SPEC, VISUAL_SPECS
+from .scene_primitives import vertical_cylinder
+
 CA1_SPINDLE_NOSE_DIAMETER_MM = 16.0
 SPINDLE_OVERLAY_DIAMETER_MM = CA1_SPINDLE_NOSE_DIAMETER_MM + 1.2
 SPINDLE_OVERLAY_RADIUS_MM = SPINDLE_OVERLAY_DIAMETER_MM / 2.0
 FALLBACK_SPINDLE_HEIGHT_MM = 28.0
 SPINDLE_OVERLAY_IDLE_RGB = (107, 114, 128)
-SPINDLE_MAX_RPM_BY_MODEL = {"c1": 15_500.0, "ca1": 14_500.0}
 
 
 @dataclass
@@ -72,15 +73,11 @@ class SpindleOverlayLayer:
     def ensure_overlay(self) -> None:
         if self.scene is None or self.overlay is not None:
             return
-        self.overlay = (
-            self.scene.cylinder(
-                top_radius=SPINDLE_OVERLAY_RADIUS_MM,
-                bottom_radius=SPINDLE_OVERLAY_RADIUS_MM,
-                height=FALLBACK_SPINDLE_HEIGHT_MM,
-                radial_segments=32,
-            )
-            .material(self.overlay_color())
-            .rotate(TOOL_ROTATION_X, 0.0, 0.0)
+        self.overlay = vertical_cylinder(
+            self.scene,
+            radius=SPINDLE_OVERLAY_RADIUS_MM,
+            height=FALLBACK_SPINDLE_HEIGHT_MM,
+            color=self.overlay_color(),
         )
         self.overlay.visible(False)
         self.update_material()
@@ -91,7 +88,7 @@ class SpindleOverlayLayer:
         if max_rpm <= 0.0:
             max_rpm = self.latest_max_rpm
         if max_rpm <= 0.0:
-            max_rpm = SPINDLE_MAX_RPM_BY_MODEL.get(str(self.current_machine_model), SPINDLE_MAX_RPM_BY_MODEL["c1"])
+            max_rpm = VISUAL_SPECS.get(str(self.current_machine_model), C1_VISUAL_SPEC).spindle_max_rpm
         actual_rpm = max(0.0, spindle.actual_rpm if spindle is not None else 0.0)
         ratio = min(1.0, actual_rpm / max(1.0, max_rpm))
         base_r, base_g, base_b = SPINDLE_OVERLAY_IDLE_RGB
@@ -109,10 +106,8 @@ class SpindleOverlayLayer:
             self.tool.delete()
             self.tool = None
         if self.tool is None:
-            self.tool = (
-                self.scene.cylinder(top_radius=2.0, bottom_radius=2.0, height=cutting_stickout, radial_segments=20)
-                .material("#374151")
-                .rotate(TOOL_ROTATION_X, 0.0, 0.0)
+            self.tool = vertical_cylinder(
+                self.scene, radius=2.0, height=cutting_stickout, color="#374151", radial_segments=20
             )
             self.tool_length = cutting_stickout
         self.tool.move(spindle_position[0], spindle_position[1], spindle_position[2] - cutting_stickout / 2).visible(

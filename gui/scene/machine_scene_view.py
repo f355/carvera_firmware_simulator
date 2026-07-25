@@ -30,27 +30,22 @@ from gui.views.io_panel import front_panel_led_text
 from .atc_tool_layer import AtcToolLayer
 from .backplot_layer import BackplotHistoryStore, BackplotLayer
 from .machine_model_asset import MachineModelAsset
-from .scene_geometry import MachineSceneGeometry
-from .scene_transform import (
-    C1_ATC_RACK_TOP_SCENE_Z,
-    CA1_ETS_TOP_SCENE_Z,
-    SceneTransform,
+from .machine_visual_spec import (
+    C1_VISUAL_SPEC,
+    CA1_VISUAL_SPEC,
+    TOOL_SETTER_BUTTON_RADIUS_MM,
+    TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
+    MachineVisualSpec,
 )
-from .spindle_overlay_layer import TOOL_ROTATION_X, SpindleOverlayLayer
+from .scene_geometry import MachineSceneGeometry
+from .scene_primitives import vertical_cylinder
+from .scene_transform import SceneTransform
+from .spindle_overlay_layer import SpindleOverlayLayer
 from .work_envelope_layer import WorkEnvelopeLayer
 
 FALLBACK_BED_THICKNESS_MM = 0.5
-TOOL_SETTER_BUTTON_RADIUS_MM = 4.0
-CA1_TOOL_SETTER_BUTTON_HEIGHT_MM = 3.0
-C1_TOOL_SETTER_BUTTON_HEIGHT_MM = 8.0
-TOOL_SETTER_TRIGGER_BELOW_TOP_MM = 1.0
-
-
-@dataclass(frozen=True)
-class ToolSetterVisualSpec:
-    height_mm: float
-    trigger_below_top_mm: float
-    scene_top_z: float | None = None
+FALLBACK_BED_COLOR = "#64748b"
+FALLBACK_BED_OPACITY = 0.22
 
 
 def box_key(box: Box3D | None) -> tuple[float, ...] | None:
@@ -90,6 +85,7 @@ class MachineSceneView:
     model_offset_override: tuple[float, float, float] | None = None
     model_rotation_override: tuple[float, float, float] | None = None
     backplot_history: BackplotHistoryStore | None = None
+    run_javascript: Callable[[str], Any] = ui.run_javascript
 
     latest_work_area: Box3D | None = None
     latest_physical_travel: Box3D | None = None
@@ -114,7 +110,9 @@ class MachineSceneView:
     def __post_init__(self) -> None:
         self.work_envelope = WorkEnvelopeLayer(scene=self.scene)
         self.spindle_overlay = SpindleOverlayLayer(scene=self.scene)
-        self.backplot = BackplotLayer(scene=self.scene, history_store=self.backplot_history)
+        self.backplot = BackplotLayer(
+            scene=self.scene, history_store=self.backplot_history, run_javascript=self.run_javascript
+        )
         self.atc_tools = AtcToolLayer(scene=self.scene)
 
     def reset(self) -> None:
@@ -138,18 +136,8 @@ class MachineSceneView:
     def restore_backplot(self) -> None:
         self.backplot.restore_from_history()
 
-    def _tool_setter_visual_spec(self) -> ToolSetterVisualSpec:
-        if self._is_c1_model():
-            return ToolSetterVisualSpec(
-                height_mm=C1_TOOL_SETTER_BUTTON_HEIGHT_MM,
-                trigger_below_top_mm=TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
-                scene_top_z=C1_ATC_RACK_TOP_SCENE_Z + C1_TOOL_SETTER_BUTTON_HEIGHT_MM,
-            )
-        return ToolSetterVisualSpec(
-            height_mm=CA1_TOOL_SETTER_BUTTON_HEIGHT_MM,
-            trigger_below_top_mm=TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
-            scene_top_z=CA1_ETS_TOP_SCENE_Z + TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
-        )
+    def _visual_spec(self) -> MachineVisualSpec:
+        return C1_VISUAL_SPEC if self._is_c1_model() else CA1_VISUAL_SPEC
 
     def update_shell_model(self, machine_model: str) -> None:
         self.current_machine_model = machine_model
@@ -231,9 +219,10 @@ class MachineSceneView:
         self._move_work_area_lines(bed_y_delta)
         if state.telemetry_time_s is not None:
             self._update_backplot(raw_position, bed_y_delta, state.telemetry_time_s)
-        self._move_fallback_primitives(raw_position, position, bed_y_delta)
+        spindle_position = self._geometry().spindle_marker_position(raw_position, position)
+        self._move_fallback_primitives(spindle_position, bed_y_delta)
         self._move_tool_setter_button(bed_y_delta)
-        self._update_atc_tools(state, position, bed_y_delta)
+        self._update_atc_tools(state, spindle_position, bed_y_delta)
 
     def _update_front_panel_led_label(self, machine_model: str) -> None:
         if "led_name" not in self.front_panel_badges or "rgb" not in self.front_panel_badges:
@@ -271,17 +260,9 @@ class MachineSceneView:
         self.material_settings = settings
         for name, model_object in self.machine_shell_objects.items():
             model_object.material(self._component_material_color(name), settings.opacity, "both")
-        object_ids = [
-            model_object.id for model_object in self.machine_shell_objects.values() if hasattr(model_object, "id")
-        ]
-        if self.scene is not None and hasattr(self.scene, "id") and object_ids:
-            ui.run_javascript(
-                scene_material_patch_javascript(
-                    self.scene.id,
-                    object_ids,
-                    settings,
-                )
-            )
+        object_ids = [model_object.id for model_object in self.machine_shell_objects.values()]
+        if self.scene is not None and object_ids:
+            self.run_javascript(scene_material_patch_javascript(self.scene.id, object_ids, settings))
 
     def _apply_shell_visibility(self) -> None:
         if self.machine_shell_asset is None:
@@ -307,9 +288,6 @@ class MachineSceneView:
 
     def _is_c1_model(self) -> bool:
         return self._geometry().is_c1_model
-
-    def _uses_bed_aligned_motion(self) -> bool:
-        return self._geometry().uses_bed_aligned_motion
 
     def _geometry(self) -> MachineSceneGeometry:
         asset = self.machine_shell_asset
@@ -355,9 +333,7 @@ class MachineSceneView:
     ) -> None:
         self.scene_transform = SceneTransform.from_work_area(physical_box)
         self._apply_shell_visibility()
-        self.work_envelope.scene = self.scene
         self.work_envelope.redraw(physical_box, soft_box, key=key, geometry=self._geometry())
-        self.backplot.scene = self.scene
         self.backplot.reset_position()
         self._redraw_fallback_bed(physical_box)
         self._apply_fallback_visibility()
@@ -368,9 +344,8 @@ class MachineSceneView:
         geometry = self._geometry()
         stickout_mm = physical_tool_stickout_mm(self.latest_atc_data)
         point = geometry.spindle_face_point(raw_position[0], raw_position[1], raw_position[2] - stickout_mm)
-        self.backplot.scene = self.scene
         self.backplot.record(point, sample_time_s=sample_time_s)
-        if self._uses_bed_aligned_motion() or self._is_c1_model():
+        if self._geometry().bed_carries_scene_objects:
             self.backplot.move(y_delta=bed_y_delta)
         else:
             self.backplot.move(y_delta=0.0)
@@ -397,19 +372,15 @@ class MachineSceneView:
         )
         self.fallback_bed_base_position = center
         self.fallback_bed = self.scene.box(width=width, height=height, depth=FALLBACK_BED_THICKNESS_MM).material(
-            "#64748b", 0.22, "both"
+            FALLBACK_BED_COLOR, FALLBACK_BED_OPACITY, "both"
         )
         self.fallback_bed.move(*center)
         self.fallback_bed.visible(False)
 
-    def _move_fallback_primitives(
-        self, raw_position: list[float], scene_position: list[float], bed_y_delta: float
-    ) -> None:
+    def _move_fallback_primitives(self, spindle_position: list[float], bed_y_delta: float) -> None:
         if self.scene_transform is None:
             return
-        self.spindle_overlay.scene = self.scene
-        spindle_position = self._geometry().spindle_marker_position(raw_position, scene_position)
-        self.spindle_overlay.move_overlay(spindle_position, visible=self.scene_transform is not None)
+        self.spindle_overlay.move_overlay(spindle_position, visible=True)
         if self.fallback_bed is not None and self.fallback_bed_base_position is not None:
             self.fallback_bed.move(
                 self.fallback_bed_base_position[0],
@@ -421,20 +392,13 @@ class MachineSceneView:
     def _ensure_tool_setter_button(self) -> None:
         if self.scene is None:
             return
-        height = self._tool_setter_visual_spec().height_mm
+        height = self._visual_spec().tool_setter_button_height_mm
         if self.tool_setter_button is not None and self.tool_setter_button_height == height:
             return
         if self.tool_setter_button is not None:
             self.tool_setter_button.delete()
-        self.tool_setter_button = (
-            self.scene.cylinder(
-                top_radius=TOOL_SETTER_BUTTON_RADIUS_MM,
-                bottom_radius=TOOL_SETTER_BUTTON_RADIUS_MM,
-                height=height,
-                radial_segments=32,
-            )
-            .material("#111827")
-            .rotate(TOOL_ROTATION_X, 0.0, 0.0)
+        self.tool_setter_button = vertical_cylinder(
+            self.scene, radius=TOOL_SETTER_BUTTON_RADIUS_MM, height=height, color="#111827"
         )
         self.tool_setter_button_height = height
         self.tool_setter_button.visible(False)
@@ -452,28 +416,23 @@ class MachineSceneView:
         center_x = box.center_x
         center_y = box.center_y
         trigger_z = box.top_z
-        visual = self._tool_setter_visual_spec()
-        height = visual.height_mm
-        top_z = trigger_z + visual.trigger_below_top_mm
+        visual = self._visual_spec()
+        height = visual.tool_setter_button_height_mm
+        top_z = trigger_z + TOOL_SETTER_TRIGGER_BELOW_TOP_MM
         position = self._geometry().scene_point(center_x, center_y, top_z - height / 2.0)
-        if visual.scene_top_z is not None:
-            position[2] = visual.scene_top_z - height / 2.0
-        if self._uses_bed_aligned_motion() or self._is_c1_model():
+        # The visual top is pinned to the machine model, not the firmware
+        # trigger Z: the GLBs omit pocket depth.
+        position[2] = visual.tool_setter_scene_top_z - height / 2.0
+        if self._geometry().bed_carries_scene_objects:
             position[1] += bed_y_delta
         self.tool_setter_button.move(*position).visible(True)
 
-    def _update_atc_tools(self, state: MachineState, position: list[float], bed_y_delta: float) -> None:
-        axes = state.axis_positions()
-        raw_position = [axes.get("X", 0.0), axes.get("Y", 0.0), axes.get("Z", 0.0)]
-        geometry = self._geometry()
-        spindle_position = geometry.spindle_marker_position(raw_position, position)
+    def _update_atc_tools(self, state: MachineState, spindle_position: list[float], bed_y_delta: float) -> None:
         atc = state.atc or self.latest_atc_data
-        self.atc_tools.scene = self.scene
-        self.atc_tools.update(atc, geometry=geometry, bed_y_delta=bed_y_delta)
+        self.atc_tools.update(atc, geometry=self._geometry(), bed_y_delta=bed_y_delta)
 
         held_length = atc.spindle.length_mm if atc is not None else 0.0
         if held_length > 0.0:
-            self.spindle_overlay.scene = self.scene
             self.spindle_overlay.show_tool(spindle_position, max(5.0, held_length - TOOL_SHANK_INSERT_MM))
         else:
             self.spindle_overlay.hide_tool()
