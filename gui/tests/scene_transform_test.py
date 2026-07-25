@@ -130,7 +130,9 @@ def test_machine_scene_geometry_mapper_keeps_view_placement_math_pure() -> None:
         -6.092,
         round(c1_anchors().spindle_face_point(*raw_position)[2], 3),
     ]
-    assert round(component_positions.bed_y_delta, 3) == round(-6.092 - c1_anchors().spindle_face_point(*raw_position)[1], 3)
+    assert round(component_positions.bed_y_delta, 3) == round(
+        -6.092 - c1_anchors().spindle_face_point(*raw_position)[1], 3
+    )
     assert round(component_positions.positions["y3"][1], 3) == round(
         13.0 + component_positions.bed_y_delta + C1_BED_MESH_Y_ALIGNMENT_MM,
         3,
