@@ -47,7 +47,7 @@ class SceneTransform:
     bed_z: float
 
     @classmethod
-    def from_work_area(cls, work_area: Box3D) -> "SceneTransform":
+    def from_work_area(cls, work_area: Box3D) -> SceneTransform:
         min_x, max_x = sorted((work_area.min_x, work_area.max_x))
         min_y, max_y = sorted((work_area.min_y, work_area.max_y))
         min_z, _ = sorted((work_area.min_z, work_area.max_z))

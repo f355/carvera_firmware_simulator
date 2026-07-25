@@ -17,6 +17,8 @@
 
 #include "sim/makera_protocol.hpp"
 
+#include "sim/crc16.hpp"
+
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -29,18 +31,6 @@ constexpr std::uint16_t kHeader = 0x8668;
 constexpr std::uint16_t kFooter = 0x55aa;
 constexpr std::size_t kFrameOverhead = 9;
 constexpr std::size_t kMinimumDataLength = 3;
-
-std::uint16_t crc16_ccitt(std::string_view bytes) {
-  std::uint16_t crc = 0;
-  for (const auto byte : bytes) {
-    crc ^= static_cast<std::uint16_t>(static_cast<unsigned char>(byte)) << 8;
-    for (int bit = 0; bit < 8; ++bit) {
-      crc = (crc & 0x8000u) != 0 ? static_cast<std::uint16_t>((crc << 1) ^ 0x1021u)
-                                 : static_cast<std::uint16_t>(crc << 1);
-    }
-  }
-  return crc;
-}
 
 bool is_single_control(std::string_view input) {
   if (input.size() != 1) {

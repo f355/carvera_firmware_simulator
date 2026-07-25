@@ -27,6 +27,7 @@
 #include "sim/machine_simulator.hpp"
 #include "sim/event_engine.hpp"
 #include "support/assertions.hpp"
+#include "support/runtime_wait.hpp"
 
 using sim::test::require;
 
@@ -57,10 +58,7 @@ int main() {
   require(kernel.robot->delta_move(delta, 25.0F, 1), "Robot should queue a jog-like delta move");
 
   sim::EventEngine engine(simulator);
-  const auto result = engine.run_until_motion_idle(kernel, 200'000);
-  require(result.status == sim::EventRunStatus::ConditionReached,
-          "simulator should execute Robot-queued motion to idle within 200000 timer events; consumed " +
-              std::to_string(result.timer_events));
+  sim::test::require_motion_idle(engine, kernel, 200'000, "simulator should execute Robot-queued motion to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect Robot-generated step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update the machine position");

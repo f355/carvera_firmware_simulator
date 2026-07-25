@@ -22,6 +22,7 @@
 #include "sim/simulation_instance.hpp"
 #include "support/assertions.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/runtime_wait.hpp"
 
 int main() {
   using sim::test::require;
@@ -33,7 +34,7 @@ int main() {
   auto& runtime = simulation.firmware();
   auto& kernel = runtime.start();
   require(kernel.robot != nullptr, "firmware start should create Robot");
-  require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "firmware should finish startup homing");
+  sim::test::require_motion_idle(runtime.runner(), 200'000, "firmware should finish startup homing");
   require(kernel.robot->is_homed_all_axes(), "Robot should know that startup homing completed");
 
   carvera::sim::v1::MachineSnapshot snapshot;

@@ -24,7 +24,8 @@
 #include <string_view>
 #include <vector>
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
+#include "support/memory_config.hpp"
 
 #define private public
 #include "modules/utils/player/Player.h"

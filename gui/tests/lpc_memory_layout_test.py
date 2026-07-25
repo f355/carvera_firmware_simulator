@@ -15,7 +15,6 @@
 
 from scripts.lpc_memory_layout import build_layout_report, parse_type_sizes
 
-
 MAP_TEXT = """
 Memory Configuration
 

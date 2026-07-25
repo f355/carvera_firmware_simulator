@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import os
 import socket
 import tempfile
 import threading
@@ -25,7 +24,6 @@ from typing import Any
 
 import pytest
 
-from gui.core.app_config import default_stream_simulator
 from gui.protocol.sim_client import SimulatorClient
 
 TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
@@ -77,13 +75,8 @@ def _wait_for_stream_startup(
     )
 
 
-def test_stream_client_receives_live_simulator_state() -> None:
-    root = Path(__file__).resolve().parents[2]
-    configured_binary = os.environ.get("CARVERA_SIMULATOR_BINARY")
-    simulator_binary = Path(configured_binary) if configured_binary else default_stream_simulator(root)
-    if not simulator_binary.exists():
-        pytest.skip(f"{simulator_binary} is not built")
-
+def test_stream_client_receives_live_simulator_state(stream_stdio_binary: Path) -> None:
+    simulator_binary = stream_stdio_binary
     events = []
     snapshots = []
     io_events = []

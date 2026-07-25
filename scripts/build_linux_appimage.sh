@@ -56,7 +56,7 @@ JOBS="$(nproc)"
 export UV_PROJECT_ENVIRONMENT="$BUILD_DIR/python-environment"
 export UV_LINK_MODE=copy
 
-uv sync --project "$ROOT_DIR" --locked --no-dev --group package-linux --python 3.13
+uv sync --project "$ROOT_DIR" --locked --no-dev --group package-linux
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \

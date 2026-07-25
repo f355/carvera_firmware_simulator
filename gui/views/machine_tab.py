@@ -21,6 +21,8 @@ from typing import Any
 
 from nicegui import ui
 
+from gui.views.ui_helpers import set_status_badge
+
 
 @dataclass
 class FirmwareStateView:
@@ -28,14 +30,17 @@ class FirmwareStateView:
     homed_badge: Any
     soft_limit_badge: Any
 
+    def render(self, *, booted: bool, homed: bool, soft_limit: bool) -> None:
+        set_status_badge(self.firmware_badge, booted, "booted", "off")
+        set_status_badge(self.homed_badge, homed, "homed", "not homed")
+        set_status_badge(self.soft_limit_badge, soft_limit, "enabled", "disabled")
+
+    def reset(self) -> None:
+        self.render(booted=False, homed=False, soft_limit=False)
+
 
 @dataclass
 class MachineTabView:
-    front_panel_controls: dict[str, Any] = field(default_factory=dict)
-    front_panel_badges: dict[str, Any] = field(default_factory=dict)
-    motor_alarm_switches: dict[str, Any] = field(default_factory=dict)
-    motor_alarm_badges: dict[str, Any] = field(default_factory=dict)
-    spindle_alarm_switch: Any | None = None
     spindle_alarm_badge: Any | None = None
     axis_detail_rows: dict[str, list[Any]] = field(default_factory=dict)
     axis_detail_labels: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -73,10 +78,6 @@ def build_machine_tab(
     cover_changed: Callable[[Any], Awaitable[None]],
     rotary_accessory_changed: Callable[[Any], Awaitable[None]],
 ) -> MachineTabView:
-    front_panel_controls: dict[str, Any] = {}
-    front_panel_badges: dict[str, Any] = {}
-    motor_alarm_switches: dict[str, Any] = {}
-    motor_alarm_badges: dict[str, Any] = {}
     axis_detail_rows: dict[str, list[Any]] = {}
     axis_detail_labels: dict[str, dict[str, Any]] = {}
     axis_endstop_badges: dict[str, Any] = {}
@@ -88,7 +89,6 @@ def build_machine_tab(
             cover_badge = ui.label("closed").classes("badge-off")
             rotary_accessory_switch = ui.switch("4th axis connected", value=False, on_change=rotary_accessory_changed)
             rotary_accessory_badge = ui.label("not connected").classes("badge-off")
-            spindle_alarm_switch = None
         with ui.element("div").classes("contact-grid"):
             ui.label("Probe contact").classes("section-subtle")
             probe_badge = ui.label("open").classes("badge-off")
@@ -117,11 +117,6 @@ def build_machine_tab(
                 axis_endstop_badges[axis] = endstop_badge
 
     return MachineTabView(
-        front_panel_controls=front_panel_controls,
-        front_panel_badges=front_panel_badges,
-        motor_alarm_switches=motor_alarm_switches,
-        motor_alarm_badges=motor_alarm_badges,
-        spindle_alarm_switch=spindle_alarm_switch,
         spindle_alarm_badge=spindle_alarm_badge,
         axis_detail_rows=axis_detail_rows,
         axis_detail_labels=axis_detail_labels,

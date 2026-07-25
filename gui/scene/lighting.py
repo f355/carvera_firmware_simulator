@@ -21,7 +21,6 @@ from typing import Any
 
 from nicegui import ui
 
-
 DEFAULT_MODEL_COLOR = "#d9dee4"
 
 

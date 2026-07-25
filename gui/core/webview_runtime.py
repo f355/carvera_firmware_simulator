@@ -22,7 +22,6 @@ from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any
 
-
 WEBVIEW2_RUNTIME_DIRECTORY = "webview2"
 WEBVIEW2_EXECUTABLE = "msedgewebview2.exe"
 APP_CONTAINER_SIDS = ("*S-1-15-2-2", "*S-1-15-2-1")

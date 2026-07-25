@@ -16,8 +16,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from nicegui import ui
 
@@ -33,6 +34,9 @@ class WorkCoordinateSystemControls:
     rotation: Any
 
 
+OFFLINE_STATUS = "Power on and refresh to view EEPROM contents."
+
+
 @dataclass
 class EepromPanelView:
     status_label: Any
@@ -46,6 +50,9 @@ class EepromPanelView:
     current_wcs_control: Any | None = None
     persistent_variable_controls: dict[int, Any] = field(default_factory=dict)
     work_coordinate_system_controls: dict[int, WorkCoordinateSystemControls] = field(default_factory=dict)
+
+    def reset(self) -> None:
+        self.status_label.text = OFFLINE_STATUS
 
     def set_contents(self, contents: EepromContents) -> None:
         self.fields_container.clear()
@@ -166,7 +173,7 @@ def build_eeprom_panel(
         with ui.element("div").classes("button-row"):
             ui.button("Refresh", on_click=refresh_eeprom).props("dense outline")
             ui.button("Write contents", on_click=write_eeprom).props("dense color=primary")
-        status_label = ui.label("Power on and refresh to view EEPROM contents.").classes("section-subtle")
+        status_label = ui.label(OFFLINE_STATUS).classes("section-subtle")
         fields_container = ui.element("div").classes("eeprom-fields")
 
     return EepromPanelView(status_label=status_label, fields_container=fields_container)

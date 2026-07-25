@@ -36,7 +36,7 @@ int main() {
 
   require(runtime.is_homed(), "runtime should home before crash-detection motion");
   runtime.io().write_serial_command("M493.2 T999999\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "direct firmware tool-state command should run");
   (void)runtime.io().read_serial_text();
   simulator.context().physical_scene().set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
   runtime.runner().run_main_loop(4);

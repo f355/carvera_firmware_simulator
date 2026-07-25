@@ -42,7 +42,7 @@ done
 FIRMWARE_ROOT="$("$ROOT_DIR/scripts/ensure_firmware_checkout.sh")"
 JOBS="$(sysctl -n hw.ncpu)"
 
-uv sync --project "$ROOT_DIR" --group package
+uv sync --project "$ROOT_DIR" --locked --no-dev --group package
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \

@@ -17,11 +17,12 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
+from gui.generated import carvera_sim_pb2 as pb
 from gui.protocol.client_error import SimulatorClientError
 from gui.protocol.simulator_process import SimulatorProcess
-from gui.generated import carvera_sim_pb2 as pb
 
 
 class FramedTransport:

@@ -15,13 +15,33 @@
 
 from __future__ import annotations
 
+import io
+import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
 from gui.protocol.simulator_process import SimulatorProcess
+
+
+def test_stderr_reader_survives_a_raising_handler(tmp_path: Path) -> None:
+    handled: list[str] = []
+
+    def handler(line: str) -> None:
+        handled.append(line)
+        if line == "bad":
+            raise ValueError("cannot parse")
+
+    process = SimulatorProcess(tmp_path / "unused", stderr_handler=handler)
+    fake = SimpleNamespace(stderr=io.BytesIO(b"bad\ngood\n"))
+    process._read_stderr_lines(cast("subprocess.Popen[bytes]", fake))
+
+    assert handled == ["bad", "good"]
+    assert "good" in process.format_error("boom")
 
 
 def test_start_does_not_allocate_a_windows_console(tmp_path: Path) -> None:

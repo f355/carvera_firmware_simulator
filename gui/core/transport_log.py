@@ -19,7 +19,6 @@ import re
 from dataclasses import dataclass
 from threading import Lock
 
-
 _ISO8601_TIMESTAMP = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"
 _TRANSPORT_LOG_RE = re.compile(
     rf"^(?:(?P<prefix_timestamp>{_ISO8601_TIMESTAMP}) )?"
@@ -237,11 +236,6 @@ class TransportLogStore:
             if overflow > 0:
                 del self._entries[:overflow]
                 self._base_cursor += overflow
-
-    def entries_since(self, cursor: int) -> list[TransportLogEntry]:
-        with self._lock:
-            start = max(0, cursor - self._base_cursor)
-            return list(self._entries[start:])
 
     def cursor_and_entries_since(self, cursor: int) -> tuple[int, list[TransportLogEntry]]:
         with self._lock:

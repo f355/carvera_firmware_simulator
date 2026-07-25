@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
 _MEMORY_REGION_RE = re.compile(
     r"^\s*(?P<name>RAM|AHB_SRAM)\s+"
     r"(?P<origin>0x[0-9a-fA-F]+)\s+"

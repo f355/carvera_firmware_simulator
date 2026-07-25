@@ -91,9 +91,6 @@ void rebuild_allocation_index(const std::vector<Chunk>& chunks,
 
 namespace sim::lpc_memory {
 
-std::string describe_firmware_function(void* function_address);
-bool is_allocation_runtime_function(std::string_view function_name);
-
 MainSramLayout firmware_main_sram_layout() {
   return {
       .ram_start = generated::kRamStart,
@@ -140,24 +137,8 @@ void MemoryAccounting::record(MemoryRegion region, void* pointer, std::size_t ho
     throw std::invalid_argument("host pointer is already tracked by LPC memory accounting");
   }
 
-  std::size_t group_index = groups_.size();
-  for (std::size_t index = 0; index < groups_.size(); ++index) {
-    const auto& group = groups_[index];
-    if (group.region == region && group.type_name == type_name && group.host_payload_bytes == host_payload_bytes &&
-        group.target_payload_bytes == target_payload_bytes && group.target_size_exact == target_size_exact) {
-      group_index = index;
-      break;
-    }
-  }
-  if (group_index == groups_.size()) {
-    groups_.push_back(AllocationGroupSnapshot{
-        .region = region,
-        .type_name = std::move(type_name),
-        .host_payload_bytes = checked_size(host_payload_bytes),
-        .target_payload_bytes = checked_size(target_payload_bytes),
-        .target_size_exact = target_size_exact,
-    });
-  }
+  const auto group_index =
+      find_or_create_group(region, std::move(type_name), host_payload_bytes, target_payload_bytes, target_size_exact);
 
   const AllocationId id = next_id_++;
   bool modeled = false;
@@ -174,6 +155,30 @@ void MemoryAccounting::record(MemoryRegion region, void* pointer, std::size_t ho
                                     .config_cache_owner = config_cache_owner,
                                 });
 
+  charge_group(group_index, target_payload_bytes);
+}
+
+std::size_t MemoryAccounting::find_or_create_group(MemoryRegion region, std::string type_name,
+                                                   std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                                                   bool target_size_exact) {
+  for (std::size_t index = 0; index < groups_.size(); ++index) {
+    const auto& group = groups_[index];
+    if (group.region == region && group.type_name == type_name && group.host_payload_bytes == host_payload_bytes &&
+        group.target_payload_bytes == target_payload_bytes && group.target_size_exact == target_size_exact) {
+      return index;
+    }
+  }
+  groups_.push_back(AllocationGroupSnapshot{
+      .region = region,
+      .type_name = std::move(type_name),
+      .host_payload_bytes = checked_size(host_payload_bytes),
+      .target_payload_bytes = checked_size(target_payload_bytes),
+      .target_size_exact = target_size_exact,
+  });
+  return groups_.size() - 1;
+}
+
+void MemoryAccounting::charge_group(std::size_t group_index, std::size_t target_payload_bytes) {
   auto& group = groups_[group_index];
   ++group.live_count;
   ++group.total_count;
@@ -232,32 +237,10 @@ void MemoryAccounting::mark_config_cache_owner(void* pointer, std::size_t target
   --old_group.live_count;
   old_group.live_target_bytes -= old_group.target_payload_bytes;
 
-  std::size_t group_index = groups_.size();
-  for (std::size_t index = 0; index < groups_.size(); ++index) {
-    const auto& group = groups_[index];
-    if (group.region == MemoryRegion::MainSram && group.type_name == "ConfigCache" &&
-        group.host_payload_bytes == old_group.host_payload_bytes &&
-        group.target_payload_bytes == target_payload_bytes && group.target_size_exact) {
-      group_index = index;
-      break;
-    }
-  }
-  if (group_index == groups_.size()) {
-    groups_.push_back(AllocationGroupSnapshot{
-        .region = MemoryRegion::MainSram,
-        .type_name = "ConfigCache",
-        .host_payload_bytes = old_group.host_payload_bytes,
-        .target_payload_bytes = checked_size(target_payload_bytes),
-        .target_size_exact = true,
-    });
-  }
+  const auto group_index = find_or_create_group(MemoryRegion::MainSram, "ConfigCache", old_group.host_payload_bytes,
+                                                target_payload_bytes, true);
 
-  auto& group = groups_[group_index];
-  ++group.live_count;
-  ++group.total_count;
-  group.peak_live_count = std::max(group.peak_live_count, group.live_count);
-  group.live_target_bytes += target_payload_bytes;
-  group.peak_target_bytes = std::max(group.peak_target_bytes, group.live_target_bytes);
+  charge_group(group_index, target_payload_bytes);
   allocation.group_index = group_index;
   allocation.modeled = main_.allocate(allocation.id, target_payload_bytes);
   allocation.config_cache_owner = true;

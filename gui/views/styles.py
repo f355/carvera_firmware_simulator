@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-
 SIM_CSS = """
 html, body, #app { height: 100%; margin: 0; overflow: hidden; }
 body { background: #f6f7f9; color: #1f2933; }

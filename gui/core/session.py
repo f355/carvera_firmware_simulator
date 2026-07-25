@@ -33,8 +33,8 @@ from gui.protocol.model import (
     snapshot_to_state,
     telemetry_to_state,
 )
-from gui.scene.backplot_layer import BackplotHistoryStore
 from gui.protocol.sim_client import SimulatorClient
+from gui.scene.backplot_layer import BackplotHistoryStore
 from gui.scene.model_registry import MachineModelRegistry
 
 

@@ -24,7 +24,6 @@ from gui.core.webview_runtime import (
     prepare_fixed_runtime,
 )
 
-
 RESOURCE_ROOT = resource_root()
 BUNDLED_WEBVIEW2_SETTINGS = bundled_webview_settings(RESOURCE_ROOT)
 BUNDLED_WEBVIEW2_RUNTIME = configure_bundled_webview_runtime(RESOURCE_ROOT)

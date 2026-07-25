@@ -31,22 +31,12 @@
 #include <unistd.h>
 #include "StreamOutput.h"
 #include "support/assertions.hpp"
+#include "support/waiting.hpp"
 
 using sim::test::require;
+using sim::test::wait_pumping;
 
 namespace {
-
-template <typename Predicate, typename Pump>
-bool wait_pumping(Predicate&& predicate, Pump&& pump, std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
-  const auto deadline = std::chrono::steady_clock::now() + timeout;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (predicate()) {
-      return true;
-    }
-    pump();
-  }
-  return predicate();
-}
 
 std::string decode_payloads(sim::makera::FrameDecoder& decoder, std::string bytes) {
   decoder.append(bytes);

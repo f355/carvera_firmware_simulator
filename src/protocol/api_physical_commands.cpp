@@ -47,8 +47,9 @@ constexpr carvera::sim::v1::SwitchName kSnapshotSwitches[] = {
     carvera::sim::v1::SWITCH_NAME_AIR,         carvera::sim::v1::SWITCH_NAME_BEEP,
 };
 
+// The LPC1768 PWM1 channels 1-6 on P2.0-P2.5; unconfigured pins report configured=false.
 constexpr PinAddress kSnapshotPwmPins[] = {
-    {2, 5}, {2, 4}, {2, 3}, {2, 1}, {2, 3}, {2, 2},
+    {2, 5}, {2, 4}, {2, 3}, {2, 2}, {2, 1}, {2, 0},
 };
 
 const char* bool_text(bool value) { return value ? "on" : "off"; }
@@ -164,8 +165,7 @@ std::optional<const char*> apply_atc_pocket_tools(PhysicalScene& scene, Firmware
   return std::nullopt;
 }
 
-std::optional<const char*> apply_spindle_tool(PhysicalScene& scene,
-                                              const carvera::sim::v1::SetSpindleTool& command) {
+std::optional<const char*> apply_spindle_tool(PhysicalScene& scene, const carvera::sim::v1::SetSpindleTool& command) {
   if (command.length_mm() < 0.0) {
     return "spindle tool length must be non-negative";
   }
@@ -204,7 +204,8 @@ std::optional<const char*> apply_temperature(RuntimePhysicalControls& inputs,
 
 }  // namespace
 
-std::optional<ApiService::Response> ApiService::handle_physical_command(const carvera::sim::v1::Request& request) {
+std::optional<ApiService::Response> ApiService::handle_physical_command(const carvera::sim::v1::Request& request,
+                                                                        bool pump_main_loop) {
   using Request = carvera::sim::v1::Request;
 
   switch (request.command_case()) {
@@ -280,7 +281,9 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
       if (!inputs_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
         return error(request.id(), "spindle alarm is not configured");
       }
-      runner_.run_main_loop(1);
+      if (pump_main_loop) {
+        runner_.run_main_loop(1);
+      }
       logging::event("fault", std::string("spindle alarm ") + bool_text(request.set_spindle_alarm().triggered()));
       return ok(request.id());
     case Request::kSetRotaryAccessoryInstalled:
@@ -298,13 +301,17 @@ std::optional<ApiService::Response> ApiService::handle_physical_command(const ca
     }
     case Request::kSetMainButtonPressed:
       inputs_.set_main_button_pressed(request.set_main_button_pressed().pressed());
-      runner_.run_main_loop(1);
+      if (pump_main_loop) {
+        runner_.run_main_loop(1);
+      }
       logging::event("physical", std::string("main button ") +
                                      (request.set_main_button_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
     case Request::kSetEStopPressed:
       inputs_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
-      runner_.run_main_loop(1);
+      if (pump_main_loop) {
+        runner_.run_main_loop(1);
+      }
       logging::event("physical",
                      std::string("e-stop ") + (request.set_e_stop_pressed().pressed() ? "pressed" : "released"));
       return ok(request.id());
@@ -453,80 +460,23 @@ std::optional<ApiService::Response> ApiService::handle_cooperative_physical_comm
     const carvera::sim::v1::Request& request) {
   using Request = carvera::sim::v1::Request;
 
+  // Set-only whitelist; firmware is blocking inside a cooperative wait, so the
+  // main loop must not be pumped from here.
   switch (request.command_case()) {
     case Request::kSetProbeInputs:
-      inputs_.set_probe_inputs(request.set_probe_inputs().probe(), request.set_probe_inputs().tool_setter());
-      logging::event("physical", std::string("probe input=") + bool_text(request.set_probe_inputs().probe()) +
-                                     " ets=" + bool_text(request.set_probe_inputs().tool_setter()));
-      return ok(request.id());
     case Request::kSetCoverOpen:
-      inputs_.set_cover_open(request.set_cover_open().open());
-      logging::event("physical", std::string("cover ") + (request.set_cover_open().open() ? "open" : "closed"));
-      return ok(request.id());
-    case Request::kSetLimitSwitch: {
-      const auto axis = api::axis_index(request.set_limit_switch().axis());
-      const auto side = api::limit_switch_side(request.set_limit_switch().side());
-      if (!axis.has_value() || !side.has_value()) {
-        return error(request.id(), "invalid limit switch");
-      }
-      inputs_.set_limit_switch(*axis, *side, request.set_limit_switch().triggered());
-      logging::event("physical", std::string("limit ") + api::axis_letter(request.set_limit_switch().axis()) +
-                                     (*side == LimitSwitchSide::Min ? "-min " : "-max ") +
-                                     bool_text(request.set_limit_switch().triggered()));
-      return ok(request.id());
-    }
-    case Request::kSetMotorAlarm: {
-      const auto axis = api::axis_index(request.set_motor_alarm().axis());
-      if (!axis.has_value()) {
-        return error(request.id(), "invalid motor alarm axis");
-      }
-      inputs_.set_motor_alarm(*axis, request.set_motor_alarm().triggered());
-      logging::event("fault", std::string("motor ") + api::axis_letter(request.set_motor_alarm().axis()) + " alarm " +
-                                  bool_text(request.set_motor_alarm().triggered()));
-      return ok(request.id());
-    }
+    case Request::kSetLimitSwitch:
+    case Request::kSetMotorAlarm:
     case Request::kSetSpindleAlarm:
-      if (!inputs_.set_spindle_alarm(request.set_spindle_alarm().triggered())) {
-        return error(request.id(), "spindle alarm is not configured");
-      }
-      logging::event("fault", std::string("spindle alarm ") + bool_text(request.set_spindle_alarm().triggered()));
-      return ok(request.id());
     case Request::kSetMainButtonPressed:
-      inputs_.set_main_button_pressed(request.set_main_button_pressed().pressed());
-      logging::event("physical", std::string("main button ") +
-                                     (request.set_main_button_pressed().pressed() ? "pressed" : "released"));
-      return ok(request.id());
     case Request::kSetEStopPressed:
-      inputs_.set_e_stop_pressed(request.set_e_stop_pressed().pressed());
-      logging::event("physical",
-                     std::string("e-stop ") + (request.set_e_stop_pressed().pressed() ? "pressed" : "released"));
-      return ok(request.id());
     case Request::kSetRotaryAccessoryInstalled:
-      machine_.set_rotary_accessory_installed(request.set_rotary_accessory_installed().installed());
-      logging::event("physical", std::string("rotary accessory ") +
-                                     bool_text(request.set_rotary_accessory_installed().installed()));
-      return ok(request.id());
     case Request::kSetAtcPocketTools:
-      if (const auto message = apply_atc_pocket_tools(world_, firmware_, request.set_atc_pocket_tools())) {
-        return error(request.id(), *message);
-      }
-      return ok(request.id());
     case Request::kSetSpindleTool:
-      if (const auto message = apply_spindle_tool(world_, request.set_spindle_tool())) {
-        return error(request.id(), *message);
-      }
-      return ok(request.id());
     case Request::kSetToolSetterBox:
-      apply_tool_setter_box(world_, request.set_tool_setter_box());
-      return ok(request.id());
     case Request::kSetStockBox:
-      apply_stock_box(world_, request.set_stock_box());
-      return ok(request.id());
     case Request::kSetTemperature:
-      if (const auto message = apply_temperature(inputs_, request.set_temperature())) {
-        return error(request.id(), *message);
-      }
-      return ok(request.id());
+      return handle_physical_command(request, /*pump_main_loop=*/false);
     default:
       return std::nullopt;
   }

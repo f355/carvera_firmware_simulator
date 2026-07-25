@@ -29,19 +29,6 @@
 
 #include "sim/framed_proto.hpp"
 
-namespace {
-
-constexpr std::uint32_t max_frame_size = 16 * 1024 * 1024;
-
-std::uint32_t decode_frame_size(const std::string& buffer) {
-  return static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[0])) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[1])) << 8) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[2])) << 16) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(buffer[3])) << 24);
-}
-
-}  // namespace
-
 namespace sim {
 
 struct StreamRequestPump::Impl {
@@ -58,8 +45,8 @@ struct StreamRequestPump::Impl {
     }
 
     while (buffer_.size() >= 4) {
-      const auto size = decode_frame_size(buffer_);
-      if (size > max_frame_size) {
+      const auto size = proto_framing::decode_frame_size(buffer_.data());
+      if (size > proto_framing::kMaxFrameSize) {
         return false;
       }
       if (buffer_.size() < 4 + size) {

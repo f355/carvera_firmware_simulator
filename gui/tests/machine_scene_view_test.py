@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from gui.core.defaults import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
 from gui.protocol.model import (
-    AxisSnapshot,
     AtcSnapshot,
+    AxisSnapshot,
     Box3D,
     MachineState,
     SpindleSnapshot,
@@ -28,14 +28,14 @@ from gui.protocol.model import (
 from gui.scene.machine_model_asset import MachineModelAsset
 from gui.scene.machine_scene_view import MachineSceneView, box_key, visible_shell_components
 from gui.scene.scene_transform import (
-    CA1_ETS_TOP_SCENE_Z,
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
+    CA1_ETS_TOP_SCENE_Z,
     SceneTransform,
-    ca1_bed_scene_point,
-    ca1_spindle_face_scene_point,
     c1_model_point,
     c1_spindle_face_point,
+    ca1_bed_scene_point,
+    ca1_spindle_face_scene_point,
 )
 from gui.tests.fakes import FakeControl, FakeLabel, FakeObject, FakeScene
 

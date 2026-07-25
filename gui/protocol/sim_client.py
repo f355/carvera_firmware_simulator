@@ -15,13 +15,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+from gui.generated import carvera_sim_pb2 as pb
 from gui.protocol.client_error import SimulatorClientError as SimulatorClientError
 from gui.protocol.framed_transport import FramedTransport
 from gui.protocol.simulator_process import SimulatorProcess
-from gui.generated import carvera_sim_pb2 as pb
 
 from .model import (
     EepromContents,
@@ -35,7 +36,6 @@ from .model import (
     memory_details_to_state,
     tool_kind_to_proto,
 )
-
 
 AXIS_TO_PROTO = {
     "X": pb.AXIS_X,

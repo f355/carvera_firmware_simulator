@@ -22,6 +22,7 @@
 
 #include "InterruptIn.h"
 #include "PwmOut.h"
+#include "port_api.h"
 #include "sim/adc.hpp"
 #include "sim/board_profile.hpp"
 #include "sim/gpio_level.hpp"
@@ -137,7 +138,7 @@ PowerRailState MachineSimulator::power_rails() const {
 }
 
 PwmOutputState MachineSimulator::pwm_output(PinAddress pin) const {
-  const auto state = mbed::PwmOut::state(static_cast<PinName>((pin.port << 5u) | pin.pin));
+  const auto state = mbed::PwmOut::state(port_pin(static_cast<PortName>(pin.port), pin.pin));
   return PwmOutputState{
       state.configured,
       state.duty,
@@ -146,7 +147,7 @@ PwmOutputState MachineSimulator::pwm_output(PinAddress pin) const {
 }
 
 void MachineSimulator::trigger_interrupt_rise(PinAddress pin) {
-  mbed::InterruptIn::simulate_rise(static_cast<PinName>((pin.port << 5u) | pin.pin));
+  mbed::InterruptIn::simulate_rise(port_pin(static_cast<PortName>(pin.port), pin.pin));
 }
 
 void MachineSimulator::set_adc_channel_raw(std::uint8_t channel, std::uint16_t raw12) {

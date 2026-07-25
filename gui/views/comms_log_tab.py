@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from nicegui import ui
@@ -27,19 +27,26 @@ from gui.core.transport_log import TransportLogEntry
 class CommsLogTabView:
     container: Any
     autoscroll: Any
+    # Mirrors the TransportLogStore cap so the DOM stays bounded too.
+    max_rows: int = 2000
+    rows: list[Any] = field(default_factory=list)
 
     def append(self, entry: TransportLogEntry) -> None:
         with self.container:
-            with ui.element("div").classes(f"comm-row comm-{entry.direction}"):
+            with ui.element("div").classes(f"comm-row comm-{entry.direction}") as row:
                 ui.label(entry.timestamp or "").classes("comm-time")
                 ui.label(entry.channel.upper()).classes("comm-channel")
                 ui.label(entry.direction.upper()).classes("comm-direction")
                 ui.label(entry.payload).classes("comm-payload")
+        self.rows.append(row)
+        while len(self.rows) > self.max_rows:
+            self.rows.pop(0).delete()
         if bool(self.autoscroll.value):
             self.container.run_method("scrollTo", 0, 1_000_000)
 
     def clear(self) -> None:
         self.container.clear()
+        self.rows.clear()
 
 
 def build_comms_log_tab() -> CommsLogTabView:

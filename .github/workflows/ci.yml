@@ -3,7 +3,13 @@ name: CI
 on:
   pull_request:
   push:
+    branches: [main]
   workflow_dispatch:
+
+# Cancel superseded runs, but never a main run that may be mid-release.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   macos-app:
@@ -19,14 +25,21 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
 
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Install macOS packages
-        run: brew install cmake ninja protobuf
+        run: brew install ccache cmake ninja protobuf
+
+      - name: Set up compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-macos-${{ github.sha }}
+          restore-keys: ccache-macos-
 
       - name: Fetch compatible firmware
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
@@ -38,7 +51,9 @@ jobs:
         run: uv sync
 
       - name: Generate Python protobuf bindings
-        run: uv run python -m gui.protocol.proto_codegen
+        run: |
+          uv run python -m gui.protocol.proto_codegen
+          git diff --exit-code gui/generated
 
       - name: Check Python
         run: |
@@ -47,6 +62,8 @@ jobs:
           uv run mypy gui
 
       - name: Configure CMake
+        env:
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           CMAKE_ARGS=(-S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT")
           cmake "${CMAKE_ARGS[@]}"
@@ -79,7 +96,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -101,15 +118,11 @@ jobs:
       - name: Check native Windows Python code
         shell: pwsh
         run: |
-          uv sync --locked --python 3.13
+          uv sync --locked
           uv run ruff format --check gui
           uv run ruff check gui
           uv run mypy gui
-          uv run pytest gui/tests -m "not integration" `
-            --ignore=gui/tests/app_runtime_page_test.py `
-            --ignore=gui/tests/firmware_checkout_test.py `
-            --ignore=gui/tests/linux_appimage_packaging_test.py `
-            --ignore=gui/tests/sim_client_stream_reader_test.py
+          uv run pytest gui/tests -m "not integration"
 
       - name: Build native Windows desktop app
         shell: pwsh
@@ -153,7 +166,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -166,23 +179,14 @@ jobs:
           cache-dependency-path: packaging/linux/electron/package-lock.json
 
       - name: Install Ubuntu packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            file \
-            libasound2t64 \
-            libgbm1 \
-            libgl1-mesa-dri \
-            libgtk-3-0t64 \
-            libnss3 \
-            libprotobuf-dev \
-            librsvg2-bin \
-            ninja-build \
-            procps \
-            protobuf-compiler \
-            xvfb
+        run: scripts/ci/install_linux_deps.sh
+
+      - name: Set up compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-amd64-${{ github.sha }}
+          restore-keys: ccache-linux-amd64-
 
       - name: Fetch compatible firmware
         run: echo "FIRMWARE_ROOT=$(scripts/ensure_firmware_checkout.sh)" >> "$GITHUB_ENV"
@@ -191,10 +195,12 @@ jobs:
         run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(nproc)" >> "$GITHUB_ENV"
 
       - name: Sync Python environment
-        run: uv sync --locked --python 3.13
+        run: uv sync --locked
 
       - name: Generate Python protobuf bindings
-        run: uv run python -m gui.protocol.proto_codegen
+        run: |
+          uv run python -m gui.protocol.proto_codegen
+          git diff --exit-code gui/generated
 
       - name: Check Python
         run: |
@@ -203,6 +209,8 @@ jobs:
           uv run mypy gui
 
       - name: Configure coverage build
+        env:
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           cmake -S . -B build -G Ninja \
             -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT" \
@@ -251,7 +259,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -264,23 +272,7 @@ jobs:
           cache-dependency-path: packaging/linux/electron/package-lock.json
 
       - name: Install Ubuntu packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            file \
-            libasound2t64 \
-            libgbm1 \
-            libgl1-mesa-dri \
-            libgtk-3-0t64 \
-            libnss3 \
-            libprotobuf-dev \
-            librsvg2-bin \
-            ninja-build \
-            procps \
-            protobuf-compiler \
-            xvfb
+        run: scripts/ci/install_linux_deps.sh
 
       - name: Build and smoke-test native AppImage
         env:

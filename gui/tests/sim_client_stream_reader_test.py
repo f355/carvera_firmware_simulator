@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any
 
 from gui.protocol.framed_transport import FramedTransport
-from gui.protocol.simulator_process import SimulatorProcess
 from gui.protocol.sim_client import SimulatorClient, SimulatorClientError, pb
+from gui.protocol.simulator_process import SimulatorProcess
 
 
 def write_fake_stream_server(path: Path, repo_root: Path) -> None:
@@ -80,6 +80,10 @@ import time
 
 sys.path.insert(0, {str(repo_root / "gui" / "generated")!r})
 import carvera_sim_pb2 as pb
+
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="uses POSIX pipe/pty semantics")
 
 header = sys.stdin.buffer.read(4)
 if len(header) == 4:

@@ -398,6 +398,14 @@ uv run mypy gui
 PYTHONPATH=. uv run pytest gui/tests
 ```
 
+When bumping the pinned firmware commit, regenerate
+`firmware/lpc_memory_layout.json` (the build hard-depends on it matching the
+pin):
+
+```sh
+uv run python scripts/lpc_memory_layout.py --firmware-root firmware/Carvera_Community_Firmware --output firmware/lpc_memory_layout.json --build
+```
+
 ## License
 
 The simulator is licensed under the GNU GPLv3; see [LICENSE.md](LICENSE.md).

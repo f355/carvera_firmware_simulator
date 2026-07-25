@@ -270,10 +270,6 @@ package = [
 package-linux = [
     { name = "pyinstaller" },
 ]
-package-windows = [
-    { name = "pyinstaller" },
-    { name = "pywebview" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -294,10 +290,6 @@ package = [
     { name = "pywebview", specifier = ">=6.2.1" },
 ]
 package-linux = [{ name = "pyinstaller", specifier = ">=6.20.0" }]
-package-windows = [
-    { name = "pyinstaller", specifier = ">=6.20.0" },
-    { name = "pywebview", specifier = ">=6.2.1" },
-]
 
 [[package]]
 name = "certifi"

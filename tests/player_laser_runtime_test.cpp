@@ -27,6 +27,7 @@
 
 extern "C" void TIMER2_IRQHandler(void);
 #include "support/assertions.hpp"
+#include "support/runtime_wait.hpp"
 
 using sim::test::require;
 
@@ -191,7 +192,7 @@ void test_ca1_plain_laser_mode_requests_manual_laser_tool() {
   require(spindle.has_tool && spindle.tool == 8888, "virtual CA1 laser tool should remain in the spindle");
 
   runtime.io().write_serial_command("M322\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "M322 should settle after CA1 laser tool test");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "M322 should settle after CA1 laser tool test");
   require(!runtime.inputs().laser_state().mode, "M322 should return the CA1 runtime to CNC mode");
 }
 

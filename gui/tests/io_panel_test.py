@@ -21,8 +21,8 @@ from gui.protocol.model import PhysicalIoState
 from gui.tests.fakes import FakeLabel, FakeStyleControl
 from gui.views.io_panel import (
     IoPanelView,
-    ca1_led_strip_styles,
     c1_main_button_style,
+    ca1_led_strip_styles,
     front_panel_led_text,
     pwm_status_text,
 )
@@ -51,7 +51,6 @@ def make_io_panel_view(main_button_control: FakeStyleControl | None = None) -> I
         firmware_switch_controls={},
         laser_badges={},
         laser_power_label=FakeLabel(),
-        pin_badges={},
         pwm_labels={},
         main_button_control=main_button_control,
         ca1_led_strip_indicators=(),

@@ -20,13 +20,36 @@
 
 #include <cmath>
 #include <cstddef>
+#include <string>
+#include <string_view>
 
+#include "sim/event_engine.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_pump.hpp"
+#include "assertions.hpp"
 
 #include "libs/Kernel.h"
 
 namespace sim::test {
+
+// Fails with a consumed-events diagnostic on timeout so CI-contention stalls
+// stay debuggable.
+inline EventRunResult require_motion_idle(RuntimePump& runner, std::size_t max_timer_events,
+                                          std::string_view message) {
+  const auto result = runner.run_until_motion_idle(max_timer_events);
+  require(result.motion_idle, std::string(message) + " within " + std::to_string(max_timer_events) +
+                                  " timer events; consumed " + std::to_string(result.timer_events));
+  return result;
+}
+
+inline EventRunResult require_motion_idle(EventEngine& engine, Kernel& kernel, std::size_t max_timer_events,
+                                          std::string_view message) {
+  const auto result = engine.run_until_motion_idle(kernel, max_timer_events);
+  require(result.status == EventRunStatus::ConditionReached,
+          std::string(message) + " within " + std::to_string(max_timer_events) + " timer events; consumed " +
+              std::to_string(result.timer_events));
+  return result;
+}
 
 struct RuntimeWaitBudget {
   int attempts{1000};

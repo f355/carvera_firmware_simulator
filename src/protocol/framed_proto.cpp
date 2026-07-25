@@ -24,33 +24,11 @@
 #include <ostream>
 #include <string>
 
-namespace {
-
-constexpr std::uint32_t max_frame_size = 16 * 1024 * 1024;
-
-std::array<char, 4> encode_size(std::uint32_t size) {
-  return {
-      static_cast<char>(size & 0xFF),
-      static_cast<char>((size >> 8) & 0xFF),
-      static_cast<char>((size >> 16) & 0xFF),
-      static_cast<char>((size >> 24) & 0xFF),
-  };
-}
-
-std::uint32_t decode_size(const std::array<char, 4>& bytes) {
-  return static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[0])) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[1])) << 8) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[2])) << 16) |
-         (static_cast<std::uint32_t>(static_cast<unsigned char>(bytes[3])) << 24);
-}
-
-}  // namespace
-
 namespace sim::proto_framing {
 
 bool write_message(std::ostream& stream, const google::protobuf::MessageLite& message) {
   const auto byte_size = message.ByteSizeLong();
-  if (byte_size > std::numeric_limits<std::uint32_t>::max() || byte_size > max_frame_size) {
+  if (byte_size > std::numeric_limits<std::uint32_t>::max() || byte_size > kMaxFrameSize) {
     return false;
   }
 
@@ -59,7 +37,7 @@ bool write_message(std::ostream& stream, const google::protobuf::MessageLite& me
     return false;
   }
 
-  const auto header = encode_size(static_cast<std::uint32_t>(payload.size()));
+  const auto header = encode_frame_size(static_cast<std::uint32_t>(payload.size()));
   stream.write(header.data(), static_cast<std::streamsize>(header.size()));
   stream.write(payload.data(), static_cast<std::streamsize>(payload.size()));
   return stream.good();
@@ -72,8 +50,8 @@ bool read_message(std::istream& stream, google::protobuf::MessageLite& message) 
     return false;
   }
 
-  const auto size = decode_size(header);
-  if (size > max_frame_size) {
+  const auto size = decode_frame_size(header.data());
+  if (size > kMaxFrameSize) {
     return false;
   }
 

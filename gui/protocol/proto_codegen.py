@@ -22,7 +22,6 @@ import sys
 from pathlib import Path
 from shutil import which
 
-
 SIMULATOR_ROOT = Path(__file__).resolve().parents[2]
 PROTO_PATH = SIMULATOR_ROOT / "proto" / "carvera_sim.proto"
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"

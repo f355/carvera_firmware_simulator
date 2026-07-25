@@ -15,11 +15,9 @@
 
 from __future__ import annotations
 
-import queue
 from collections.abc import Callable
 from threading import Lock
 from typing import Any, Generic, TypeVar
-
 
 T = TypeVar("T")
 
@@ -28,7 +26,6 @@ class TelemetryBuffer(Generic[T]):
     def __init__(self, convert: Callable[[Any], T], *, event_name: str = "machine_telemetry") -> None:
         self._convert = convert
         self._event_name = event_name
-        self._queue: queue.SimpleQueue[T] = queue.SimpleQueue()
         self._latest: T | None = None
         self._version = 0
         self._lock = Lock()
@@ -39,22 +36,9 @@ class TelemetryBuffer(Generic[T]):
             with self._lock:
                 self._latest = telemetry
                 self._version += 1
-            self._queue.put(telemetry)
-
-    def latest(self) -> T | None:
-        with self._lock:
-            return self._latest
 
     def latest_since(self, cursor: int) -> tuple[int, T | None]:
         with self._lock:
             if cursor == self._version:
                 return cursor, None
             return self._version, self._latest
-
-    def take_latest(self) -> T | None:
-        latest: T | None = None
-        while True:
-            try:
-                latest = self._queue.get_nowait()
-            except queue.Empty:
-                return latest

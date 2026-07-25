@@ -32,6 +32,7 @@
 #include "sim/board_profile.hpp"
 #include "sim/gpio_level.hpp"
 #include "sim/machine_geometry.hpp"
+#include "sim/runtime_pin_config.hpp"
 #include "sim/stepper_axis.hpp"
 
 namespace {
@@ -72,11 +73,7 @@ constexpr uint16_t atc_homing_endstop_pin_checksum = CHECKSUM("homing_endstop_pi
 constexpr double hard_limit_half_padding_mm = 1.0;
 constexpr double rotary_initial_angle_degrees = 10.0;
 
-sim::PinAddress pin_address(const Pin& pin) {
-  return sim::PinAddress{static_cast<std::uint8_t>(pin.port_number), pin.pin};
-}
-
-bool same_pin(sim::PinAddress lhs, sim::PinAddress rhs) { return lhs.port == rhs.port && lhs.pin == rhs.pin; }
+using sim::runtime_pins::pin_address;
 
 void set_pin_inactive(Pin& pin) {
   if (!pin.connected()) {
@@ -140,12 +137,10 @@ void attach_configured_stepper_axes(Kernel& kernel, MachineModel model, bool rot
       Pin max_endstop_pin;
       min_endstop_pin.from_string(kernel.config->value(endstop_checksums[actuator][0])->as_string("nc"));
       max_endstop_pin.from_string(kernel.config->value(endstop_checksums[actuator][1])->as_string("nc"));
-      const bool rotary_shared_home_sensor = actuator > Z_AXIS && min_endstop_pin.connected() &&
-                                             max_endstop_pin.connected() &&
-                                             same_pin(pin_address(min_endstop_pin), pin_address(max_endstop_pin));
-      const bool cartesian_shared_switch = actuator <= Z_AXIS && min_endstop_pin.connected() &&
-                                           max_endstop_pin.connected() &&
-                                           same_pin(pin_address(min_endstop_pin), pin_address(max_endstop_pin));
+      const bool shared_endstop_switch = min_endstop_pin.connected() && max_endstop_pin.connected() &&
+                                         pin_address(min_endstop_pin) == pin_address(max_endstop_pin);
+      const bool rotary_shared_home_sensor = actuator > Z_AXIS && shared_endstop_switch;
+      const bool cartesian_shared_switch = actuator <= Z_AXIS && shared_endstop_switch;
       const bool home_to_min =
           kernel.config->value(endstop_checksums[actuator][2])->as_string("home_to_min") != "home_to_max";
       double soft_min = 0.0;

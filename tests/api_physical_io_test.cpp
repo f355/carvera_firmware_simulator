@@ -65,6 +65,22 @@ int main() {
   require(response.pwm_output().duty() == 0.25, "get_pwm_output should report PWM duty");
   require(response.pwm_output().period_us() == 1000.0, "get_pwm_output should report PWM period");
 
+  response = api.request([](auto& request) { request.mutable_get_machine_snapshot(); });
+  require(response.ok(), "get_machine_snapshot should boot firmware");
+
+  sim::test::pb::PhysicalIoSnapshot io_snapshot;
+  require(api.api().fill_physical_io_snapshot_nonblocking(io_snapshot), "physical IO snapshot should fill");
+  require(io_snapshot.pwm_outputs_size() == 6, "physical IO snapshot should report all six PWM1 outputs");
+  for (int pin = 0; pin <= 5; ++pin) {
+    int seen = 0;
+    for (const auto& output : io_snapshot.pwm_outputs()) {
+      if (output.pin().port() == 2 && static_cast<int>(output.pin().pin()) == pin) {
+        ++seen;
+      }
+    }
+    require(seen == 1, "physical IO snapshot should report PWM pin 2." + std::to_string(pin) + " exactly once");
+  }
+
   response = api.request([](auto& request) {
     request.mutable_trigger_interrupt_rise()->mutable_pin()->set_port(2);
     request.mutable_trigger_interrupt_rise()->mutable_pin()->set_pin(6);

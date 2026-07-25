@@ -15,13 +15,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from math import dist
 from threading import Lock
-from typing import Any, Callable
+from typing import Any
 
 from nicegui import ui
-
 
 BACKPLOT_LINE_COLOR = "#16a34a"
 BACKPLOT_MIN_DISTANCE_MM = 1.0

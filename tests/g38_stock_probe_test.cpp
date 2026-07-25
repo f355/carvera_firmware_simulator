@@ -18,6 +18,7 @@
 #include "Robot.h"
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
+#include "support/runtime_wait.hpp"
 
 int main() {
   using sim::test::require;
@@ -37,7 +38,7 @@ int main() {
       sim::Box{current_x - 5.0, current_y - 5.0, target_z - 0.25, current_x + 5.0, current_y + 5.0, target_z});
 
   runtime.io().write_serial_command("G91\nG38.2 Z-10 F60\n");
-  require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "G38.2 probe move should stop and reach idle");
+  sim::test::require_motion_idle(runtime.runner(), 200'000, "G38.2 probe move should stop and reach idle");
   const auto serial = runtime.io().read_serial_text();
   require(serial.find("[PRB:") != std::string::npos, "G38.2 should report a probed position");
   require(serial.find(":1]") != std::string::npos, "G38.2 should report probe success");

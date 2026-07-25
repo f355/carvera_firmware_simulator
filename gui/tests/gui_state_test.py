@@ -16,8 +16,14 @@
 from __future__ import annotations
 
 from gui.core.gui_state import GuiStateStore
-from gui.protocol.model import AxisSnapshot, Box3D, InteractiveTransportState, MachineState, SpindleSnapshot
-from gui.protocol.model import TransportEndpoint
+from gui.protocol.model import (
+    AxisSnapshot,
+    Box3D,
+    InteractiveTransportState,
+    MachineState,
+    SpindleSnapshot,
+    TransportEndpoint,
+)
 
 
 def test_gui_state_store_publishes_versioned_snapshots() -> None:

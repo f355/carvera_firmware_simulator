@@ -19,8 +19,8 @@ import subprocess
 import sys
 import threading
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from gui.core.logging import log_gui_event
 from gui.protocol.client_error import SimulatorClientError
@@ -108,6 +108,9 @@ class SimulatorProcess:
                 if self.inherit_stderr:
                     print(line, file=sys.stderr)
                 if self.stderr_handler is not None:
-                    self.stderr_handler(line)
-        except Exception:
-            return
+                    try:
+                        self.stderr_handler(line)
+                    except Exception as exc:
+                        log_gui_event(f"stderr handler failed on line {line!r}: {exc}")
+        except Exception as exc:
+            log_gui_event(f"stderr reader stopped: {exc}")

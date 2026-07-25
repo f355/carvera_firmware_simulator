@@ -55,7 +55,7 @@ class ApiService {
   std::optional<Response> handle_harness_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_cooperative_harness_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_serial_motion_command(const carvera::sim::v1::Request& request);
-  std::optional<Response> handle_physical_command(const carvera::sim::v1::Request& request);
+  std::optional<Response> handle_physical_command(const carvera::sim::v1::Request& request, bool pump_main_loop = true);
   std::optional<Response> handle_cooperative_physical_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_snapshot_transport_command(const carvera::sim::v1::Request& request);
   std::optional<Response> handle_cooperative_snapshot_transport_command(const carvera::sim::v1::Request& request);

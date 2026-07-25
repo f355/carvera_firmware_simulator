@@ -59,6 +59,12 @@ def set_badge(
         label.classes(add="badge-on" if active else "badge-off")
 
 
+def set_badge_na(label: BadgeLike) -> None:
+    label.text = "n/a"
+    label.classes(remove="badge-on badge-off badge-warn")
+    label.classes(add="badge-off")
+
+
 def set_status_badge(label: BadgeLike, good: bool, good_text: str, bad_text: str) -> None:
     label.text = good_text if good else bad_text
     label.classes(remove="badge-on badge-off badge-warn")

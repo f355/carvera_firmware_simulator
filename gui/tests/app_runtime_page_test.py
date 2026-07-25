@@ -23,6 +23,10 @@ import time
 import urllib.request
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="spawns the GUI server with POSIX process semantics")
+
 
 def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:

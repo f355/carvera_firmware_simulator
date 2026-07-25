@@ -17,20 +17,20 @@ from __future__ import annotations
 
 from gui.core.defaults import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
 from gui.protocol.model import Box3D
+from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import (
-    CA1_BED_SURFACE_SCENE_Z,
-    CA1_ETS_SCENE_XY,
-    CA1_HOME_SWITCH_SCENE_XY,
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
     C1_HOME_SWITCH_SCENE_XYZ,
+    CA1_BED_SURFACE_SCENE_Z,
+    CA1_ETS_SCENE_XY,
+    CA1_HOME_SWITCH_SCENE_XY,
     SceneTransform,
-    ca1_bed_scene_point,
-    ca1_envelope_scene_point,
     c1_model_point,
     c1_spindle_face_point,
+    ca1_bed_scene_point,
+    ca1_envelope_scene_point,
 )
-from gui.scene.scene_geometry import MachineSceneGeometry
 
 
 def test_scene_transform_centers_xy_and_places_z_on_bed() -> None:

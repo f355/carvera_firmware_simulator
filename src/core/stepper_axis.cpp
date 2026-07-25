@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <utility>
 
 #include "sim/gpio_level.hpp"
 #include "sim/lpc1768.hpp"
@@ -52,12 +53,12 @@ void StepperAxis::reset_position() {
 }
 
 void StepperAxis::on_gpio_level_changed(PinAddress pin, bool high) {
-  if (same_pin(pin, direction_pin_)) {
+  if (pin == direction_pin_) {
     direction_high_ = high;
     return;
   }
 
-  if (!same_pin(pin, step_pin_)) {
+  if (pin != step_pin_) {
     return;
   }
 
@@ -115,8 +116,6 @@ bool StepperAxis::endstop_triggered(const StepperEndstopConfig& endstop) const {
   return position <= endstop.trigger_position_mm;
 }
 
-bool StepperAxis::same_pin(PinAddress lhs, PinAddress rhs) { return lhs.port == rhs.port && lhs.pin == rhs.pin; }
-
 void StepperAxis::update_endstop_pin() {
   for (const auto& pin_owner : endstops_) {
     if (!pin_owner.enabled) {
@@ -128,7 +127,7 @@ void StepperAxis::update_endstop_pin() {
       if (&previous == &pin_owner) {
         break;
       }
-      if (previous.enabled && same_pin(previous.pin, pin_owner.pin)) {
+      if (previous.enabled && previous.pin == pin_owner.pin) {
         already_handled = true;
         break;
       }
@@ -140,7 +139,7 @@ void StepperAxis::update_endstop_pin() {
     bool any_triggered = false;
     bool raw_level_when_triggered = pin_owner.raw_level_when_triggered;
     for (const auto& endstop : endstops_) {
-      if (!endstop.enabled || !same_pin(endstop.pin, pin_owner.pin)) {
+      if (!endstop.enabled || endstop.pin != pin_owner.pin) {
         continue;
       }
       raw_level_when_triggered = endstop.raw_level_when_triggered;
@@ -170,39 +169,29 @@ std::size_t StepperAxisRegistry::add_axis(const StepperAxisConfig& config) {
   return axes_.size() - 1;
 }
 
-std::int64_t StepperAxisRegistry::position_steps(std::size_t axis) const {
+const StepperAxis& StepperAxisRegistry::checked(std::size_t axis) const {
   if (axis >= axes_.size()) {
     throw std::out_of_range("stepper axis index");
   }
-  return axes_[axis].position_steps();
+  return axes_[axis];
 }
 
-double StepperAxisRegistry::position_mm(std::size_t axis) const {
-  if (axis >= axes_.size()) {
-    throw std::out_of_range("stepper axis index");
-  }
-  return axes_[axis].position_mm();
+StepperAxis& StepperAxisRegistry::checked(std::size_t axis) {
+  return const_cast<StepperAxis&>(std::as_const(*this).checked(axis));
 }
 
-bool StepperAxisRegistry::endstop_triggered(std::size_t axis) const {
-  if (axis >= axes_.size()) {
-    throw std::out_of_range("stepper axis index");
-  }
-  return axes_[axis].endstop_triggered();
-}
+std::int64_t StepperAxisRegistry::position_steps(std::size_t axis) const { return checked(axis).position_steps(); }
+
+double StepperAxisRegistry::position_mm(std::size_t axis) const { return checked(axis).position_mm(); }
+
+bool StepperAxisRegistry::endstop_triggered(std::size_t axis) const { return checked(axis).endstop_triggered(); }
 
 bool StepperAxisRegistry::endstop_triggered(std::size_t axis, EndstopSide side) const {
-  if (axis >= axes_.size()) {
-    throw std::out_of_range("stepper axis index");
-  }
-  return axes_[axis].endstop_triggered(side);
+  return checked(axis).endstop_triggered(side);
 }
 
 void StepperAxisRegistry::set_motor_connected(std::size_t axis, bool connected) {
-  if (axis >= axes_.size()) {
-    throw std::out_of_range("stepper axis index");
-  }
-  axes_[axis].set_motor_connected(connected);
+  checked(axis).set_motor_connected(connected);
 }
 
 void StepperAxisRegistry::on_gpio_level_changed(PinAddress pin, bool high) {

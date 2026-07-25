@@ -120,7 +120,8 @@ string(JSON SIM_LPC_LAYOUT_FIRMWARE_COMMIT GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" f
 if(NOT SIM_LPC_LAYOUT_FIRMWARE_COMMIT STREQUAL SIM_COMPATIBLE_FIRMWARE_COMMIT)
   message(FATAL_ERROR
     "${SIM_LPC_MEMORY_LAYOUT_FILE} describes firmware ${SIM_LPC_LAYOUT_FIRMWARE_COMMIT}, but the simulator is "
-    "pinned to ${SIM_COMPATIBLE_FIRMWARE_COMMIT}. Rebuild the firmware and regenerate the LPC memory layout."
+    "pinned to ${SIM_COMPATIBLE_FIRMWARE_COMMIT}. Rebuild the firmware and regenerate the layout with "
+    "scripts/lpc_memory_layout.py."
   )
 endif()
 foreach(layout_value IN ITEMS
@@ -130,11 +131,12 @@ endforeach()
 foreach(layout_value IN ITEMS region_start region_end dynamic_start)
   string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
 endforeach()
-foreach(type_name IN ITEMS
-    AD8495 ATCHandler Adc AppendFileStream Block CartesianSolution Config ConfigCache Configurator Conveyor
-    Drillingcycles Endstops Gcode GcodeDispatch Kernel Laser MainButton Max31855 Pin Planner Player PT100_E3D Pwm
-    Robot SerialConsole SerialConsole2 SimpleShell SlowTicker SoftPWM StepTicker StepperMotor StreamOutputPool Switch
-    TemperatureControl TemperatureSwitch Thermistor Watchdog WifiProvider ZProbe)
+# The JSON is the source of truth for tracked types; the template maps each
+# entry to its generated constant name.
+string(JSON SIM_LPC_TYPE_COUNT LENGTH "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes)
+math(EXPR SIM_LPC_TYPE_LAST_INDEX "${SIM_LPC_TYPE_COUNT} - 1")
+foreach(type_index RANGE ${SIM_LPC_TYPE_LAST_INDEX})
+  string(JSON type_name MEMBER "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_index})
   string(JSON SIM_LPC_TYPE_${type_name} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" type_sizes ${type_name})
 endforeach()
 configure_file(

@@ -65,7 +65,6 @@ class StepperAxis {
   void set_motor_connected(bool connected);
 
  private:
-  static bool same_pin(PinAddress lhs, PinAddress rhs);
   bool endstop_triggered(const StepperEndstopConfig& endstop) const;
   void update_endstop_pin();
 
@@ -95,6 +94,9 @@ class StepperAxisRegistry {
   void on_gpio_level_changed(PinAddress pin, bool high);
 
  private:
+  const StepperAxis& checked(std::size_t axis) const;
+  StepperAxis& checked(std::size_t axis);
+
   std::vector<StepperAxis> axes_;
 };
 

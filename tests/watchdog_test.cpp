@@ -15,7 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
 
 #include "libs/Kernel.h"
 #include "libs/Watchdog.h"

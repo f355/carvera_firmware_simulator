@@ -19,11 +19,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from gui.core.defaults import PinWatch
 from gui.protocol.model import PhysicalIoState
 
-from .ui_helpers import set_badge
-
-PinWatch = tuple[str, int, int]
+from .ui_helpers import set_badge, set_badge_na
 
 
 def _rgb_components(rgb: Any) -> tuple[int, int, int]:
@@ -88,7 +87,6 @@ class IoPanelView:
     firmware_switch_controls: dict[str, dict[str, Any]]
     laser_badges: dict[str, Any]
     laser_power_label: Any
-    pin_badges: dict[str, Any]
     pwm_labels: dict[str, Any]
     main_button_control: Any | None = None
     ca1_led_strip_indicators: Sequence[Any] = ()
@@ -112,9 +110,7 @@ class IoPanelView:
                     set_badge(badge, snapshot.spindle_alarm_triggered, "alarm", "clear", warn=True)
             else:
                 for badge in self._spindle_alarm_badges():
-                    badge.text = "n/a"
-                    badge.classes(remove="badge-on badge-off badge-warn")
-                    badge.classes(add="badge-off")
+                    set_badge_na(badge)
 
             for name, controls in self.firmware_switch_controls.items():
                 state = snapshot.switches.get(name)
@@ -205,9 +201,7 @@ class IoPanelView:
     def _apply_laser(self, state: Any) -> None:
         if not state.available:
             for badge in self.laser_badges.values():
-                badge.text = "n/a"
-                badge.classes(remove="badge-on badge-off badge-warn")
-                badge.classes(add="badge-off")
+                set_badge_na(badge)
             self.laser_power_label.text = "n/a"
             return
         set_badge(self.laser_badges["mode"], bool(state.mode), "laser", "cnc")

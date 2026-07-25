@@ -132,7 +132,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $FirmwareRoot "src\main.cpp") -PathT
 $env:UV_PROJECT_ENVIRONMENT = Join-Path $BuildDir "python-environment"
 $env:UV_LINK_MODE = "copy"
 Invoke-NativeCommand $Uv @(
-    "sync", "--project", $RootDir, "--locked", "--no-dev", "--group", "package-windows", "--python", "3.13"
+    "sync", "--project", $RootDir, "--locked", "--no-dev", "--group", "package"
 )
 
 Invoke-NativeCommand $Cmake @(

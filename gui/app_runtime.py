@@ -23,7 +23,6 @@ from nicegui import app, ui
 
 from gui.core.runtime_paths import resource_root
 
-
 SIMULATOR_ROOT = resource_root()
 if str(SIMULATOR_ROOT) not in sys.path:
     sys.path.insert(0, str(SIMULATOR_ROOT))
@@ -31,7 +30,6 @@ if str(SIMULATOR_ROOT) not in sys.path:
 from gui.app_page import build_ui_page  # noqa: E402
 from gui.core.session import SimulatorSession  # noqa: E402
 from gui.presenters.app import AppPresenters  # noqa: E402
-
 
 session = SimulatorSession.create(SIMULATOR_ROOT, app)
 actions = AppPresenters(session)

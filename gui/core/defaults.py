@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 DEFAULT_SD_CONFIG = "# Carvera simulator SD config.\nsd_ok true\n"
 TOOL_SHANK_INSERT_MM = 20.0
 DEFAULT_C1_TOOLS: list[dict[str, Any]] = [
@@ -63,29 +62,18 @@ MACHINE_COMPONENT_COLORS = {
 # the physical spindle face, not a firmware coordinate.
 CA1_SPINDLE_FACE_LOCAL = (58.597, 12.939, 49.0)
 C1_SPINDLE_FACE_LOCAL = (-29.954, -19.092, 66.625)
-PIN_WATCHES = [
-    ("X max", 0, 25),
-    ("Y max", 1, 4),
-    ("Z max", 1, 8),
-    ("Probe", 2, 6),
-    ("ETS", 0, 5),
-    ("ATC detector", 0, 20),
-    ("ATC home", 1, 0),
-    ("Spindle PWM", 2, 5),
-    ("Laser PWM", 2, 4),
-    ("Work light", 2, 0),
-    ("Vacuum", 2, 13),
-    ("Probe charger", 0, 23),
-]
-PWM_WATCHES = [
+PinWatch = tuple[str, int, int]
+SwitchWatch = tuple[str, str]
+
+PWM_WATCHES: list[PinWatch] = [
     ("Spindle", 2, 5),
     ("Laser", 2, 4),
-    ("Vacuum PWM", 2, 3),
-    ("Spindle fan", 2, 1),
     ("Power fan", 2, 3),
     ("Extend PWM", 2, 2),
+    ("Spindle fan", 2, 1),
+    ("Work light", 2, 0),
 ]
-SWITCH_WATCHES = [
+SWITCH_WATCHES: list[SwitchWatch] = [
     ("light", "Light"),
     ("vacuum", "Vacuum"),
     ("spindle_fan", "Spindle fan"),

@@ -27,7 +27,7 @@ from gui.presenters.service import ServicePresenter
 from gui.presenters.state import StatePresenter
 from gui.presenters.tooling import ToolingPresenter
 from gui.views.tool_table import collect_tool_table
-from gui.views.ui_helpers import event_bool, set_control_locked, set_status_badge
+from gui.views.ui_helpers import event_bool, set_control_locked
 
 
 class PowerPresenter(SessionPresenter):
@@ -96,15 +96,13 @@ class PowerPresenter(SessionPresenter):
                 view.axis_panel_view.reset()
             if view.transport_panel_view is not None:
                 view.transport_panel_view.reset()
-            set_status_badge(view.firmware_state_view.firmware_badge, False, "booted", "off")
-            set_status_badge(view.firmware_state_view.homed_badge, False, "homed", "not homed")
-            set_status_badge(view.firmware_state_view.soft_limit_badge, False, "enabled", "disabled")
+            view.firmware_state_view.reset()
             if view.io_panel_view is not None:
                 view.io_panel_view.reset(str(view.model_select.value))
             if view.atc_panel_view is not None:
                 view.atc_panel_view.reset()
             if view.eeprom_panel_view is not None:
-                view.eeprom_panel_view.status_label.text = "Power on and refresh to view EEPROM contents."
+                view.eeprom_panel_view.reset()
             if view.memory_panel_view is not None:
                 view.memory_panel_view.reset()
             self.state.update_machine_scene(view, None)

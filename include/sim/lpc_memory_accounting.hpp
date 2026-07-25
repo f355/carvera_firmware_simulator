@@ -191,6 +191,9 @@ ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_byte
                                                    std::string_view origin,
                                                    std::string_view allocation_implementation = {});
 
+std::string describe_firmware_function(void* function_address);
+bool is_allocation_runtime_function(std::string_view function_name);
+
 class MemoryAccounting {
  public:
   MemoryAccounting();
@@ -218,6 +221,9 @@ class MemoryAccounting {
 
   void record(MemoryRegion region, void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
               std::string type_name, bool target_size_exact);
+  std::size_t find_or_create_group(MemoryRegion region, std::string type_name, std::size_t host_payload_bytes,
+                                   std::size_t target_payload_bytes, bool target_size_exact);
+  void charge_group(std::size_t group_index, std::size_t target_payload_bytes);
 
   mutable std::mutex mutex_;
   MainSramModel main_;

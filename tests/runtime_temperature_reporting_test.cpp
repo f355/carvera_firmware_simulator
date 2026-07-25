@@ -21,6 +21,7 @@
 #include "support/cartesian_config.hpp"
 #include "support/temp_sdcard.hpp"
 #include "support/assertions.hpp"
+#include "support/runtime_wait.hpp"
 
 using sim::test::require;
 using sim::test::require_contains;
@@ -61,7 +62,7 @@ int main() {
     runtime.inputs().set_temperature(sim::TemperatureSensor::Spindle, 42.0);
     pump_temperature(runtime);
     runtime.io().write_serial_command("M105\n");
-    require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M105 should be handled without queued motion");
+    sim::test::require_motion_idle(runtime.runner(), 20'000, "M105 should be handled without queued motion");
     require_contains(runtime.io().read_serial_text(), "M:42.",
                      "M105 should report the spindle thermistor through firmware");
   }
@@ -85,7 +86,7 @@ int main() {
     runtime.inputs().set_temperature(sim::TemperatureSensor::Power, 45.0);
     pump_temperature(runtime);
     runtime.io().write_serial_command("M106\n");
-    require(runtime.runner().run_until_motion_idle(20'000).motion_idle, "M106 should be handled without queued motion");
+    sim::test::require_motion_idle(runtime.runner(), 20'000, "M106 should be handled without queued motion");
     require_contains(runtime.io().read_serial_text(), "P:45.",
                      "M106 should report the CA1 power thermistor through firmware");
   }

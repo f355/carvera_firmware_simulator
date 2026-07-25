@@ -23,6 +23,10 @@
 
 namespace sim {
 
+namespace {
+constexpr std::uint32_t kDefaultMaxStepTicks = 100000;
+}
+
 std::optional<ApiService::Response> ApiService::handle_serial_motion_command(const carvera::sim::v1::Request& request) {
   using Request = carvera::sim::v1::Request;
 
@@ -36,8 +40,9 @@ std::optional<ApiService::Response> ApiService::handle_serial_motion_command(con
       return response;
     }
     case Request::kRunUntilIdle: {
-      const auto max_step_ticks =
-          request.run_until_idle().max_step_ticks() == 0 ? 100000 : request.run_until_idle().max_step_ticks();
+      const auto max_step_ticks = request.run_until_idle().max_step_ticks() == 0
+                                      ? kDefaultMaxStepTicks
+                                      : request.run_until_idle().max_step_ticks();
       const bool idle = runner_.run_until_motion_idle(static_cast<std::size_t>(max_step_ticks)).motion_idle;
       auto response = ok(request.id());
       response.mutable_run_result()->set_idle(idle);
@@ -54,7 +59,8 @@ std::optional<ApiService::Response> ApiService::handle_serial_motion_command(con
       }
 
       io_.write_serial_command("G91\n" + command);
-      const auto max_step_ticks = request.jog().max_step_ticks() == 0 ? 100000 : request.jog().max_step_ticks();
+      const auto max_step_ticks =
+          request.jog().max_step_ticks() == 0 ? kDefaultMaxStepTicks : request.jog().max_step_ticks();
       const bool idle = runner_.run_until_motion_idle(static_cast<std::size_t>(max_step_ticks)).motion_idle;
       auto response = ok(request.id());
       auto* result = response.mutable_jog_result();

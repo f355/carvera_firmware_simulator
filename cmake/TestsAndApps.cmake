@@ -132,13 +132,6 @@ foreach(test_name IN LISTS SIM_RUNTIME_TESTS)
   sim_add_runtime_test(${test_name})
 endforeach()
 set_tests_properties(atc_m6_runtime_test PROPERTIES TIMEOUT ${SIM_EXTRA_LONG_TEST_TIMEOUT_SECONDS})
-set_tests_properties(
-  atc_m6_runtime_test
-  realtime_motion_speed_test
-  realtime_timer_pacing_test
-  rotary_axis_runtime_test
-  PROPERTIES RUN_SERIAL TRUE
-)
 
 target_compile_definitions(free_running_homing_test PRIVATE CARVERA_FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT}")
 
@@ -157,50 +150,38 @@ sim_force_include(carvera_sim_interactive ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_interactive PRIVATE carvera_sim_api)
 sim_enable_project_diagnostics(carvera_sim_interactive)
 
-add_executable(stdio_api_test tests/stdio_api_test.cpp)
-sim_force_include(stdio_api_test ${HOST_PRELUDE})
-target_link_libraries(stdio_api_test PRIVATE carvera_sim_api)
-sim_enable_test_diagnostics(stdio_api_test)
-add_dependencies(stdio_api_test carvera_sim_stdio)
-add_test(NAME stdio_api_test COMMAND stdio_api_test $<TARGET_FILE:carvera_sim_stdio>)
-sim_register_test(stdio_api_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+# Tests driving a server binary over stdio; the server target is passed as argv[1].
+function(sim_add_server_test test_name server_target)
+  add_executable(${test_name} tests/${test_name}.cpp)
+  sim_force_include(${test_name} ${HOST_PRELUDE})
+  target_link_libraries(${test_name} PRIVATE carvera_sim_api)
+  sim_enable_test_diagnostics(${test_name})
+  add_dependencies(${test_name} ${server_target})
+  add_test(NAME ${test_name} COMMAND ${test_name} $<TARGET_FILE:${server_target}>)
+  sim_register_test(${test_name} TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+endfunction()
 
-add_executable(stream_interactive_transport_test tests/stream_interactive_transport_test.cpp)
-sim_force_include(stream_interactive_transport_test ${HOST_PRELUDE})
-target_link_libraries(stream_interactive_transport_test PRIVATE carvera_sim_api)
-sim_enable_test_diagnostics(stream_interactive_transport_test)
-add_dependencies(stream_interactive_transport_test carvera_sim_stream_stdio)
-add_test(NAME stream_interactive_transport_test
-  COMMAND stream_interactive_transport_test $<TARGET_FILE:carvera_sim_stream_stdio>)
-sim_register_test(stream_interactive_transport_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+sim_add_server_test(stdio_api_test carvera_sim_stdio)
+foreach(test_name IN ITEMS
+  stream_interactive_transport_test
+  stream_startup_telemetry_test
+  stream_busy_control_test
+  stream_player_realtime_speed_test
+)
+  sim_add_server_test(${test_name} carvera_sim_stream_stdio)
+endforeach()
 
-add_executable(stream_startup_telemetry_test tests/stream_startup_telemetry_test.cpp)
-sim_force_include(stream_startup_telemetry_test ${HOST_PRELUDE})
-target_link_libraries(stream_startup_telemetry_test PRIVATE carvera_sim_api)
-sim_enable_test_diagnostics(stream_startup_telemetry_test)
-add_dependencies(stream_startup_telemetry_test carvera_sim_stream_stdio)
-add_test(NAME stream_startup_telemetry_test
-  COMMAND stream_startup_telemetry_test $<TARGET_FILE:carvera_sim_stream_stdio>)
-sim_register_test(stream_startup_telemetry_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+# Tests asserting wall-clock pacing must not compete with parallel test load.
+set_tests_properties(
+  atc_m6_runtime_test
+  realtime_motion_speed_test
+  realtime_timer_pacing_test
+  rotary_axis_runtime_test
+  stream_busy_control_test
+  stream_player_realtime_speed_test
+  PROPERTIES RUN_SERIAL TRUE
+)
 
-add_executable(stream_busy_control_test tests/stream_busy_control_test.cpp)
-sim_force_include(stream_busy_control_test ${HOST_PRELUDE})
-target_link_libraries(stream_busy_control_test PRIVATE carvera_sim_api)
-sim_enable_test_diagnostics(stream_busy_control_test)
-add_dependencies(stream_busy_control_test carvera_sim_stream_stdio)
-add_test(NAME stream_busy_control_test
-  COMMAND stream_busy_control_test $<TARGET_FILE:carvera_sim_stream_stdio>)
-sim_register_test(stream_busy_control_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
-
-add_executable(stream_player_realtime_speed_test tests/stream_player_realtime_speed_test.cpp)
-sim_force_include(stream_player_realtime_speed_test ${HOST_PRELUDE})
-target_link_libraries(stream_player_realtime_speed_test PRIVATE carvera_sim_api)
-sim_enable_test_diagnostics(stream_player_realtime_speed_test)
-add_dependencies(stream_player_realtime_speed_test carvera_sim_stream_stdio)
-add_test(NAME stream_player_realtime_speed_test
-  COMMAND stream_player_realtime_speed_test $<TARGET_FILE:carvera_sim_stream_stdio>)
-sim_register_test(stream_player_realtime_speed_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
-set_tests_properties(stream_player_realtime_speed_test PROPERTIES RUN_SERIAL TRUE)
 add_library(carvera_firmware_boot_main OBJECT tests/support/firmware_main_entry.cpp)
 target_include_directories(carvera_firmware_boot_main PRIVATE include)
 target_include_directories(carvera_firmware_boot_main SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})

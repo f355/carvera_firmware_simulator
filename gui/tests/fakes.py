@@ -23,21 +23,21 @@ class FakeObject:
         self.materials: list[object] = []
         self.deleted = False
 
-    def move(self, x: float, y: float, z: float) -> "FakeObject":
+    def move(self, x: float, y: float, z: float) -> FakeObject:
         self.last_move = (x, y, z)
         return self
 
-    def scale(self, _value: float) -> "FakeObject":
+    def scale(self, _value: float) -> FakeObject:
         return self
 
-    def rotate(self, *_values: float) -> "FakeObject":
+    def rotate(self, *_values: float) -> FakeObject:
         return self
 
-    def material(self, *values: object) -> "FakeObject":
+    def material(self, *values: object) -> FakeObject:
         self.materials.append(values[0] if len(values) == 1 else values)
         return self
 
-    def visible(self, value: bool) -> "FakeObject":
+    def visible(self, value: bool) -> FakeObject:
         self.visibility.append(value)
         return self
 
@@ -52,7 +52,7 @@ class FakeLine(FakeObject):
         self.end = end
         self.color = ""
 
-    def material(self, *values: object) -> "FakeLine":
+    def material(self, *values: object) -> FakeLine:
         super().material(*values)
         if len(values) == 1 and isinstance(values[0], str):
             self.color = values[0]

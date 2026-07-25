@@ -35,13 +35,6 @@
 
 namespace {
 
-constexpr std::uint32_t max_frame_size = 16 * 1024 * 1024;
-
-std::uint32_t decode_frame_size(const std::array<unsigned char, 4>& bytes) {
-  return static_cast<std::uint32_t>(bytes[0]) | (static_cast<std::uint32_t>(bytes[1]) << 8) |
-         (static_cast<std::uint32_t>(bytes[2]) << 16) | (static_cast<std::uint32_t>(bytes[3]) << 24);
-}
-
 enum class ReadResult {
   success,
   closed,
@@ -135,8 +128,8 @@ struct StreamRequestPump::Impl {
         return;
       }
 
-      const auto size = decode_frame_size(header);
-      if (size > max_frame_size) {
+      const auto size = sim::proto_framing::decode_frame_size(header.data());
+      if (size > sim::proto_framing::kMaxFrameSize) {
         finish(ReadResult::failed);
         return;
       }

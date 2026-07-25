@@ -18,7 +18,7 @@
 #include <cstring>
 
 #include "checksumm.h"
-#include "test_support.hpp"
+#include "support/assertions.hpp"
 #include "utils.h"
 
 int main() {

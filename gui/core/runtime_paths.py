@@ -27,7 +27,8 @@ def resource_root(
 ) -> Path:
     frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     if frozen:
-        bundle_root = Path(getattr(sys, "_MEIPASS")) if bundle_root is None else bundle_root
+        # PyInstaller injects _MEIPASS at runtime; getattr keeps static checkers happy.
+        bundle_root = Path(getattr(sys, "_MEIPASS")) if bundle_root is None else bundle_root  # noqa: B009
         return bundle_root.resolve()
 
     module_file = Path(__file__) if module_file is None else module_file

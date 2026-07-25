@@ -19,6 +19,7 @@
 #include "sim/physical_scene.hpp"
 #include "support/assertions.hpp"
 #include "support/probe_runtime.hpp"
+#include "support/runtime_wait.hpp"
 #include "sim/simulator_context.hpp"
 
 int main() {
@@ -42,8 +43,7 @@ int main() {
       sim::Box{stock_min_x, current_y - 5.0, tip_z - 5.0, stock_min_x + 10.0, current_y + 5.0, tip_z + 5.0});
 
   runtime.io().write_serial_command("G91\nG38.2 X10 F60\n");
-  require(runtime.runner().run_until_motion_idle(250'000).motion_idle,
-          "G38.2 side probe move should stop and reach idle");
+  sim::test::require_motion_idle(runtime.runner(), 250'000, "G38.2 side probe move should stop and reach idle");
   const auto serial = runtime.io().read_serial_text();
   require(serial.find("[PRB:") != std::string::npos, "G38.2 should report a probed position");
   require(serial.find(":1]") != std::string::npos, "G38.2 should report probe success");

@@ -15,8 +15,12 @@
 
 from __future__ import annotations
 
-from gui.scene.lighting import ModelMaterialSettings, SceneLightingSettings
-from gui.scene.lighting import scene_lighting_patch_javascript, scene_material_patch_javascript
+from gui.scene.lighting import (
+    ModelMaterialSettings,
+    SceneLightingSettings,
+    scene_lighting_patch_javascript,
+    scene_material_patch_javascript,
+)
 
 
 def test_scene_lighting_defaults_are_tuned_for_machine_models() -> None:

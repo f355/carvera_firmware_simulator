@@ -15,7 +15,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
 
 #include "sim/persistent_machine_state.hpp"
 #include "sim/simulation_instance.hpp"

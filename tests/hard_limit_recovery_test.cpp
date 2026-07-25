@@ -110,7 +110,7 @@ int main() {
   runtime.io().write_serial_command("G0 X-1 F120\n");
   require(sim::test::pump_until_axis_moves_by(runtime.runner(), simulator, rebooted_kernel, 0, 0.02),
           "firmware should accept motion after M999 recovery");
-  require(runtime.runner().run_until_motion_idle(200'000).motion_idle, "post-M999 recovery motion should reach idle");
+  sim::test::require_motion_idle(runtime.runner(), 200'000, "post-M999 recovery motion should reach idle");
   require(!rebooted_kernel.is_halted(), "post-M999 recovery motion should not reassert the hard-limit alarm");
   return 0;
 }

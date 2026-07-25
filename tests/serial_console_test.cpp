@@ -29,6 +29,7 @@
 #include "support/temp_sdcard.hpp"
 #include "support/direct_robot_config.hpp"
 #include "support/assertions.hpp"
+#include "support/runtime_wait.hpp"
 
 using sim::test::require;
 
@@ -61,8 +62,7 @@ int main() {
   run_main_loop_until_serial_drained(kernel, 8);
 
   sim::EventEngine engine(simulator);
-  require(engine.run_until_motion_idle(kernel, 50'000).status == sim::EventRunStatus::ConditionReached,
-          "serial-fed G-code motion should execute to idle");
+  sim::test::require_motion_idle(engine, kernel, 50'000, "serial-fed G-code motion should execute to idle");
   require(simulator.axis_position_steps(axis) == 50,
           "physical axis position should reflect serial-fed G-code step/dir pulses");
   require(kernel.robot->get_axis_position(0) == 5.0F, "Robot should update position from serial-fed G-code jog");

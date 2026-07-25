@@ -25,6 +25,7 @@
 #include "support/assertions.hpp"
 #include "support/c1_atc_config.hpp"
 #include "support/temp_sdcard.hpp"
+#include "support/runtime_wait.hpp"
 #include "sim/simulator_context.hpp"
 
 namespace {
@@ -54,8 +55,7 @@ int main() {
           "C1 ETS trigger point should be 1mm below an 8mm button over the configured rack surface");
 
   runtime.io().write_serial_command("M6 T10000000\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle,
-          "invalid tool request should be handled without queued motion");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "invalid tool request should be handled without queued motion");
   auto serial = runtime.io().read_serial_text();
   require(kernel.is_halted(), "invalid ATC tool should halt the firmware");
   require(kernel.get_halt_reason() == ATC_TOOL_INVALID, "invalid ATC tool should report ATC_TOOL_INVALID");
@@ -65,19 +65,18 @@ int main() {
   require(scene.atc_pockets().front().occupied, "invalid ATC tool request should leave the rack pocket untouched");
 
   runtime.io().write_serial_command("M999\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle,
-          "M999 should recover from invalid-tool ATC halt");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "M999 should recover from invalid-tool ATC halt");
   (void)runtime.io().read_serial_text();
   require(!kernel.is_halted(), "invalid-tool recovery should clear the firmware halt");
 
   runtime.io().write_serial_command("M493.2 T1\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "direct firmware tool-state command should run");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "direct firmware tool-state command should run");
   (void)runtime.io().read_serial_text();
   require(!scene.atc_spindle().has_tool, "M493.2 should not physically move a rack tool into the spindle");
   require(scene.atc_pockets().front().occupied, "M493.2 should leave the simulated rack pocket occupied");
 
   runtime.io().write_serial_command("M493.2 T-1\n");
-  require(runtime.runner().run_until_motion_idle(100'000).motion_idle, "initial tool state command should run");
+  sim::test::require_motion_idle(runtime.runner(), 100'000, "initial tool state command should run");
   (void)runtime.io().read_serial_text();
 
   runtime.io().write_serial_command("M6 T1\n");

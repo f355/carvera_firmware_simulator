@@ -21,11 +21,11 @@ from .scene_transform import (
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
     SceneTransform,
+    c1_model_point,
+    c1_spindle_face_point,
     ca1_bed_scene_point,
     ca1_envelope_scene_point,
     ca1_spindle_face_scene_point,
-    c1_model_point,
-    c1_spindle_face_point,
 )
 
 Vector3 = tuple[float, float, float]

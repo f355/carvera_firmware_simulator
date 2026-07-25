@@ -17,7 +17,8 @@
 
 #include <cmath>
 
-#include "test_support.hpp"
+#include "support/assertions.hpp"
+#include "support/memory_config.hpp"
 
 #include "Config.h"
 #include "Gcode.h"

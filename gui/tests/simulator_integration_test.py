@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -28,14 +27,8 @@ TEST_SD_CONFIG = "sd_ok true\nsoft_endstop.enable true\n"
 pytestmark = pytest.mark.integration
 
 
-def test_stdio_client_controls_simulator_lifecycle() -> None:
-    root = Path(__file__).resolve().parents[2]
-    configured_binary = os.environ.get("CARVERA_SIMULATOR_API_BINARY")
-    simulator_binary = Path(configured_binary) if configured_binary else root / "build" / "carvera_sim_stdio"
-    if not simulator_binary.exists():
-        pytest.skip(f"{simulator_binary} is not built")
-
-    simulator = SimulatorClient(simulator_binary)
+def test_stdio_client_controls_simulator_lifecycle(stdio_api_binary: Path) -> None:
+    simulator = SimulatorClient(stdio_api_binary)
     with tempfile.TemporaryDirectory(prefix="carvera_sim_gui_test_") as tmp:
         sd = Path(tmp)
         (sd / "config.txt").write_text(TEST_SD_CONFIG, encoding="utf-8")

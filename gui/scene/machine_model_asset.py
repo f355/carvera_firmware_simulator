@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-
 SUPPORTED_MODEL_EXTENSIONS = {
     ".glb": "gltf",
     ".gltf": "gltf",

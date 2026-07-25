@@ -15,14 +15,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from nicegui import ui
 
-PinWatch = tuple[str, int, int]
-SwitchWatch = tuple[str, str]
+from gui.core.defaults import PinWatch, SwitchWatch
 
 
 @dataclass
@@ -32,17 +31,12 @@ class SignalsTabView:
     laser_badges: dict[str, Any] = field(default_factory=dict)
     laser_power_label: Any | None = None
     pwm_labels: dict[str, Any] = field(default_factory=dict)
-    temperature_sensor: Any | None = None
-    temperature_celsius: Any | None = None
-    temperature_status: Any | None = None
 
 
 def build_signals_tab(
     *,
     switch_watches: Sequence[SwitchWatch],
     pwm_watches: Sequence[PinWatch],
-    set_temperature: Callable[[], Awaitable[None]],
-    include_temperature: bool = True,
 ) -> SignalsTabView:
     view = SignalsTabView()
     with ui.element("div").classes("panel-section"):
@@ -88,14 +82,4 @@ def build_signals_tab(
                 ui.label(name).classes("table-cell")
                 ui.label(f"P{port}.{pin}").classes("table-cell coord-text")
                 view.pwm_labels[name] = ui.label("not configured").classes("table-cell")
-    if include_temperature:
-        with ui.element("div").classes("panel-section"):
-            ui.label("Thermistors").classes("section-title")
-            with ui.element("div").classes("temperature-drive"):
-                view.temperature_sensor = ui.select(
-                    {"spindle": "Spindle", "power": "Power"}, value="spindle", label="Sensor"
-                ).props("dense outlined")
-                view.temperature_celsius = ui.slider(min=0, max=100, value=25.0, step=1.0).props("label-always")
-                ui.button("Set Temp", on_click=set_temperature).props("dense color=primary")
-            view.temperature_status = ui.label("--").classes("metric-value")
     return view

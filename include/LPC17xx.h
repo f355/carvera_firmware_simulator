@@ -86,6 +86,7 @@ struct LPC_GPIO_WriteRegister {
   bool sets_bits;
 
   void bind(LPC_GPIO_TypeDef* gpio, uint8_t port, bool set_register);
+  void apply(uint32_t bits);
   LPC_GPIO_WriteRegister& operator=(uint32_t bits);
   LPC_GPIO_WriteRegister& operator|=(uint32_t bits);
   operator uint32_t() const { return value; }

@@ -21,7 +21,6 @@ from typing import Any
 from gui.core.defaults import DEFAULT_C1_TOOLS, DEFAULT_LOOSE_TOOLS, TOOL_SHANK_INSERT_MM
 from gui.protocol.model import ToolConfig, ToolKind
 
-
 ToolRow = Mapping[str, Any]
 MutableToolRow = MutableMapping[str, Any]
 

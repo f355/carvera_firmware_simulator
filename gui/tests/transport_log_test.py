@@ -64,11 +64,10 @@ def test_transport_log_store_uses_non_consuming_cursors() -> None:
     assert entry is not None
     store = TransportLogStore()
     store.append(entry)
-    assert store.entries_since(0) == [entry]
-    assert store.entries_since(0) == [entry]
     cursor, entries = store.cursor_and_entries_since(0)
     assert cursor == 1
     assert entries == [entry]
+    assert store.cursor_and_entries_since(0) == (1, [entry])
     assert store.cursor_and_entries_since(cursor) == (1, [])
 
 

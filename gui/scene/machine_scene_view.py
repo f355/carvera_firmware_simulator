@@ -15,23 +15,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from math import radians
-from typing import Any, Callable
+from typing import Any
 
 from nicegui import ui
 
 from gui.core.defaults import MACHINE_COMPONENT_COLORS, TOOL_SHANK_INSERT_MM
 from gui.protocol.model import AtcSnapshot, Box3D, MachineState
 from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, scene_material_patch_javascript
+from gui.views.io_panel import front_panel_led_text
 
 from .atc_tool_layer import AtcToolLayer
 from .backplot_layer import BackplotHistoryStore, BackplotLayer
 from .machine_model_asset import MachineModelAsset
 from .scene_geometry import MachineSceneGeometry
 from .scene_transform import (
-    CA1_ETS_TOP_SCENE_Z,
     C1_ATC_RACK_TOP_SCENE_Z,
+    CA1_ETS_TOP_SCENE_Z,
     SceneTransform,
 )
 from .spindle_overlay_layer import TOOL_ROTATION_X, SpindleOverlayLayer
@@ -172,7 +174,7 @@ class MachineSceneView:
         self.machine_shell_asset = asset
         rotation = self.model_rotation_override or tuple(radians(value) for value in asset.rotation_degrees)
         offset = self.model_offset_override or asset.offset
-        for name, model_object in self.machine_shell_objects.items():
+        for model_object in self.machine_shell_objects.values():
             model_object.scale(self.machine_model_scale)
             model_object.move(*offset)
             model_object.rotate(*rotation)
@@ -236,12 +238,9 @@ class MachineSceneView:
     def _update_front_panel_led_label(self, machine_model: str) -> None:
         if "led_name" not in self.front_panel_badges or "rgb" not in self.front_panel_badges:
             return
-        if machine_model == "ca1":
-            self.front_panel_badges["led_name"].text = "CA1 LED strip"
-            self.front_panel_badges["rgb"].text = "not decoded"
-        else:
-            self.front_panel_badges["led_name"].text = "C1 RGB LED"
-            self.front_panel_badges["rgb"].text = "not available"
+        led_name, led_value = front_panel_led_text(machine_model)
+        self.front_panel_badges["led_name"].text = led_name
+        self.front_panel_badges["rgb"].text = led_value
 
     def _clear_shell_model(self) -> None:
         for model_object in self.machine_shell_objects.values():

@@ -30,16 +30,15 @@ from gui.views.atc_tab import build_atc_tab
 from gui.views.comms_log_tab import build_comms_log_tab
 from gui.views.eeprom_panel import build_eeprom_panel
 from gui.views.environment_tab import build_environment_tab
-from gui.views.gpio_tab import build_gpio_tab
 from gui.views.io_panel import IoPanelView
 from gui.views.machine_status import AtcPanelView, AxisPanelView
 from gui.views.machine_tab import build_firmware_state_panel, build_machine_tab
 from gui.views.memory_panel import build_memory_panel
 from gui.views.signals_tab import build_signals_tab
+from gui.views.stock_tab import build_stock_tab
 from gui.views.styles import SIM_CSS
 from gui.views.transport_panel import build_transport_panel
 from gui.views.ui_helpers import event_value
-
 
 ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
 
@@ -138,8 +137,6 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                             view.signals_tab_view = build_signals_tab(
                                 switch_watches=SWITCH_WATCHES,
                                 pwm_watches=PWM_WATCHES,
-                                set_temperature=lambda: actions.physical.set_temperature(view),
-                                include_temperature=False,
                             )
 
                         with ui.tab_panel(environment_tab):
@@ -165,11 +162,8 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                             )
 
                         with ui.tab_panel(stock_tab):
-                            view.stock_tab_view = build_gpio_tab(
-                                pin_watches=(),
+                            view.stock_tab_view = build_stock_tab(
                                 apply_stock=lambda: actions.tooling.apply_physical_boxes(view),
-                                include_stock=True,
-                                include_pin_watch=False,
                             )
 
                         with ui.tab_panel(service_tab):
@@ -228,7 +222,6 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
             firmware_switch_controls=view.firmware_switch_controls,
             laser_badges=view.laser_badges,
             laser_power_label=view.signals_tab_view.laser_power_label,
-            pin_badges=view.pin_badges,
             pwm_labels=view.pwm_labels,
             main_button_control=view.main_button_control,
             ca1_led_strip_indicators=view.signals_tab_view.front_panel_badges.get("led_strip", ()),
