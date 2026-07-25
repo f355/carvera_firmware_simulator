@@ -80,16 +80,27 @@ class Serial {
 
   void simulate_rx(const std::string& bytes) {
     for (char c : bytes) {
-      rx_.push_back(c);
+      wire_.push_back(c);
     }
     service_rx_irq();
   }
 
+  // Hand the firmware at most one hardware FIFO per interrupt, the way a real
+  // UART does: the rest of the burst is still in flight and arrives on later
+  // interrupts. Firmware that parses whole commands out of the FIFO therefore
+  // yields to the main loop between them instead of consuming an unbounded
+  // burst in a single ISR call.
   void service_rx_irq() {
+    while (!wire_.empty() && rx_.size() < kRxFifoBytes) {
+      rx_.push_back(wire_.front());
+      wire_.pop_front();
+    }
     if (!rx_.empty() && irq_[RxIrq]) {
       irq_[RxIrq]();
     }
   }
+
+  bool rx_in_flight() const { return !wire_.empty() || !rx_.empty(); }
 
   std::string take_tx() {
     auto bytes = tx_;
@@ -109,7 +120,11 @@ class Serial {
   int bits_{8};
   Parity parity_{None};
   int stop_bits_{1};
-  std::deque<char> rx_;
+  // LPC1768 UART RX FIFO depth.
+  static constexpr std::size_t kRxFifoBytes = 16;
+
+  std::deque<char> wire_;  // bytes still arriving, not yet in the FIFO
+  std::deque<char> rx_;    // bytes the firmware can read now
   std::string tx_;
   std::function<void()> irq_[2];
 };

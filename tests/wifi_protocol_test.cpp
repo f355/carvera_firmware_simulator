@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include "StreamOutput.h"
 #include "sim/makera_protocol.hpp"
@@ -79,11 +80,16 @@ int main() {
   const auto download = sim::makera::encode_frame(sim::makera::PacketType::FileStart, "download /sd/config.txt\n");
   const auto cancel = sim::makera::encode_frame(sim::makera::PacketType::FileCancel, "");
   runtime.io().write_wifi_tcp(download + cancel);
-  runtime.runner().run_main_loop(1);
 
+  // FILE_START is queued in the receive path and dispatched from the main
+  // loop, so the reply needs at least one further iteration to appear.
   sim::makera::FrameDecoder download_decoder;
-  download_decoder.append(runtime.io().read_wifi_tcp());
-  const auto download_frames = download_decoder.take_frames();
+  std::vector<sim::makera::Frame> download_frames;
+  for (int i = 0; i < 20 && download_frames.empty(); ++i) {
+    runtime.runner().run_main_loop(1);
+    download_decoder.append(runtime.io().read_wifi_tcp());
+    download_frames = download_decoder.take_frames();
+  }
   const auto download_text = download_decoder.take_text();
   const bool sent_md5 = std::any_of(download_frames.begin(), download_frames.end(),
                                     [](const auto& frame) { return frame.type == sim::makera::PacketType::FileMd5; });

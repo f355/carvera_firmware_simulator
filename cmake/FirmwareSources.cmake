@@ -82,6 +82,26 @@ file(WRITE "${_append_file_stream_host_header}" "${_append_file_stream_host_cont
 file(READ "${_append_file_stream_implementation}" _append_file_stream_implementation_contents)
 file(WRITE "${_append_file_stream_host_implementation}" "${_append_file_stream_implementation_contents}")
 
+# include/FATFileSystem.h stubs out ChaNFS for the host but must keep the
+# firmware's path budget, which SimpleShell's file-integrity commands enforce.
+set(_fatfs_header "${FIRMWARE_SRC}/libs/ChaNFS/FATFileSystem.h")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_fatfs_header}")
+file(READ "${_fatfs_header}" _fatfs_header_contents)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/FATFileSystem.h" _fatfs_stub_contents)
+string(REGEX MATCH "define[ \t]+FATFS_PATH_MAX[ \t]+([0-9]+)" _fatfs_match "${_fatfs_header_contents}")
+set(_fatfs_firmware_limit "${CMAKE_MATCH_1}")
+string(REGEX MATCH "define[ \t]+FATFS_PATH_MAX[ \t]+([0-9]+)" _fatfs_match "${_fatfs_stub_contents}")
+set(_fatfs_stub_limit "${CMAKE_MATCH_1}")
+if(NOT _fatfs_firmware_limit OR NOT _fatfs_stub_limit)
+  message(FATAL_ERROR "Could not read FATFS_PATH_MAX from the pinned firmware or the simulator stub")
+endif()
+if(NOT _fatfs_firmware_limit STREQUAL _fatfs_stub_limit)
+  message(FATAL_ERROR
+    "include/FATFileSystem.h defines FATFS_PATH_MAX ${_fatfs_stub_limit}, but the pinned firmware uses "
+    "${_fatfs_firmware_limit}. Update the simulator stub to match."
+  )
+endif()
+
 # WifiProvider pins a buffer into LPC AHBSRAM with an ELF-only section name.
 # Mach-O rejects that form, so compile a host copy that drops the placement.
 set(_wifi_source "${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp")

@@ -4,7 +4,7 @@
     "region_end": 537411584,
     "region_start": 537378816
   },
-  "firmware_commit": "78afb9f3186b8580a4312312ed3e185c4e5a0a92",
+  "firmware_commit": "95cadf7c86df54c065a31cdd1382f7cf24ec5a82",
   "main_sram": {
     "config_cache_bytes": 9100,
     "heap_limit": 268464096,
@@ -12,7 +12,7 @@
     "ram_start": 268435656,
     "stack_limit": 268464128,
     "stack_top": 268468224,
-    "static_end": 268439504
+    "static_end": 268440536
   },
   "schema_version": 1,
   "type_sizes": {
@@ -54,7 +54,7 @@
     "TemperatureSwitch": 32,
     "Thermistor": 52,
     "Watchdog": 4,
-    "WifiProvider": 1928,
+    "WifiProvider": 1932,
     "ZProbe": 436
   }
 }
