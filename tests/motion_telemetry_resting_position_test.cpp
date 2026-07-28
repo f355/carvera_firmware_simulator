@@ -69,27 +69,32 @@ int main() {
   // That is the case the GUI hits at the end of every homing backoff: the last
   // in-motion sample is already spent, and the axes come to rest before the
   // next interval is due.
+  constexpr std::uint64_t emit_interval_us = 100'000;
   auto& telemetry = simulation.machine().context().motion_telemetry();
   telemetry.set_interval_ticks(1'000'000);
-  telemetry.set_interval_us(200'000);
+  telemetry.set_interval_us(emit_interval_us);
 
   const auto before = physical_steps(simulation);
 
-  // Interleave main-loop iterations so the firmware keeps feeding its watchdog.
-  runtime.io().write_wifi_command("G91\nG0 X-0.35 Y-0.21 F900\nG90\n");
+  // Short enough to finish well inside one emit window. Interleave main-loop
+  // iterations so the firmware keeps feeding its watchdog.
+  runtime.io().write_wifi_command("G91\nG0 X-0.04 Y-0.03 F900\nG90\n");
   bool idle = false;
   for (int i = 0; i < 20'000 && !idle; ++i) {
-    idle = runtime.runner().pump_free_running(4, 4'000) && i > 8;
+    idle = runtime.runner().pump_free_running(4, 2'000) && i > 8;
   }
   require(idle, "the telemetry probe move should reach motion idle");
 
   const auto resting = physical_steps(simulation);
   require(resting != before, "the telemetry probe move should actually have moved the axes");
 
-  // Idle for well over the emit interval, so a correct implementation has had
-  // every opportunity to publish the resting position.
-  for (int i = 0; i < 4'000; ++i) {
-    runtime.runner().pump_free_running(4, 4'000);
+  // Idle for several emit intervals of simulated time, so a correct
+  // implementation has had every opportunity to publish the resting position.
+  // Bounded by simulated time rather than an iteration count so the runtime
+  // does not depend on host speed.
+  const auto idle_started_us = simulation.machine().time_us();
+  while (last_emitted != resting && simulation.machine().time_us() - idle_started_us < 10 * emit_interval_us) {
+    runtime.runner().pump_free_running(4, 2'000);
   }
 
   require(!last_emitted.empty(), "telemetry sink should have received at least one sample");
