@@ -88,8 +88,13 @@ void MotionTelemetry::observe(SimulatorContext& context, Kernel& kernel, bool fo
       !last_emitted_spindle_rpm_.has_value() || std::fabs(spindle.actual_rpm - *last_emitted_spindle_rpm_) >= 10.0 ||
       spindle.spinning != (*last_emitted_spindle_rpm_ > 0.5) || !last_emitted_spindle_target_rpm_.has_value() ||
       std::fabs(spindle.target_rpm - *last_emitted_spindle_target_rpm_) >= 10.0;
+  // The last in-motion sample is emitted on an interval, so it usually lands a
+  // few steps before the move actually finishes. Keep observing until the
+  // resting position has been emitted, otherwise consumers freeze on that stale
+  // sample for as long as the machine stays idle.
+  const bool resting_position_unemitted = !last_emitted_steps_.has_value() || steps != *last_emitted_steps_;
   last_observed_steps_ = steps;
-  if (!force && !changed_since_last_observation && !spindle_changed_since_last_emit) {
+  if (!force && !changed_since_last_observation && !spindle_changed_since_last_emit && !resting_position_unemitted) {
     return;
   }
 

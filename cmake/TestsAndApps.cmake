@@ -84,6 +84,7 @@ set(SIM_RUNTIME_TESTS
   interactive_io_test
   machine_state_snapshot_test
   mainbutton_runtime_test
+  motion_telemetry_resting_position_test
   motor_alarm_api_test
   nonblocking_snapshot_homed_test
   player_laser_runtime_test
