@@ -141,6 +141,50 @@ jobs:
           $env:CARVERA_SIMULATOR_BINARY = "${{ github.workspace }}\dist\windows\Carvera Simulator\_internal\bin\carvera_sim_stream_stdio.exe"
           uv run pytest gui/tests/stream_integration_test.py -q
 
+      - name: Smoke-test Windows desktop app
+        shell: pwsh
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          $AppDir = (Resolve-Path "dist\windows\Carvera Simulator").Path
+          $AppExe = Join-Path $AppDir "Carvera Simulator.exe"
+          $WebViewRoot = Join-Path $AppDir "_internal\webview2"
+          $Desktop = Start-Process -FilePath $AppExe -WorkingDirectory $AppDir -PassThru
+          try {
+            $Deadline = [DateTime]::UtcNow.AddSeconds(45)
+            do {
+              if ($Desktop.HasExited) {
+                throw "Windows desktop app exited with code $($Desktop.ExitCode)"
+              }
+              $WebView = Get-CimInstance Win32_Process | Where-Object {
+                $_.ExecutablePath -and $_.ExecutablePath.StartsWith(
+                  $WebViewRoot,
+                  [StringComparison]::OrdinalIgnoreCase
+                )
+              } | Select-Object -First 1
+              $Response = try {
+                Invoke-WebRequest -Uri "http://127.0.0.1:8000/" -UseBasicParsing -TimeoutSec 2
+              } catch {
+                $null
+              }
+              if ($WebView -and $Response.StatusCode -eq 200) {
+                break
+              }
+              Start-Sleep -Milliseconds 500
+            } while ([DateTime]::UtcNow -lt $Deadline)
+            if (-not $WebView -or $Response.StatusCode -ne 200) {
+              throw "Windows desktop app did not start its WebView and HTTP server"
+            }
+          } finally {
+            Get-CimInstance Win32_Process | Where-Object {
+              $_.ExecutablePath -and (
+                $_.ExecutablePath.Equals($AppExe, [StringComparison]::OrdinalIgnoreCase) -or
+                $_.ExecutablePath.StartsWith($WebViewRoot, [StringComparison]::OrdinalIgnoreCase)
+              )
+            } | ForEach-Object {
+              Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+          }
+
       - name: Create Windows desktop archive
         shell: pwsh
         run: |

@@ -208,6 +208,7 @@ foreach ($argument in @(
     "--noconfirm",
     "--clean",
     "--hidden-import", "webview.platforms.edgechromium",
+    "--runtime-hook", (Join-Path $RootDir "scripts\pyinstaller_windows_runtime.py"),
     "--paths", $RootDir,
     "--add-data", "$(Join-Path $RootDir 'machine_models');machine_models",
     "--add-data", "$(Join-Path $RootDir 'default_sdcard');default_sdcard",
