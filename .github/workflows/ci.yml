@@ -148,6 +148,14 @@ jobs:
           $AppDir = (Resolve-Path "dist\windows\Carvera Simulator").Path
           $AppExe = Join-Path $AppDir "Carvera Simulator.exe"
           $WebViewRoot = Join-Path $AppDir "_internal\webview2"
+          $PythonRuntime = @(Get-ChildItem -LiteralPath $AppDir -Recurse -File -Filter "Python.Runtime.dll")
+          if ($PythonRuntime.Count -ne 1) {
+            throw "Expected exactly one Python.Runtime.dll, found $($PythonRuntime.Count)"
+          }
+          Set-Content `
+            -LiteralPath $PythonRuntime[0].FullName `
+            -Stream Zone.Identifier `
+            -Value "[ZoneTransfer]`r`nZoneId=3"
           $Desktop = Start-Process -FilePath $AppExe -WorkingDirectory $AppDir -PassThru
           try {
             $Deadline = [DateTime]::UtcNow.AddSeconds(45)

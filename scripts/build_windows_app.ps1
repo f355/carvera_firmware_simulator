@@ -82,6 +82,7 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 }
 
 $AppName = "Carvera Simulator"
+$AppConfig = Join-Path $RootDir "packaging\windows\$AppName.exe.config"
 $WebView2Version = "150.0.4078.48"
 $WebView2ArchiveName = "Microsoft.WebView2.FixedVersionRuntime.150.0.4078.48.x64.cab"
 $WebView2Url = "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/60926d99-f201-46bb-91a0-d868dc06b275/$WebView2ArchiveName"
@@ -233,6 +234,10 @@ $DesktopExecutable = Join-Path $PyInstallerApp "$AppName.exe"
 if (-not (Test-Path -LiteralPath $DesktopExecutable -PathType Leaf)) {
     throw "PyInstaller did not create $DesktopExecutable"
 }
+if (-not (Test-Path -LiteralPath $AppConfig -PathType Leaf)) {
+    throw "Windows application configuration is missing: $AppConfig"
+}
+Copy-Item -LiteralPath $AppConfig -Destination "$DesktopExecutable.config"
 $PackagedBackend = @(Get-ChildItem -LiteralPath $PyInstallerApp -Recurse -File -Filter "carvera_sim_stream_stdio.exe")
 if ($PackagedBackend.Count -ne 1) {
     throw "Expected exactly one packaged simulator backend, found $($PackagedBackend.Count)"
