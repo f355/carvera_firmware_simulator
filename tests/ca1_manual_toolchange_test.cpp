@@ -113,5 +113,29 @@ int main() {
   const auto spindle = scene.atc_spindle();
   require(spindle.has_tool && spindle.tool == 2, "CA1 virtual tool 2 should be held in the spindle");
   require(spindle.length_mm == 58.0, "CA1 virtual tool length should come from the simulator tool table");
+
+  scene.set_spindle_tool(0, 50.0, true);
+  runtime.io().set_wifi_client_connected(true);
+  runtime.io().write_wifi_command("M493.2 T0\n");
+  runtime.runner().pump_free_running(4, 1'000);
+  (void)runtime.io().read_wifi_text();
+
+  simulation.machine().start_realtime();
+  require(simulation.machine().set_realtime_speed(10.0), "10x realtime speed should be accepted");
+  runtime.io().write_wifi_command("M491\n");
+  std::string calibration;
+  for (int i = 0;
+       i < 2'000 && calibration.find("Done ATC") == std::string::npos && calibration.find("ERROR:") == std::string::npos;
+       ++i) {
+    runtime.runner().pump_free_running(4, 1'000);
+    calibration += runtime.io().read_wifi_text();
+  }
+  if (calibration.find("Done ATC") == std::string::npos) {
+    std::cerr << calibration << '\n';
+  }
+  require(calibration.find("Done ATC") != std::string::npos,
+          "CA1 Z-probe calibration should complete at accelerated realtime speed");
+  require(calibration.find("Probe dead or not set") == std::string::npos,
+          "accelerated realtime must not age the probe timestamp ahead of emulated motion");
   return 0;
 }

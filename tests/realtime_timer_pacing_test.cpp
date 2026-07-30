@@ -35,16 +35,10 @@ int main() {
   simulator.start_realtime();
   simulator.set_realtime_speed(4.0);
 
-  const auto clock_before_sleep = simulator.time_us();
-  const auto wall_before_sleep = std::chrono::steady_clock::now();
+  const auto unpumped_time = simulator.time_us();
   std::this_thread::sleep_for(std::chrono::milliseconds(20));
-  const auto wall_elapsed =
-      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - wall_before_sleep);
-  const auto accelerated_elapsed = simulator.time_us() - clock_before_sleep;
-  const auto minimum_expected = static_cast<std::uint64_t>(wall_elapsed.count() * 3);
-  const auto maximum_expected = static_cast<std::uint64_t>(wall_elapsed.count() * 5);
-  require(accelerated_elapsed >= minimum_expected && accelerated_elapsed <= maximum_expected,
-          "realtime clock should advance by the configured speed multiplier");
+  require(simulator.time_us() == unpumped_time,
+          "realtime pacing should not advance firmware time without emulated work");
 
   simulator.set_realtime_speed(1.0);
   const auto before_speed_change = simulator.time_us();

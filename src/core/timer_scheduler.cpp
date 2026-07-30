@@ -156,12 +156,10 @@ void TimerScheduler::advance_running_timers(std::uint32_t cycles) {
 
   watchdog::advance_cycles(cycles);
 
-  if (!clock::active().is_realtime()) {
-    const std::uint64_t pclk_hz = std::max<std::uint32_t>(1, SystemCoreClock / 4);
-    const std::uint64_t elapsed_cycle_us = clock_cycle_remainder_ + static_cast<std::uint64_t>(cycles) * 1'000'000ULL;
-    clock::active().advance_us(elapsed_cycle_us / pclk_hz);
-    clock_cycle_remainder_ = elapsed_cycle_us % pclk_hz;
-  }
+  const std::uint64_t pclk_hz = std::max<std::uint32_t>(1, SystemCoreClock / 4);
+  const std::uint64_t elapsed_cycle_us = clock_cycle_remainder_ + static_cast<std::uint64_t>(cycles) * 1'000'000ULL;
+  clock::active().advance_us(elapsed_cycle_us / pclk_hz);
+  clock_cycle_remainder_ = elapsed_cycle_us % pclk_hz;
 
   for (std::uint8_t timer_index = 0; timer_index < timer_count; ++timer_index) {
     auto& timer = lpc1768::timer(timer_index);

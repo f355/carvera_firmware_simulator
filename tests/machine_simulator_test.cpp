@@ -25,10 +25,8 @@
 #include "sim/machine_simulator.hpp"
 #include "us_ticker_api.h"
 #include "support/assertions.hpp"
-#include "support/waiting.hpp"
 
 using sim::test::require;
-using sim::test::eventually;
 
 namespace {
 
@@ -83,22 +81,20 @@ int main() {
   require(edge_probe.rises == 1, "reset() should clear InterruptIn callbacks");
 
   simulator.start_realtime();
-  require(simulator.is_realtime(), "start_realtime() should enable wall-clock time");
+  require(simulator.is_realtime(), "start_realtime() should enable realtime pacing");
   const auto realtime_start = simulator.time_us();
-  require(eventually([&] { return simulator.time_us() > realtime_start; }, std::chrono::milliseconds(100)),
-          "realtime mode should advance without manual ticks");
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  require(simulator.time_us() == realtime_start,
+          "realtime pacing should not advance firmware time without emulated work");
 
   fired_id = 0;
   us_ticker_set_handler(ticker_callback);
   ticker_event_t realtime_event{};
   us_ticker_insert_event(&realtime_event, us_ticker_read() + 1000, 123);
-  const bool realtime_event_fired = eventually(
-      [&] {
-        simulator.poll();
-        return fired_id == 123;
-      },
-      std::chrono::milliseconds(100));
-  require(realtime_event_fired, "poll() should dispatch due realtime ticker events");
+  simulator.advance_us(1000);
+  simulator.poll();
+  require(fired_id == 123, "poll() should dispatch due realtime ticker events");
+  require(simulator.is_realtime(), "advancing firmware time should preserve realtime pacing");
 
   simulator.pause_realtime();
   require(!simulator.is_realtime(), "pause_realtime() should return to manual mode");

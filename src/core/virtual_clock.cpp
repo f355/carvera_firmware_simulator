@@ -17,9 +17,7 @@
 
 #include "sim/virtual_clock.hpp"
 
-#include <algorithm>
 #include <cmath>
-#include <limits>
 
 #include "sim/simulator_context.hpp"
 #include "compat/active_context.hpp"
@@ -28,59 +26,25 @@ namespace sim {
 void VirtualClock::reset() {
   mode_ = Mode::Manual;
   base_us_ = 0;
-  realtime_started_at_ = {};
   realtime_speed_ = 1.0;
 }
 
-void VirtualClock::advance_us(std::uint64_t delta_us) {
-  if (is_realtime()) {
-    pause_realtime();
-  }
-  base_us_ += delta_us;
-}
+void VirtualClock::advance_us(std::uint64_t delta_us) { base_us_ += delta_us; }
 
-void VirtualClock::start_realtime() {
-  if (is_realtime()) {
-    return;
-  }
+void VirtualClock::start_realtime() { mode_ = Mode::Realtime; }
 
-  realtime_started_at_ = SteadyClock::now();
-  mode_ = Mode::Realtime;
-}
-
-void VirtualClock::pause_realtime() {
-  if (!is_realtime()) {
-    return;
-  }
-
-  base_us_ = read_us();
-  mode_ = Mode::Manual;
-  realtime_started_at_ = {};
-}
+void VirtualClock::pause_realtime() { mode_ = Mode::Manual; }
 
 bool VirtualClock::set_realtime_speed(double speed) {
   if (!std::isfinite(speed) || speed <= 0.0 || speed > 100.0) {
     return false;
   }
 
-  if (is_realtime()) {
-    base_us_ = read_us();
-    realtime_started_at_ = SteadyClock::now();
-  }
   realtime_speed_ = speed;
   return true;
 }
 
-std::uint64_t VirtualClock::read_us() const {
-  if (!is_realtime()) {
-    return base_us_;
-  }
-
-  const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(SteadyClock::now() - realtime_started_at_);
-  const auto scaled_elapsed = static_cast<long double>(elapsed.count()) * realtime_speed_;
-  const auto max_delta = static_cast<long double>(std::numeric_limits<std::uint64_t>::max() - base_us_);
-  return base_us_ + static_cast<std::uint64_t>(std::min(scaled_elapsed, max_delta));
-}
+std::uint64_t VirtualClock::read_us() const { return base_us_; }
 
 VirtualClock& clock::active() { return compat::active_context().clock(); }
 

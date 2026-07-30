@@ -416,7 +416,7 @@ u8 M8266WIFI_SPI_Has_DataReceived(void) { return sim::m8266_wifi::active().has_r
 u16 M8266WIFI_SPI_RecvData(u8 Data[], u16 max_len, uint16_t max_wait_in_ms, u8* link_no, u16* status) {
   const auto received = sim::m8266_wifi::active().recv_data(Data, max_len, link_no, status);
   auto& clock = sim::compat::active_context().clock();
-  if (received == 0 && max_wait_in_ms != 0 && !clock.is_realtime()) {
+  if (received == 0 && max_wait_in_ms != 0) {
     clock.advance_us(static_cast<std::uint64_t>(max_wait_in_ms) * 1'000);
   }
   return received;

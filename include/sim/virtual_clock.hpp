@@ -18,7 +18,6 @@
 #ifndef SIMULATOR_SIM_VIRTUAL_CLOCK_HPP
 #define SIMULATOR_SIM_VIRTUAL_CLOCK_HPP
 
-#include <chrono>
 #include <cstdint>
 
 namespace sim {
@@ -40,11 +39,8 @@ class VirtualClock {
   std::uint64_t read_us() const;
 
  private:
-  using SteadyClock = std::chrono::steady_clock;
-
   Mode mode_{Mode::Manual};
   std::uint64_t base_us_{0};
-  SteadyClock::time_point realtime_started_at_{};
   double realtime_speed_{1.0};
 };
 
