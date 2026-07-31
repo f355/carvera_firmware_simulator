@@ -36,6 +36,8 @@ class ProbeContactModel {
   void configure_tool_setter(std::optional<Box> box);
   std::optional<Box> tool_setter_box() const { return tool_setter_box_; }
 
+  void configure_bed(std::optional<Box> bed);
+
   void set_stock_box(const Box& box);
   void clear_stock_box() { stock_box_.reset(); }
 
@@ -44,6 +46,7 @@ class ProbeContactModel {
  private:
   bool probe_tool_installed_{false};
   std::optional<Box> tool_setter_box_;
+  std::optional<Box> bed_box_;
   std::optional<Box> stock_box_;
   std::optional<Point3> previous_probe_position_;
   bool tool_setter_overridden_{false};

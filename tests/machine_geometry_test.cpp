@@ -22,7 +22,6 @@
 using sim::test::require;
 using sim::test::require_equal;
 
-
 int main() {
   const auto c1 = sim::geometry_for(sim::MachineModel::CarveraC1);
   require(c1.has_value(), "C1 should expose simulator-owned hardware geometry");
@@ -32,6 +31,7 @@ int main() {
   require_equal(c1->physical_travel.max_y, 1.0, "C1 physical Y max should sit outside the stock soft limit");
   require_equal(c1->physical_travel.min_z, -136.0, "C1 physical Z min should sit outside the stock soft limit");
   require_equal(c1->physical_travel.max_z, 1.0, "C1 physical Z max should sit outside the stock soft limit");
+  require_equal(c1->bed_z, -147.5, "C1 bed should sit below the spindle-face travel limit");
   require_equal(c1->tool_setter.max_z, -105.5,
                 "C1 ETS trigger point should sit 1mm below an 8mm button above the tool rack");
   require_equal(c1->tool_setter.min_z, c1->tool_setter.max_z - 2.0,
@@ -45,6 +45,7 @@ int main() {
   require_equal(ca1->physical_travel.max_y, 1.0, "CA1 physical Y max should be hardware-owned");
   require_equal(ca1->physical_travel.min_z, -122.0, "CA1 physical Z min should be hardware-owned");
   require_equal(ca1->physical_travel.max_z, 1.0, "CA1 physical Z max should be hardware-owned");
+  require_equal(ca1->bed_z, -137.0, "CA1 bed should sit below the spindle-face travel limit");
   require_equal(ca1->tool_setter.min_x, -17.0, "CA1 ETS X min should be fixed physical geometry");
   require_equal(ca1->tool_setter.max_x, -5.0, "CA1 ETS X max should be fixed physical geometry");
   require_equal(ca1->tool_setter.min_y, -13.0, "CA1 ETS Y min should be fixed physical geometry");

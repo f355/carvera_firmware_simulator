@@ -23,7 +23,7 @@ from typing import Any
 from nicegui import ui
 
 from gui.core.defaults import MACHINE_COMPONENT_COLORS, TOOL_SHANK_INSERT_MM
-from gui.protocol.model import AtcSnapshot, Box3D, MachineState
+from gui.protocol.model import AtcSnapshot, Box3D, MachineState, ToolKind
 from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, scene_material_patch_javascript
 from gui.views.io_panel import front_panel_led_text
 
@@ -41,6 +41,7 @@ from .scene_geometry import MachineSceneGeometry
 from .scene_primitives import vertical_cylinder
 from .scene_transform import SceneTransform
 from .spindle_overlay_layer import SpindleOverlayLayer
+from .stock_layer import StockLayer
 from .work_envelope_layer import WorkEnvelopeLayer
 
 FALLBACK_BED_THICKNESS_MM = 0.5
@@ -105,6 +106,7 @@ class MachineSceneView:
     tool_setter_button: Any = None
     tool_setter_button_height: float | None = None
     atc_tools: AtcToolLayer = field(init=False)
+    stock: StockLayer = field(init=False)
     material_settings: ModelMaterialSettings = field(default_factory=ModelMaterialSettings)
 
     def __post_init__(self) -> None:
@@ -114,6 +116,7 @@ class MachineSceneView:
             scene=self.scene, history_store=self.backplot_history, run_javascript=self.run_javascript
         )
         self.atc_tools = AtcToolLayer(scene=self.scene)
+        self.stock = StockLayer(scene=self.scene)
 
     def reset(self) -> None:
         self.work_envelope.clear()
@@ -127,11 +130,15 @@ class MachineSceneView:
         self._apply_fallback_visibility()
         self.spindle_overlay.reset()
         self.atc_tools.reset()
+        self.stock.reset()
         if self.tool_setter_button is not None:
             self.tool_setter_button.visible(False)
 
     def clear_backplot(self) -> None:
         self.backplot.clear()
+
+    def set_stock_box(self, box: Box3D, *, enabled: bool) -> None:
+        self.stock.configure(box, enabled=enabled, geometry=self._geometry())
 
     def restore_backplot(self) -> None:
         self.backplot.restore_from_history()
@@ -217,6 +224,7 @@ class MachineSceneView:
         bed_y_delta = self._move_machine_axis_components(raw_position, position)
         self._rotate_rotary_chuck(axes.get("A", 0.0))
         self._move_work_area_lines(bed_y_delta)
+        self.stock.move(bed_y_delta=bed_y_delta if self._geometry().bed_carries_scene_objects else 0.0)
         if state.telemetry_time_s is not None:
             self._update_backplot(raw_position, bed_y_delta, state.telemetry_time_s)
         spindle_position = self._geometry().spindle_marker_position(raw_position, position)
@@ -334,6 +342,7 @@ class MachineSceneView:
         self.scene_transform = SceneTransform.from_work_area(physical_box)
         self._apply_shell_visibility()
         self.work_envelope.redraw(physical_box, soft_box, key=key, geometry=self._geometry())
+        self.stock.redraw(self._geometry())
         self.backplot.reset_position()
         self._redraw_fallback_bed(physical_box)
         self._apply_fallback_visibility()
@@ -359,10 +368,12 @@ class MachineSceneView:
 
         min_x, max_x = sorted((physical_box.min_x, physical_box.max_x))
         min_y, max_y = sorted((physical_box.min_y, physical_box.max_y))
-        min_z = min(physical_box.min_z, physical_box.max_z)
         geometry = self._geometry()
-        corner_min = geometry.scene_point(min_x, min_y, min_z)
-        corner_max = geometry.scene_point(max_x, max_y, min_z)
+        bed_z = geometry.bed_machine_z()
+        if bed_z is None:
+            return
+        corner_min = geometry.bed_point(min_x, min_y, bed_z)
+        corner_max = geometry.bed_point(max_x, max_y, bed_z)
         width = abs(corner_max[0] - corner_min[0])
         height = abs(corner_max[1] - corner_min[1])
         center = (
@@ -431,8 +442,16 @@ class MachineSceneView:
         atc = state.atc or self.latest_atc_data
         self.atc_tools.update(atc, geometry=self._geometry(), bed_y_delta=bed_y_delta)
 
-        held_length = atc.spindle.length_mm if atc is not None else 0.0
-        if held_length > 0.0:
-            self.spindle_overlay.show_tool(spindle_position, max(5.0, held_length - TOOL_SHANK_INSERT_MM))
+        if atc is not None and atc.spindle.length_mm > 0.0:
+            spindle_tool = atc.spindle
+            held_length = spindle_tool.length_mm
+            probe_tip_diameter = (
+                spindle_tool.probe_tip_diameter_mm if spindle_tool.kind == ToolKind.THREE_AXIS_PROBE else 0.0
+            )
+            self.spindle_overlay.show_tool(
+                spindle_position,
+                max(5.0, held_length - TOOL_SHANK_INSERT_MM),
+                probe_tip_diameter_mm=probe_tip_diameter,
+            )
         else:
             self.spindle_overlay.hide_tool()

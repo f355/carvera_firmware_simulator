@@ -24,6 +24,7 @@ namespace {
 constexpr Box c1_physical_travel{
     -372.0, -251.0, -136.0, 1.0, 1.0, 1.0,
 };
+constexpr double c1_bed_z = -147.5;
 
 constexpr Box c1_tool_setter{
     -10.158, -60.568, -107.5, 1.842, -48.568, -105.5,
@@ -32,6 +33,7 @@ constexpr Box c1_tool_setter{
 constexpr Box ca1_physical_travel{
     -303.0, -213.0, -122.0, 1.0, 1.0, 1.0,
 };
+constexpr double ca1_bed_z = -137.0;
 
 constexpr Box ca1_tool_setter{
     -17.0, -13.0, -117.0, -5.0, -1.0, -115.0,
@@ -64,6 +66,7 @@ const BoardProfile& c1_profile() {
     }};
     profile.geometry = MachineGeometry{
         c1_physical_travel,
+        c1_bed_z,
         c1_tool_setter,
         {{
             {-10.0, c1_physical_travel.min_x, c1_physical_travel.max_x},
@@ -100,6 +103,7 @@ const BoardProfile& ca1_profile() {
     }};
     profile.geometry = MachineGeometry{
         ca1_physical_travel,
+        ca1_bed_z,
         ca1_tool_setter,
         {{
             {-10.0, ca1_physical_travel.min_x, ca1_physical_travel.max_x},

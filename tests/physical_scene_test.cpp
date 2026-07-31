@@ -22,7 +22,6 @@
 
 using sim::test::require;
 
-
 int main() {
   sim::MachineSimulator simulator;
   auto& scene = simulator.context().physical_scene();
@@ -110,6 +109,23 @@ int main() {
   require(!simulator.gpio_level({2, 6}), "stock Z probe should not trigger on stock side contact");
   require(scene.stock_probe_crash_axis().has_value() && *scene.stock_probe_crash_axis() == 0,
           "stock Z probe side contact should report a physical X crash");
+
+  scene.clear();
+  sim::PhysicalAtcConfig c1_config;
+  c1_config.model = sim::MachineModel::CarveraC1;
+  scene.configure_atc(c1_config);
+  scene.set_spindle_tool(0, 50.0, true, sim::ToolKind::StockZProbe, 1.6);
+  scene.update_probe_contacts({-200.0, -100.0, -117.5});
+  require(simulator.gpio_level({2, 6}), "stock Z probe should trigger when its tip touches the C1 bed");
+  scene.update_probe_contacts({10.0, -100.0, -117.5});
+  require(!simulator.gpio_level({2, 6}), "bed probing should be limited to the physical bed footprint");
+
+  sim::PhysicalAtcConfig ca1_config;
+  ca1_config.model = sim::MachineModel::CarveraAirCA1;
+  scene.configure_atc(ca1_config);
+  scene.set_spindle_tool(999999, 50.0, true, sim::ToolKind::ThreeAxisProbe, 2.0);
+  scene.update_probe_contacts({-150.0, -100.0, -106.0});
+  require(simulator.gpio_level({2, 6}), "3-axis probe ball should trigger when it touches the CA1 bed");
 
   scene.clear();
   require(!simulator.gpio_level({2, 6}), "clearing scene should release probe input");

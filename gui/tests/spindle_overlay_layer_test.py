@@ -46,3 +46,17 @@ def test_spindle_overlay_layer_tints_and_moves_independently() -> None:
     assert tool.last_move == (10.0, 20.0, 17.5)
     layer.hide_tool()
     assert tool.visibility[-1] is False
+
+
+def test_spindle_overlay_draws_three_axis_probe_tip_at_the_cutting_endpoint() -> None:
+    scene = FakeScene()
+    layer = SpindleOverlayLayer(scene=scene)
+
+    layer.show_tool(
+        [10.0, 20.0, 30.0],
+        cutting_stickout=25.0,
+        probe_tip_diameter_mm=4.0,
+    )
+
+    assert scene.sphere_kwargs == [{"radius": 2.0}]
+    assert scene.spheres[0].last_move == (10.0, 20.0, 5.0)

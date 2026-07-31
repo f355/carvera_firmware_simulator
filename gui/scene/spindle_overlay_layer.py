@@ -35,7 +35,9 @@ class SpindleOverlayLayer:
     scene: Any
     overlay: Any = None
     tool: Any = None
+    probe_tip: Any = None
     tool_length: float | None = None
+    probe_tip_radius: float = 0.0
     latest_spindle: SpindleSnapshot | None = None
     latest_max_rpm: float = 0.0
     current_machine_model: str | None = None
@@ -46,6 +48,8 @@ class SpindleOverlayLayer:
         if self.tool is not None:
             self.tool.visible(False)
             self.tool_length = None
+        if self.probe_tip is not None:
+            self.probe_tip.visible(False)
 
     def update_spindle(self, spindle: SpindleSnapshot, machine_model: str | None) -> None:
         self.latest_spindle = spindle
@@ -101,20 +105,43 @@ class SpindleOverlayLayer:
         if self.overlay is not None:
             self.overlay.material(self.overlay_color())
 
-    def show_tool(self, spindle_position: list[float], cutting_stickout: float) -> None:
-        if self.tool is not None and self.tool_length != cutting_stickout:
+    def show_tool(
+        self,
+        spindle_position: list[float],
+        cutting_stickout: float,
+        *,
+        probe_tip_diameter_mm: float = 0.0,
+    ) -> None:
+        probe_tip_radius = max(0.0, probe_tip_diameter_mm / 2.0)
+        if self.tool is not None and (
+            self.tool_length != cutting_stickout or self.probe_tip_radius != probe_tip_radius
+        ):
             self.tool.delete()
             self.tool = None
+            if self.probe_tip is not None:
+                self.probe_tip.delete()
+                self.probe_tip = None
         if self.tool is None:
             self.tool = vertical_cylinder(
                 self.scene, radius=2.0, height=cutting_stickout, color="#374151", radial_segments=20
             )
             self.tool_length = cutting_stickout
+            self.probe_tip_radius = probe_tip_radius
+            if probe_tip_radius > 0.0:
+                self.probe_tip = self.scene.sphere(radius=probe_tip_radius).material("#374151")
         self.tool.move(spindle_position[0], spindle_position[1], spindle_position[2] - cutting_stickout / 2).visible(
             True
         )
+        if self.probe_tip is not None:
+            self.probe_tip.move(
+                spindle_position[0],
+                spindle_position[1],
+                spindle_position[2] - cutting_stickout,
+            ).visible(True)
 
     def hide_tool(self) -> None:
         if self.tool is not None:
             self.tool.visible(False)
             self.tool_length = None
+        if self.probe_tip is not None:
+            self.probe_tip.visible(False)

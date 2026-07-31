@@ -94,6 +94,7 @@ bool probe_tool_contacts_box(const Box& box, Point3 spindle_position, const AtcS
 void ProbeContactModel::clear() {
   probe_tool_installed_ = false;
   tool_setter_box_.reset();
+  bed_box_.reset();
   stock_box_.reset();
   previous_probe_position_.reset();
   tool_setter_overridden_ = false;
@@ -115,6 +116,14 @@ void ProbeContactModel::configure_tool_setter(std::optional<Box> box) {
   }
 }
 
+void ProbeContactModel::configure_bed(std::optional<Box> bed) {
+  bed_box_.reset();
+  if (!bed.has_value()) {
+    return;
+  }
+  bed_box_ = physical_tooling::normalized(*bed);
+}
+
 void ProbeContactModel::set_stock_box(const Box& box) { stock_box_ = physical_tooling::normalized(box); }
 
 ProbeContactState ProbeContactModel::update(Point3 spindle_probe_position, const AtcSpindleState& spindle_tool) {
@@ -124,9 +133,13 @@ ProbeContactState ProbeContactModel::update(Point3 spindle_probe_position, const
                                 physical_tooling::is_probe_kind(spindle_tool.kind));
   const bool any_probe_installed = probe_tool_installed_ || spindle_probe_installed;
 
-  state.probe_contact =
-      any_probe_installed && stock_box_.has_value() &&
-      stock_z_probe_contacts_top_face(*stock_box_, spindle_probe_position, physical_tooling::tool_shank_insert_mm);
+  if (any_probe_installed) {
+    const double probe_length = physical_tooling::tool_shank_insert_mm;
+    state.probe_contact =
+        (stock_box_.has_value() &&
+         stock_z_probe_contacts_top_face(*stock_box_, spindle_probe_position, probe_length)) ||
+        (bed_box_.has_value() && stock_z_probe_contacts_top_face(*bed_box_, spindle_probe_position, probe_length));
+  }
   state.tool_setter_contact =
       tool_setter_box_.has_value() && physical_tooling::contains(*tool_setter_box_, spindle_probe_position);
   if (!state.tool_setter_contact && spindle_tool.has_tool && tool_setter_box_.has_value()) {
@@ -137,6 +150,9 @@ ProbeContactState ProbeContactModel::update(Point3 spindle_probe_position, const
       physical_tooling::is_probe_kind(spindle_tool.kind)) {
     if (stock_box_.has_value()) {
       state.probe_contact = probe_tool_contacts_box(*stock_box_, spindle_probe_position, spindle_tool);
+    }
+    if (!state.probe_contact && bed_box_.has_value()) {
+      state.probe_contact = probe_tool_contacts_box(*bed_box_, spindle_probe_position, spindle_tool);
     }
     if (!state.probe_contact && tool_setter_box_.has_value()) {
       state.probe_contact = probe_tool_contacts_box(*tool_setter_box_, spindle_probe_position, spindle_tool);

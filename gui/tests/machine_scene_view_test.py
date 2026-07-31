@@ -41,6 +41,7 @@ from gui.scene.scene_transform import (
     c1_anchors,
     ca1_anchors,
 )
+from gui.scene.stock_layer import STOCK_BED_CLEARANCE_MM
 from gui.tests.fakes import FakeControl, FakeLabel, FakeObject, FakeScene
 
 
@@ -90,7 +91,12 @@ def machine_state(
     )
 
 
-def tool(length_mm: float = 0.0) -> ToolSnapshot:
+def tool(
+    length_mm: float = 0.0,
+    *,
+    kind: ToolKind = ToolKind.CUTTING_TOOL,
+    probe_tip_diameter_mm: float = 0.0,
+) -> ToolSnapshot:
     return ToolSnapshot(
         active_tool=-1,
         target_tool=-1,
@@ -99,8 +105,8 @@ def tool(length_mm: float = 0.0) -> ToolSnapshot:
         ref_tool_mz=0.0,
         target_collet_type=0,
         length_mm=length_mm,
-        kind=ToolKind.CUTTING_TOOL,
-        probe_tip_diameter_mm=0.0,
+        kind=kind,
+        probe_tip_diameter_mm=probe_tip_diameter_mm,
     )
 
 
@@ -350,6 +356,48 @@ def test_ca1_displayed_tool_tip_reaches_ets_below_button_top() -> None:
     tool_tip_z = (displayed_tool.last_move or (0.0, 0.0, 0.0))[2] - tool_stickout / 2.0
     assert round(button_top_z, 3) == 1.0
     assert round(tool_tip_z, 3) == 0.0
+
+
+def test_ca1_displayed_probe_ball_reaches_stock_when_contact_model_does() -> None:
+    scene = FakeScene()
+    view = make_view(scene=scene, asset=ca1_asset())
+    view.update_shell_model("ca1")
+    physical_travel = box(
+        min_x=-303.0,
+        min_y=-213.0,
+        min_z=-122.0,
+        max_x=1.0,
+        max_y=1.0,
+        max_z=1.0,
+    )
+    stock = box(
+        min_x=-288.669,
+        min_y=-201.902,
+        min_z=-137.0,
+        max_x=-138.669,
+        max_y=-51.902,
+        max_z=-127.0,
+    )
+    view.set_stock_box(stock, enabled=True)
+    view.update(
+        machine_state(
+            physical_travel=physical_travel,
+            axes=(axis("X", -200.0), axis("Y", -150.0), axis("Z", -75.0)),
+            atc=AtcSnapshot(
+                available=False,
+                spindle=tool(
+                    70.0,
+                    kind=ToolKind.THREE_AXIS_PROBE,
+                    probe_tip_diameter_mm=4.0,
+                ),
+                pockets=(),
+            ),
+        )
+    )
+
+    stock_top_z = view.stock.base_position[2] + 5.0 if view.stock.base_position is not None else 0.0
+    probe_center_z = scene.spheres[-1].last_move[2] if scene.spheres[-1].last_move is not None else 0.0
+    assert round(stock_top_z - (probe_center_z - 2.0), 3) == STOCK_BED_CLEARANCE_MM
 
 
 def test_ca1_spindle_face_offsets_the_work_envelope() -> None:

@@ -37,6 +37,9 @@ CA1_ETS_TOP_SCENE_Z = 0.0
 C1_HOME_SWITCH_SCENE_XYZ = (176.658, 225.068, 160.5)
 C1_ATC_RACK_TOP_SCENE_Z = 63.0
 C1_BED_MESH_Y_ALIGNMENT_MM = 13.7
+# Measured from the transformed C1 Y-axis GLB. Bed-mounted geometry uses this
+# independently of the spindle and envelope frames.
+C1_BED_SURFACE_SCENE_Z = 31.0
 CA1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM = -7.0
 C1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM = 18.0
 

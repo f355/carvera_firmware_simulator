@@ -17,17 +17,29 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 from nicegui import ui
 
-DEFAULT_STOCK_BOX = {
-    "min_x": -30.0,
-    "min_y": -30.0,
-    "min_z": -20.0,
-    "max_x": 30.0,
-    "max_y": 30.0,
-    "max_z": -1.0,
+DEFAULT_STOCK_BOXES: Final = {
+    # Z is the bed surface in the calibrated spindle-face G53 frame, not the
+    # spindle's lower travel limit.
+    "c1": {
+        "min_x": -359.665,
+        "min_y": -234.480,
+        "min_z": -147.5,
+        "max_x": -209.665,
+        "max_y": -84.480,
+        "max_z": -137.5,
+    },
+    "ca1": {
+        "min_x": -288.669,
+        "min_y": -201.902,
+        "min_z": -137.0,
+        "max_x": -138.669,
+        "max_y": -51.902,
+        "max_z": -127.0,
+    },
 }
 
 
@@ -36,19 +48,33 @@ class StockTabView:
     box_controls: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
-def build_stock_tab(*, apply_stock: Callable[[], Awaitable[None]]) -> StockTabView:
+def default_stock_box(machine_model: str) -> dict[str, float]:
+    return DEFAULT_STOCK_BOXES.get(machine_model, DEFAULT_STOCK_BOXES["c1"])
+
+
+def load_default_stock(view: StockTabView, machine_model: str) -> None:
+    controls = view.box_controls.get("stock")
+    if controls is None:
+        return
+    controls["enabled"].value = False
+    for name, value in default_stock_box(machine_model).items():
+        controls[name].value = value
+
+
+def build_stock_tab(*, apply_stock: Callable[[], Awaitable[None]], machine_model: str = "c1") -> StockTabView:
     view = StockTabView()
+    defaults = default_stock_box(machine_model)
     with ui.element("div").classes("panel-section"):
         ui.label("Stock Geometry").classes("section-title")
         ui.label("Stock box").classes("section-subtle")
         enabled = ui.switch("Enabled", value=False).props("dense")
         with ui.element("div").classes("box-grid"):
-            min_x = ui.number("min X", value=DEFAULT_STOCK_BOX["min_x"], step=1.0).props("dense outlined")
-            min_y = ui.number("min Y", value=DEFAULT_STOCK_BOX["min_y"], step=1.0).props("dense outlined")
-            min_z = ui.number("min Z", value=DEFAULT_STOCK_BOX["min_z"], step=1.0).props("dense outlined")
-            max_x = ui.number("max X", value=DEFAULT_STOCK_BOX["max_x"], step=1.0).props("dense outlined")
-            max_y = ui.number("max Y", value=DEFAULT_STOCK_BOX["max_y"], step=1.0).props("dense outlined")
-            max_z = ui.number("max Z", value=DEFAULT_STOCK_BOX["max_z"], step=1.0).props("dense outlined")
+            min_x = ui.number("min X", value=defaults["min_x"], step=1.0).props("dense outlined")
+            min_y = ui.number("min Y", value=defaults["min_y"], step=1.0).props("dense outlined")
+            min_z = ui.number("min Z", value=defaults["min_z"], step=1.0).props("dense outlined")
+            max_x = ui.number("max X", value=defaults["max_x"], step=1.0).props("dense outlined")
+            max_y = ui.number("max Y", value=defaults["max_y"], step=1.0).props("dense outlined")
+            max_z = ui.number("max Z", value=defaults["max_z"], step=1.0).props("dense outlined")
         view.box_controls["stock"] = {
             "enabled": enabled,
             "min_x": min_x,

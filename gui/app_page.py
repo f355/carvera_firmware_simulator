@@ -55,6 +55,10 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
     def scene_appearance_event(event: Any = None) -> None:
         actions.appearance.scene_appearance_changed(view, event)
 
+    def machine_model_changed() -> None:
+        actions.state.update_machine_shell_model(view)
+        actions.tooling.load_default_stock(view)
+
     ui.add_css(SIM_CSS)
     with ui.element("div").classes("sim-page"):
         with ui.element("div").classes("sim-toolbar"):
@@ -62,7 +66,7 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
             view.header.model_select = ui.toggle(
                 {"c1": "Carvera (C1)", "ca1": "Carvera Air (CA1)"},
                 value=selected_model,
-                on_change=lambda _: actions.state.update_machine_shell_model(view),
+                on_change=lambda _: machine_model_changed(),
             ).props("dense unelevated toggle-color=primary")
             view.header.cad_models_switch = ui.switch(
                 "Show 3D Machine", value=True, on_change=lambda event: actions.state.cad_models_changed(view, event)
@@ -164,6 +168,7 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                         with ui.tab_panel(stock_tab):
                             view.stock_tab_view = build_stock_tab(
                                 apply_stock=lambda: actions.tooling.apply_physical_boxes(view),
+                                machine_model=selected_model,
                             )
 
                         with ui.tab_panel(service_tab):

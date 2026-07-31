@@ -56,6 +56,7 @@ class FakeMachineScene:
         self.updated_with: MachineState | None = None
         self.shell_model: str | None = None
         self.backplot_restored = False
+        self.stock_box: tuple[Box3D, bool] | None = None
 
     def update(self, state: MachineState | None) -> None:
         self.updated_with = state
@@ -65,6 +66,9 @@ class FakeMachineScene:
 
     def restore_backplot(self) -> None:
         self.backplot_restored = True
+
+    def set_stock_box(self, box: Box3D, *, enabled: bool) -> None:
+        self.stock_box = (box, enabled)
 
 
 class FakeTransportPanel:
@@ -90,10 +94,12 @@ class FakeMemoryPanel:
 class FakeProcessController:
     def __init__(self, result: object = None) -> None:
         self.calls: list[tuple[object, tuple[object, ...]]] = []
+        self.keyword_calls: list[dict[str, object]] = []
         self.result = result
 
-    async def call(self, method: object, *args: object) -> object:
+    async def call(self, method: object, *args: object, **kwargs: object) -> object:
         self.calls.append((method, args))
+        self.keyword_calls.append(kwargs)
         return self.result
 
 
@@ -103,6 +109,9 @@ class FakeClient:
 
     def get_memory_details(self) -> None:
         return None
+
+    def set_stock_box(self, box: tuple[float, float, float, float, float, float], *, enabled: bool = True) -> None:
+        _ = box, enabled
 
 
 def test_app_presenters_is_composed_from_features() -> None:
@@ -351,6 +360,29 @@ def test_realtime_speed_changed_sends_selected_multiplier() -> None:
     asyncio.run(actions.physical.realtime_speed_changed(view))
 
     assert process_controller.calls == [(client.set_realtime_speed, (5.0,))]
+
+
+def test_applying_stock_updates_collision_geometry_and_scene_together() -> None:
+    store = GuiStateStore()
+    store.set_online(transport=None)
+    process_controller = FakeProcessController()
+    client = FakeClient()
+    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    actions = AppPresenters(session)  # type: ignore[arg-type]
+    values = (-288.669, -201.902, -122.0, -138.669, -51.902, -112.0)
+    names = ("min_x", "min_y", "min_z", "max_x", "max_y", "max_z")
+    controls = {"enabled": FakeControl(True)}
+    controls.update({name: FakeControl(value) for name, value in zip(names, values, strict=True)})
+    scene = FakeMachineScene()
+    view = AppView()
+    view.stock_tab_view = SimpleNamespace(box_controls={"stock": controls})  # type: ignore[assignment]
+    view.machine_scene_view = cast(Any, scene)
+
+    asyncio.run(actions.tooling.apply_physical_boxes(view, notify=False))
+
+    assert process_controller.calls == [(client.set_stock_box, (values,))]
+    assert process_controller.keyword_calls == [{"enabled": True}]
+    assert scene.stock_box == (Box3D(*values), True)
 
 
 def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> None:

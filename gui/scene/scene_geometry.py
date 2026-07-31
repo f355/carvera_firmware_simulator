@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from .scene_transform import (
     C1_ATC_RACK_TOP_SCENE_Z,
     C1_BED_MESH_Y_ALIGNMENT_MM,
+    C1_BED_SURFACE_SCENE_Z,
+    CA1_BED_SURFACE_SCENE_Z,
     FrameAnchors,
     SceneTransform,
     c1_anchors,
@@ -78,6 +80,22 @@ class MachineSceneGeometry:
     def scene_point(self, x: float, y: float, z: float) -> list[float]:
         anchors = self._anchors()
         return anchors.model_point(x, y, z) if anchors is not None else [x, y, z]
+
+    def bed_point(self, x: float, y: float, z: float) -> list[float]:
+        """Map physical bed coordinates through the calibrated spindle Z frame."""
+        if self.is_c1_split_model or self.is_ca1_split_model:
+            return self.active_envelope_point(x, y, z)
+        return self.scene_point(x, y, z)
+
+    def bed_machine_z(self) -> float | None:
+        anchors = self._anchors()
+        if anchors is None:
+            return self.transform.bed_z if self.transform is not None else None
+        if self.is_c1_split_model:
+            return C1_BED_SURFACE_SCENE_Z - anchors.spindle_face[2]
+        if self.is_ca1_split_model:
+            return CA1_BED_SURFACE_SCENE_Z - anchors.spindle_face[2]
+        return self.transform.bed_z if self.transform is not None else None
 
     def spindle_face_point(self, x: float, y: float, z: float) -> list[float]:
         anchors = self._anchors()

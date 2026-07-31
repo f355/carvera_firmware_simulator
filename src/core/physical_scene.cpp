@@ -17,6 +17,7 @@
 
 #include "sim/physical_scene.hpp"
 
+#include "sim/machine_geometry.hpp"
 
 namespace sim {
 
@@ -45,6 +46,20 @@ void PhysicalScene::clear_atc_pocket_tools() {
 void PhysicalScene::configure_atc(const PhysicalAtcConfig& config) {
   model_ = config.model;
   probe_contacts_.configure_tool_setter(config.tool_setter_box);
+  const auto geometry = geometry_for(model_);
+  if (geometry.has_value()) {
+    const Box& travel = geometry->physical_travel;
+    probe_contacts_.configure_bed(Box{
+        travel.min_x,
+        travel.min_y,
+        geometry->bed_z,
+        travel.max_x,
+        travel.max_y,
+        geometry->bed_z,
+    });
+  } else {
+    probe_contacts_.configure_bed(std::nullopt);
+  }
   atc_rack_.configure(config);
 }
 

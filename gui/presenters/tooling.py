@@ -19,7 +19,8 @@ from nicegui import ui
 
 from gui.app_view import AppView
 from gui.presenters.base import SessionPresenter
-from gui.protocol.model import ToolKind
+from gui.protocol.model import Box3D, ToolKind
+from gui.views.stock_tab import load_default_stock as load_default_stock_controls
 from gui.views.tool_table import (
     clear_tool_occupancy,
     collect_box_values,
@@ -51,20 +52,30 @@ class ToolingPresenter(SessionPresenter):
     def clear_tool_table(self, view: AppView) -> None:
         clear_tool_occupancy(view.tool_rows)
 
+    def load_default_stock(self, view: AppView) -> None:
+        if view.stock_tab_view is not None and view.model_select is not None:
+            load_default_stock_controls(view.stock_tab_view, str(view.model_select.value))
+
     def collect_box(self, view: AppView, name: str) -> tuple[float, float, float, float, float, float]:
         return collect_box_values(view.box_controls[name])
 
     async def apply_physical_boxes(self, view: AppView, *, notify: bool = True) -> None:
+        box_values = self.collect_box(view, "stock")
+        enabled = event_bool(view.box_controls["stock"]["enabled"])
         if not self.machine_online:
+            if view.machine_scene_view is not None:
+                view.machine_scene_view.set_stock_box(Box3D(*box_values), enabled=enabled)
             if notify:
                 ui.notify("Stock geometry will be applied when the simulator powers on.", type="info")
             return
         with self.notify_client_errors():
             await self.session.process_controller.call(
                 self.session.client.set_stock_box,
-                self.collect_box(view, "stock"),
-                enabled=event_bool(view.box_controls["stock"]["enabled"]),
+                box_values,
+                enabled=enabled,
             )
+            if view.machine_scene_view is not None:
+                view.machine_scene_view.set_stock_box(Box3D(*box_values), enabled=enabled)
             if notify:
                 ui.notify("Stock geometry updated", type="positive")
 

@@ -71,7 +71,10 @@ class FakeScene:
         self.objects: list[FakeObject] = []
         self.cylinders: list[FakeObject] = []
         self.cylinder_kwargs: list[dict[str, object]] = []
+        self.spheres: list[FakeObject] = []
+        self.sphere_kwargs: list[dict[str, object]] = []
         self.boxes: list[FakeObject] = []
+        self.box_kwargs: list[dict[str, object]] = []
 
     def line(self, start: list[float], end: list[float]) -> FakeLine:
         line = FakeLine(start, end)
@@ -89,9 +92,16 @@ class FakeScene:
         self.cylinder_kwargs.append(kwargs)
         return model
 
-    def box(self, **_kwargs: object) -> FakeObject:
+    def sphere(self, **kwargs: object) -> FakeObject:
+        model = FakeObject()
+        self.spheres.append(model)
+        self.sphere_kwargs.append(kwargs)
+        return model
+
+    def box(self, **kwargs: object) -> FakeObject:
         model = FakeObject()
         self.boxes.append(model)
+        self.box_kwargs.append(kwargs)
         return model
 
 

@@ -34,6 +34,8 @@ struct AxisGeometry {
 
 struct MachineGeometry {
   Box physical_travel{};
+  // G53 spindle-face coordinate at the physical bed surface.
+  double bed_z{0.0};
   Box tool_setter{};
   std::array<AxisGeometry, 3> axes{};
 };
