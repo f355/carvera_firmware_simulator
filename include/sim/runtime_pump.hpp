@@ -25,6 +25,7 @@
 namespace sim {
 
 class EventEngine;
+class MachineSimulator;
 class RuntimeBootSession;
 
 using TimerBudgetMode = TimerBudgetPolicy;
@@ -33,7 +34,7 @@ using RuntimePumpResult = EventRunResult;
 
 class RuntimePump {
  public:
-  RuntimePump(EventEngine& engine, RuntimeBootSession& boot_session);
+  RuntimePump(MachineSimulator& simulator, EventEngine& engine, RuntimeBootSession& boot_session);
 
   RuntimePumpResult pump(const RuntimePumpOptions& options);
   void run_main_loop(std::size_t iterations);
@@ -41,6 +42,7 @@ class RuntimePump {
   bool pump_free_running(std::size_t main_loop_iterations = 4, std::size_t max_step_ticks = 1000);
 
  private:
+  MachineSimulator& simulator_;
   EventEngine& engine_;
   RuntimeBootSession& boot_session_;
 };

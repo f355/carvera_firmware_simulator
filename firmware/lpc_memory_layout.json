@@ -1,10 +1,10 @@
 {
   "ahb_sram": {
-    "dynamic_start": 537394344,
+    "dynamic_start": 537394856,
     "region_end": 537411584,
     "region_start": 537378816
   },
-  "firmware_commit": "95cadf7c86df54c065a31cdd1382f7cf24ec5a82",
+  "firmware_commit": "bc4d29921214d758fc5ff5f0f3a364e4856706f8",
   "main_sram": {
     "config_cache_bytes": 9100,
     "heap_limit": 268464096,
@@ -12,7 +12,7 @@
     "ram_start": 268435656,
     "stack_limit": 268464128,
     "stack_top": 268468224,
-    "static_end": 268440536
+    "static_end": 268439992
   },
   "schema_version": 1,
   "type_sizes": {
@@ -38,10 +38,10 @@
     "PT100_E3D": 20,
     "Pin": 8,
     "Planner": 24,
-    "Player": 424,
+    "Player": 400,
     "Pwm": 28,
     "Robot": 604,
-    "SerialConsole": 320,
+    "SerialConsole": 372,
     "SerialConsole2": 288,
     "SimpleShell": 12,
     "SlowTicker": 52,
@@ -54,7 +54,7 @@
     "TemperatureSwitch": 32,
     "Thermistor": 52,
     "Watchdog": 4,
-    "WifiProvider": 1932,
+    "WifiProvider": 1992,
     "ZProbe": 436
   }
 }

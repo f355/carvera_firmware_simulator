@@ -102,20 +102,19 @@ if(NOT _fatfs_firmware_limit STREQUAL _fatfs_stub_limit)
   )
 endif()
 
-# WifiProvider pins a buffer into LPC AHBSRAM with an ELF-only section name.
-# Mach-O rejects that form, so compile a host copy that drops the placement.
+# Compile a host copy of WifiProvider so its C allocations participate in the
+# LPC heap model. Its LOCATED_IN_AHBSRAM declarations are already neutralized
+# by the simulator's compiler compatibility header.
 set(_wifi_source "${FIRMWARE_SRC}/modules/utils/wifi/WifiProvider.cpp")
 set(_wifi_host_source "${CMAKE_CURRENT_BINARY_DIR}/generated/WifiProvider.cpp")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_wifi_source}")
 file(READ "${_wifi_source}" _wifi_contents)
-set(_wifi_ahbsram_attr "__attribute__((section(\"AHBSRAM1\"), aligned(4)))")
-set(_wifi_host_attr "alignas(4)")
-string(REPLACE "${_wifi_ahbsram_attr}" "${_wifi_host_attr}" _wifi_host_contents "${_wifi_contents}")
-if(_wifi_host_contents STREQUAL _wifi_contents)
-  message(FATAL_ERROR "Pinned WifiProvider.cpp no longer contains the expected AHBSRAM1 section attribute")
-endif()
+set(_wifi_host_contents "${_wifi_contents}")
 string(REPLACE "strdup(" "sim::lpc_memory::tracked_strdup(" _wifi_host_contents "${_wifi_host_contents}")
 string(REPLACE "free(" "sim::lpc_memory::tracked_free(" _wifi_host_contents "${_wifi_host_contents}")
+if(_wifi_host_contents STREQUAL _wifi_contents)
+  message(FATAL_ERROR "Pinned WifiProvider.cpp no longer contains the expected strdup/free calls")
+endif()
 string(PREPEND _wifi_host_contents "#include \"sim/lpc_memory_accounting.hpp\"\n")
 file(WRITE "${_wifi_host_source}" "${_wifi_host_contents}")
 
@@ -234,6 +233,8 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/libs/ConfigValue.cpp
   ${FIRMWARE_SRC}/libs/Hook.cpp
   ${FIRMWARE_SRC}/libs/Kernel.cpp
+  ${FIRMWARE_SRC}/libs/MakeraControl.cpp
+  ${FIRMWARE_SRC}/libs/MakeraFrame.cpp
   ${FIRMWARE_SRC}/libs/Module.cpp
   ${FIRMWARE_SRC}/libs/Pin.cpp
   ${FIRMWARE_SRC}/libs/PublicData.cpp

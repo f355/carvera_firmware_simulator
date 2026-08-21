@@ -19,6 +19,7 @@
 #define SIMULATOR_SIM_EVENT_ENGINE_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 
 class Kernel;
@@ -45,6 +46,7 @@ struct EventRunOptions {
   // Free-running mode spends the complete timer budget so SlowTicker users
   // continue to observe time even when the conveyor is idle.
   TimerBudgetPolicy timer_budget_policy{TimerBudgetPolicy::StopWhenMotionIdle};
+  std::uint32_t main_loop_interval_us{0};
 };
 
 struct EventRunResult {

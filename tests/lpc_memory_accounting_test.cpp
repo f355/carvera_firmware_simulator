@@ -36,15 +36,15 @@ void generated_layout_matches_the_pinned_arm_firmware() {
   const auto main = firmware_main_sram_layout();
   require(main.ram_start == 0x100000c8, "main RAM origin should come from the ARM linker map");
   require(main.ram_end == 0x10008000, "main RAM end should come from the ARM linker map");
-  require(main.static_end == 0x100013d8, "static RAM end should come from the linked image");
+  require(main.static_end == 0x100011b8, "static RAM end should come from the linked image");
   require(main.heap_limit == 0x10006fe0, "heap limit should include the firmware's MPU guard");
   require(main.config_cache_bytes == 9'100, "config cache should use the ARM ConfigValue layout");
 
   const auto ahb = firmware_ahb_layout();
   require(ahb.region_start == 0x2007c000, "AHB RAM origin should come from the ARM linker map");
   require(ahb.region_end == 0x20084000, "AHB RAM end should come from the ARM linker map");
-  require(ahb.dynamic_start == 0x2007fca8, "dynamic AHB start should follow linked static AHB data");
-  require(ahb.region_end - ahb.dynamic_start == 17'240, "dynamic AHB capacity should match the pinned image");
+  require(ahb.dynamic_start == 0x2007fea8, "dynamic AHB start should follow linked static AHB data");
+  require(ahb.region_end - ahb.dynamic_start == 16'728, "dynamic AHB capacity should match the pinned image");
 }
 
 void main_sram_tracks_temporary_config_cache_collisions() {

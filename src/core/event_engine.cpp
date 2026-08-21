@@ -37,6 +37,7 @@ EventRunResult EventEngine::run(Kernel& kernel, const EventRunOptions& options, 
   EventRunResult result;
 
   for (std::size_t i = 0; i < options.main_loop_iterations; ++i) {
+    simulator_.context().clock().advance_us(options.main_loop_interval_us);
     if (!run_firmware_iteration(kernel, result, reset)) {
       return result;
     }

@@ -39,7 +39,7 @@ constexpr FactorySettings default_factory_settings{MachineModel::CarveraC1, 0x04
 FirmwareRuntime::FirmwareRuntime(MachineSimulator& simulator)
     : event_engine_(simulator),
       boot_session_(simulator, event_engine_, default_factory_settings),
-      pump_(event_engine_, boot_session_),
+      pump_(simulator, event_engine_, boot_session_),
       io_(simulator, boot_session_, [this]() -> Kernel& { return start(); }),
       physical_controls_(simulator, boot_session_, pump_, [this]() -> Kernel& { return start(); }) {}
 

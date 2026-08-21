@@ -20,6 +20,8 @@
 #include <vector>
 
 #include "StreamOutput.h"
+#include "libs/Kernel.h"
+#include "modules/communication/SerialConsole.h"
 #include "sim/makera_protocol.hpp"
 #include "sim/m8266_wifi.hpp"
 #include "sim/simulation_instance.hpp"
@@ -37,6 +39,14 @@ std::string require_payload(std::string bytes, sim::makera::PacketType type, con
   auto frames = decoder.take_frames();
   require(frames.size() == 1 && frames[0].type == type, message);
   return frames[0].payload;
+}
+
+std::size_t count_version_responses(sim::makera::FrameDecoder& decoder, std::string bytes) {
+  decoder.append(bytes);
+  const auto frames = decoder.take_frames();
+  return static_cast<std::size_t>(std::count_if(frames.begin(), frames.end(), [](const auto& frame) {
+    return frame.type == sim::makera::PacketType::NormalInfo && frame.payload.find("version =") != std::string::npos;
+  }));
 }
 
 }  // namespace
@@ -59,6 +69,21 @@ int main() {
   require(serial_status.find("MPos:") != std::string::npos,
           "serial Makera status should come from the real firmware query path");
 
+  const auto version_burst = sim::makera::encode_console_input(
+      "version\nversion\nversion\nversion\nversion\nversion\n");
+  runtime.io().write_serial(version_burst);
+  auto& kernel = runtime.boot();
+  while (kernel.serial->serial->rx_in_flight()) {
+    kernel.serial->serial->service_rx_irq();
+  }
+  sim::makera::FrameDecoder serial_burst_decoder;
+  std::size_t serial_version_responses = 0;
+  for (int i = 0; i < 80 && serial_version_responses < 6; ++i) {
+    runtime.runner().run_main_loop(1);
+    serial_version_responses += count_version_responses(serial_burst_decoder, runtime.io().read_serial());
+  }
+  require(serial_version_responses == 6, "serial Makera burst should execute all six commands without discarding any");
+
   wifi.connect_tcp_client();
   runtime.io().write_wifi_tcp(sim::makera::encode_console_input("?"));
   std::string response;
@@ -72,6 +97,15 @@ int main() {
                                       "WiFi should return one framed Makera status response");
   require(status.find("<") != std::string::npos, "WiFi TCP should return firmware status through M8266 send APIs");
   require(status.find("MPos:") != std::string::npos, "WiFi TCP status should come from the real firmware query path");
+
+  runtime.io().write_wifi_tcp(version_burst);
+  sim::makera::FrameDecoder wifi_burst_decoder;
+  std::size_t wifi_version_responses = 0;
+  for (int i = 0; i < 80 && wifi_version_responses < 6; ++i) {
+    runtime.runner().run_main_loop(1);
+    wifi_version_responses += count_version_responses(wifi_burst_decoder, runtime.io().read_wifi_tcp());
+  }
+  require(wifi_version_responses == 6, "WiFi Makera burst should execute all six commands without discarding any");
 
   sim::test::TempSdCard sd("carvera_sim_wifi_protocol_test");
   sd.write_config_txt("download fixture\n");

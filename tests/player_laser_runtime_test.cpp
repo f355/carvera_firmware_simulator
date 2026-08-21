@@ -60,7 +60,7 @@ void select_and_start(sim::FirmwareRuntime& runtime, const std::string& name) {
   runtime.io().write_serial_command("M23 " + name + "\n");
   runtime.runner().run_main_loop(1);
   runtime.io().write_serial_command("M24\n");
-  runtime.runner().run_main_loop(1);
+  runtime.runner().run_main_loop(2);
   (void)runtime.io().read_serial_text();
 }
 
