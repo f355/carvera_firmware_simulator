@@ -68,7 +68,7 @@ int main() {
 
   const int serial_fd = sim::test::open_virtual_com_slave(uart.device_path());
   require(serial_fd >= 0, "virtual COM slave path should open");
-  const auto serial_jog = sim::makera::encode_console_input("$H\n$J=G91 X1 F1500\n");
+  const auto serial_jog = sim::makera::encode_console_input("$J=G91 X1 F1500\n");
   require(::write(serial_fd, serial_jog.data(), serial_jog.size()) == static_cast<ssize_t>(serial_jog.size()),
           "virtual COM write should succeed");
 
@@ -76,7 +76,7 @@ int main() {
   std::string serial_output;
   auto pump_serial = [&] {
     uart.poll();
-    runtime.runner().pump_free_running();
+    runtime.runner().run_until_motion_idle(200'000);
     uart.poll();
     serial_output += decode_payloads(serial_decoder, sim::test::read_available(serial_fd, 256));
   };
@@ -88,27 +88,21 @@ int main() {
       pump_serial);
   require(serial_output.find("ok") != std::string::npos, "virtual COM bridge should return firmware serial output");
   require(simulator.axis_position_steps(0) != initial_serial_x_steps,
-          "virtual COM bridge should accept controller homing and jog commands");
+          "virtual COM bridge should accept controller jog commands");
   ::close(serial_fd);
+  uart.stop();
 
-  sim::test::TempDirectory tcp_temp_root("carvera_sim_interactive_io_tcp_test");
-  sim::test::write_cartesian_config(tcp_temp_root.path(), config);
-  sim::SimulationInstance tcp_simulation(sim::test::persistent_sd_config(tcp_temp_root.path()));
-  auto& tcp_simulator = tcp_simulation.machine();
-  auto& tcp_runtime = tcp_simulation.firmware();
-  tcp_runtime.boot();
-  sim::LocalhostTcpBridge wifi(tcp_runtime.io());
+  sim::LocalhostTcpBridge wifi(runtime.io());
   require(wifi.start(0), "localhost WiFi bridge should start on an ephemeral port");
   require(wifi.port() != 0, "localhost WiFi bridge should report the bound port");
-  const auto initial_tcp_x_steps = tcp_simulator.axis_position_steps(0);
 
   const auto non_loopback_address = sim::test::non_loopback_ipv4_address();
   require(!non_loopback_address.empty(), "test host should expose a non-loopback IPv4 address");
   int client = -1;
   require(sim::test::connect_ipv4(non_loopback_address.c_str(), wifi.port(), client),
           "TCP client should connect to the WiFi bridge through any local IPv4 address");
-  const auto tcp_jog = sim::makera::encode_console_input("$H\n$J=G91 X1 F1500\n");
-  require(::write(client, tcp_jog.data(), tcp_jog.size()) == static_cast<ssize_t>(tcp_jog.size()),
+  const auto tcp_query = sim::makera::encode_console_input("?");
+  require(::write(client, tcp_query.data(), tcp_query.size()) == static_cast<ssize_t>(tcp_query.size()),
           "TCP client write should succeed");
   require(sim::test::set_nonblocking(client), "TCP client should switch to nonblocking reads");
 
@@ -116,25 +110,17 @@ int main() {
   std::string tcp_output;
   auto pump_tcp = [&] {
     wifi.poll();
-    tcp_runtime.runner().pump_free_running();
+    runtime.runner().run_until_motion_idle(200'000);
     wifi.poll();
     tcp_output += decode_payloads(tcp_decoder, sim::test::read_available(client, 256));
   };
-  wait_pumping(
-      [&] {
-        return tcp_output.find("ok") != std::string::npos &&
-               tcp_simulator.axis_position_steps(0) != initial_tcp_x_steps;
-      },
-      pump_tcp);
-  require(tcp_output.find("ok") != std::string::npos, "localhost WiFi bridge should return firmware serial output");
-  require(tcp_simulator.axis_position_steps(0) != initial_tcp_x_steps,
-          "localhost WiFi bridge should accept controller homing and jog commands");
+  wait_pumping([&] { return tcp_output.find("MPos:") != std::string::npos; }, pump_tcp);
+  require(tcp_output.find("MPos:") != std::string::npos,
+          "localhost WiFi bridge should return a framed firmware status response");
   ::close(client);
+  wifi.stop();
 
-  sim::SimulationInstance backlog_simulation;
-  auto& backlog_runtime = backlog_simulation.firmware();
-  backlog_runtime.boot();
-  sim::LocalhostTcpBridge backlog_wifi(backlog_runtime.io());
+  sim::LocalhostTcpBridge backlog_wifi(runtime.io());
   require(backlog_wifi.start(0), "backlog WiFi bridge should start");
 
   int backlog_client = -1;

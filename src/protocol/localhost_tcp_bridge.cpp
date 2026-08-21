@@ -66,6 +66,7 @@ std::string LocalhostTcpBridge::poll_input() {
     return {};
   }
 
+  accept_pending_clients();
   std::string combined;
   bool connected = false;
   {
