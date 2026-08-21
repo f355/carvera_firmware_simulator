@@ -17,6 +17,7 @@
 
 #include "sim/motion_telemetry.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -27,6 +28,8 @@
 namespace sim {
 
 namespace {
+
+constexpr std::uint64_t physical_speed_window_us = 100'000;
 
 MachineModel machine_model_from_kernel(Kernel& kernel) {
   if (kernel.factory_set != nullptr && kernel.factory_set->MachineModel == CARVERA_AIR) {
@@ -46,6 +49,8 @@ void MotionTelemetry::reset() {
   last_emitted_time_us_.reset();
   last_emitted_wall_time_.reset();
   last_emitted_steps_.reset();
+  physical_position_history_.clear();
+  last_emitted_had_motion_ = false;
 }
 
 void MotionTelemetry::set_sink(Sink sink) {
@@ -92,7 +97,8 @@ void MotionTelemetry::observe(SimulatorContext& context, Kernel& kernel, bool fo
   // few steps before the move actually finishes. Keep observing until the
   // resting position has been emitted, otherwise consumers freeze on that stale
   // sample for as long as the machine stays idle.
-  const bool resting_position_unemitted = !last_emitted_steps_.has_value() || steps != *last_emitted_steps_;
+  const bool resting_position_unemitted =
+      !last_emitted_steps_.has_value() || steps != *last_emitted_steps_ || last_emitted_had_motion_;
   last_observed_steps_ = steps;
   if (!force && !changed_since_last_observation && !spindle_changed_since_last_emit && !resting_position_unemitted) {
     return;
@@ -115,10 +121,11 @@ void MotionTelemetry::observe(SimulatorContext& context, Kernel& kernel, bool fo
   if (!force && last_emitted_steps_.has_value() && last_emitted_spindle_rpm_.has_value() &&
       last_emitted_spindle_target_rpm_.has_value() && steps == *last_emitted_steps_ &&
       std::fabs(spindle.actual_rpm - *last_emitted_spindle_rpm_) < 10.0 &&
-      std::fabs(spindle.target_rpm - *last_emitted_spindle_target_rpm_) < 10.0) {
+      std::fabs(spindle.target_rpm - *last_emitted_spindle_target_rpm_) < 10.0 && !last_emitted_had_motion_) {
     return;
   }
   ticks_since_emit_ = 0;
+  const bool emitted_position_changed = last_emitted_steps_.has_value() && steps != *last_emitted_steps_;
   last_emitted_steps_ = steps;
   last_emitted_spindle_rpm_ = spindle.actual_rpm;
   last_emitted_spindle_target_rpm_ = spindle.target_rpm;
@@ -131,6 +138,34 @@ void MotionTelemetry::observe(SimulatorContext& context, Kernel& kernel, bool fo
   MachineStateSnapshotOptions options;
   options.axis_count = axis_count;
   static_cast<MachineStateSnapshot&>(sample) = assemble_machine_state(context, kernel, model, options);
+
+  std::vector<double> positions;
+  positions.reserve(sample.axes.size());
+  for (auto& axis : sample.axes) {
+    positions.push_back(axis.physical_mm);
+  }
+
+  if (!physical_position_history_.empty() && now_us < physical_position_history_.back().time_us) {
+    physical_position_history_.clear();
+  }
+  physical_position_history_.push_back({now_us, std::move(positions)});
+  const auto cutoff_us = now_us > physical_speed_window_us ? now_us - physical_speed_window_us : 0;
+  while (physical_position_history_.size() > 1 && physical_position_history_[1].time_us <= cutoff_us) {
+    physical_position_history_.pop_front();
+  }
+
+  bool speed_visible = false;
+  const auto& oldest = physical_position_history_.front();
+  if (emitted_position_changed && now_us > oldest.time_us && oldest.positions.size() == sample.axes.size()) {
+    const auto elapsed_us = std::max(now_us - oldest.time_us, physical_speed_window_us);
+    const double minutes = static_cast<double>(elapsed_us) / 60'000'000.0;
+    for (std::size_t axis = 0; axis < sample.axes.size(); ++axis) {
+      sample.axes[axis].physical_speed_per_min =
+          std::fabs(sample.axes[axis].physical_mm - oldest.positions[axis]) / minutes;
+      speed_visible = speed_visible || sample.axes[axis].physical_speed_per_min >= 0.05;
+    }
+  }
+  last_emitted_had_motion_ = speed_visible;
 
   sink_(sample);
 }

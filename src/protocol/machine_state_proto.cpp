@@ -58,6 +58,7 @@ void fill_axis_state_proto(carvera::sim::v1::AxisState& target, const AxisMachin
   target.set_physical_mm(source.physical_mm);
   target.set_machine_position(source.machine_position);
   target.set_endstop_triggered(source.endstop_triggered);
+  target.set_physical_speed_per_min(source.physical_speed_per_min);
 }
 
 void fill_spindle_state_proto(carvera::sim::v1::SpindleState& target, const spindle_state::Snapshot& source) {

@@ -85,10 +85,11 @@ def test_machine_snapshot_and_telemetry_use_typed_domain_state() -> None:
     telemetry = model.pb.MachineTelemetry()
     telemetry.firmware_booted = True
     telemetry.time_us = 12_340_000
-    telemetry.axes.add(axis=model.pb.AXIS_A, physical_mm=10.5)
+    telemetry.axes.add(axis=model.pb.AXIS_A, physical_mm=10.5, physical_speed_per_min=72.25)
 
     frame = model.telemetry_to_state(telemetry)
     assert frame.axis("A").physical_mm == 10.5
+    assert frame.axis("A").physical_speed_per_min == 72.25
     assert frame.work_area is None
     assert frame.atc is None
     assert frame.memory is None

@@ -100,20 +100,26 @@ def build_machine_tab(
     with ui.element("div").classes("panel-section"):
         ui.label("Axes").classes("section-title")
         with ui.element("div").classes("axis-table"):
-            for heading in ("Axis", "Physical", "G53", "Limit"):
+            for heading in ("Axis", "Physical", "G53", "Speed", "Limit"):
                 ui.label(heading).classes("table-head")
             for axis, display_name in (("X", "X"), ("Y", "Y"), ("Z", "Z"), ("A", "A"), ("B", "ATC")):
                 axis_name_label = ui.label(display_name).classes("table-cell")
                 physical_label = ui.label("--").classes("table-cell")
                 machine_label = ui.label("--").classes("table-cell")
+                speed_label = ui.label("--").classes("table-cell axis-speed")
                 endstop_badge = ui.label("clear").classes("badge-off")
                 axis_detail_rows[axis] = [
                     axis_name_label,
                     physical_label,
                     machine_label,
+                    speed_label,
                     endstop_badge,
                 ]
-                axis_detail_labels[axis] = {"physical": physical_label, "machine": machine_label}
+                axis_detail_labels[axis] = {
+                    "physical": physical_label,
+                    "machine": machine_label,
+                    "speed": speed_label,
+                }
                 axis_endstop_badges[axis] = endstop_badge
 
     return MachineTabView(

@@ -39,6 +39,7 @@ struct AxisMachineState {
   double physical_mm{0.0};
   double machine_position{0.0};
   bool endstop_triggered{false};
+  double physical_speed_per_min{0.0};
 };
 
 struct AtcSpindleMachineState : AtcSpindleState {

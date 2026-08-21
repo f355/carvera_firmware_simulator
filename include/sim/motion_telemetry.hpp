@@ -21,6 +21,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -51,6 +52,11 @@ class MotionTelemetry {
   void observe(SimulatorContext& context, Kernel& kernel, bool force = false);
 
  private:
+  struct PhysicalPositionSample {
+    std::uint64_t time_us{0};
+    std::vector<double> positions{};
+  };
+
   Sink sink_{};
   std::size_t interval_ticks_{30};
   std::uint64_t interval_us_{10'000};
@@ -62,6 +68,8 @@ class MotionTelemetry {
   std::optional<std::uint64_t> last_emitted_time_us_{};
   std::optional<std::chrono::steady_clock::time_point> last_emitted_wall_time_{};
   std::optional<std::vector<std::int64_t>> last_emitted_steps_{};
+  std::deque<PhysicalPositionSample> physical_position_history_{};
+  bool last_emitted_had_motion_{false};
 };
 
 }  // namespace sim

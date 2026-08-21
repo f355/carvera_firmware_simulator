@@ -104,7 +104,8 @@ body { background: #f6f7f9; color: #1f2933; }
 .axis-table, .tool-table, .pin-table, .pwm-table, .switch-table {
   display: grid; gap: 6px; margin-top: 8px; font-size: 12px;
 }
-.axis-table { grid-template-columns: 44px 1fr 1fr 64px; }
+.axis-table { grid-template-columns: 44px 1fr 1fr minmax(82px, 1.2fr) 64px; }
+.axis-speed { justify-content: flex-end; white-space: pre; }
 .tool-table-wrap { overflow-x: auto; margin-top: 8px; }
 .tool-table {
   min-width: 620px;

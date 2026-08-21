@@ -41,6 +41,7 @@ class AxisPanelView:
         for labels in self.axis_detail_labels.values():
             labels["physical"].text = "--"
             labels["machine"].text = "--"
+            labels["speed"].text = "--"
         for badge in self.axis_endstop_badges.values():
             set_badge(badge, False, "HIT", "clear", warn=True)
 
@@ -55,10 +56,12 @@ class AxisPanelView:
             if entry is None:
                 labels["physical"].text = "--"
                 labels["machine"].text = "--"
+                labels["speed"].text = "--"
                 set_badge(self.axis_endstop_badges[axis_name], False, "HIT", "clear", warn=True)
                 continue
             labels["physical"].text = f"{entry.physical_mm:.3f}"
             labels["machine"].text = f"{entry.machine_position:.3f}"
+            labels["speed"].text = f"{entry.physical_speed_per_min:8.1f} {axis_unit(axis_name)}/min"
             set_badge(self.axis_endstop_badges[axis_name], entry.endstop_triggered, "HIT", "clear", warn=True)
 
 

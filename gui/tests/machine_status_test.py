@@ -23,10 +23,10 @@ from gui.views.machine_status import AtcPanelView, AxisPanelView
 def test_axis_panel_formats_linear_rotary_and_missing_axes() -> None:
     axis_labels = {"X": FakeLabel(), "Y": FakeLabel(), "A": FakeLabel()}
     axis_details = {
-        "X": {"physical": FakeLabel(), "machine": FakeLabel()},
-        "Y": {"physical": FakeLabel(), "machine": FakeLabel()},
-        "A": {"physical": FakeLabel(), "machine": FakeLabel()},
-        "B": {"physical": FakeLabel(), "machine": FakeLabel()},
+        "X": {"physical": FakeLabel(), "machine": FakeLabel(), "speed": FakeLabel()},
+        "Y": {"physical": FakeLabel(), "machine": FakeLabel(), "speed": FakeLabel()},
+        "A": {"physical": FakeLabel(), "machine": FakeLabel(), "speed": FakeLabel()},
+        "B": {"physical": FakeLabel(), "machine": FakeLabel(), "speed": FakeLabel()},
     }
     axis_badges = {"X": FakeLabel(), "Y": FakeLabel(), "A": FakeLabel(), "B": FakeLabel()}
     axis_view = AxisPanelView(axis_labels, axis_details, axis_badges)
@@ -39,9 +39,9 @@ def test_axis_panel_formats_linear_rotary_and_missing_axes() -> None:
             work_area=None,
             physical_travel=None,
             axes=(
-                AxisSnapshot("X", 0, -2.0, -1.0, True),
-                AxisSnapshot("A", 0, 42.0, 41.0, False),
-                AxisSnapshot("B", 0, 1.5, 1.0, True),
+                AxisSnapshot("X", 0, -2.0, -1.0, True, 123.456),
+                AxisSnapshot("A", 0, 42.0, 41.0, False, 45.0),
+                AxisSnapshot("B", 0, 1.5, 1.0, True, 6.0),
             ),
             atc=None,
             spindle=None,
@@ -50,9 +50,11 @@ def test_axis_panel_formats_linear_rotary_and_missing_axes() -> None:
     )
     assert axis_labels["X"].text == "  -2.000 mm"
     assert axis_details["X"]["machine"].text == "-1.000"
+    assert axis_details["X"]["speed"].text == "   123.5 mm/min"
     assert axis_badges["X"].text == "HIT"
     assert axis_labels["Y"].text == "--"
     assert axis_labels["A"].text == "  42.000 deg"
+    assert axis_details["A"]["speed"].text == "    45.0 deg/min"
     assert axis_details["B"]["physical"].text == "1.500"
     assert axis_badges["B"].text == "HIT"
 

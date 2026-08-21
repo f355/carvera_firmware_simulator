@@ -17,6 +17,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "Robot.h"
@@ -52,11 +54,21 @@ int main() {
   sim::SimulationInstance simulation(sd.persistent_config());
 
   std::vector<std::int64_t> last_emitted;
+  bool saw_physical_motion = false;
+  double last_x_speed = -1.0;
+  std::vector<double> observed_x_speeds;
   simulation.machine().context().motion_telemetry().set_sink([&](const sim::MachineTelemetry& sample) {
     last_emitted.clear();
     for (const auto& axis : sample.axes) {
       if (last_emitted.size() < 3) {
         last_emitted.push_back(axis.physical_steps);
+      }
+      if (axis.axis == 0) {
+        last_x_speed = axis.physical_speed_per_min;
+        saw_physical_motion = saw_physical_motion || axis.physical_speed_per_min > 0.0;
+        if (axis.physical_speed_per_min > 0.0) {
+          observed_x_speeds.push_back(axis.physical_speed_per_min);
+        }
       }
     }
   });
@@ -78,6 +90,8 @@ int main() {
 
   // Short enough to finish well inside one emit window. Interleave main-loop
   // iterations so the firmware keeps feeding its watchdog.
+  observed_x_speeds.clear();
+  saw_physical_motion = false;
   runtime.io().write_wifi_command("G91\nG0 X-0.04 Y-0.03 F900\nG90\n");
   bool idle = false;
   for (int i = 0; i < 20'000 && !idle; ++i) {
@@ -99,11 +113,44 @@ int main() {
 
   require(!last_emitted.empty(), "telemetry sink should have received at least one sample");
   if (last_emitted != resting) {
-    std::fprintf(stderr, "resting=[%lld %lld %lld] last emitted=[%lld %lld %lld]\n",
-                 static_cast<long long>(resting[0]), static_cast<long long>(resting[1]),
-                 static_cast<long long>(resting[2]), static_cast<long long>(last_emitted[0]),
-                 static_cast<long long>(last_emitted[1]), static_cast<long long>(last_emitted[2]));
+    std::fprintf(stderr, "resting=[%lld %lld %lld] last emitted=[%lld %lld %lld]\n", static_cast<long long>(resting[0]),
+                 static_cast<long long>(resting[1]), static_cast<long long>(resting[2]),
+                 static_cast<long long>(last_emitted[0]), static_cast<long long>(last_emitted[1]),
+                 static_cast<long long>(last_emitted[2]));
     require(false, "last emitted telemetry sample must carry the resting physical position, not a mid-move sample");
   }
+
+  // Exercise enough motion to span several telemetry samples. The reported
+  // speed is derived from physical steps, and the subsequent resting sample
+  // must clear it instead of leaving the last moving value on screen.
+  telemetry.set_interval_ticks(1);
+  telemetry.set_interval_us(1'000);
+  observed_x_speeds.clear();
+  saw_physical_motion = false;
+  runtime.io().write_wifi_command("G91\nG0 X0.04 F900\nG90\n");
+  idle = false;
+  for (int i = 0; i < 20'000 && !idle; ++i) {
+    idle = runtime.runner().pump_free_running(4, 2'000) && i > 8;
+  }
+  require(idle, "the physical-speed spike probe should reach motion idle");
+  require(*std::max_element(observed_x_speeds.begin(), observed_x_speeds.end()) < 100.0,
+          "the physical-speed window should suppress individual step timing spikes");
+
+  observed_x_speeds.clear();
+  saw_physical_motion = false;
+  runtime.io().write_wifi_command("G91\nG1 X-0.5 F60\nG90\n");
+  idle = false;
+  for (int i = 0; i < 20'000 && !idle; ++i) {
+    idle = runtime.runner().pump_free_running(4, 2'000) && i > 8;
+  }
+  require(idle, "the physical-speed probe move should reach motion idle");
+  const auto speed_idle_started_us = simulation.machine().time_us();
+  while (last_x_speed != 0.0 && simulation.machine().time_us() - speed_idle_started_us < 10 * emit_interval_us) {
+    runtime.runner().pump_free_running(4, 2'000);
+  }
+  require(saw_physical_motion, "moving physical steps should produce a positive physical speed");
+  require(*std::max_element(observed_x_speeds.begin(), observed_x_speeds.end()) < 90.0,
+          "a 100 ms physical-speed window should suppress individual step timing spikes");
+  require(std::fabs(last_x_speed) < 1e-9, "resting physical axes should report zero speed");
   return 0;
 }

@@ -150,6 +150,7 @@ class AxisSnapshot:
     physical_mm: float
     machine_position: float
     endstop_triggered: bool
+    physical_speed_per_min: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -513,6 +514,7 @@ def _axes_to_state(axes: Any) -> tuple[AxisSnapshot, ...]:
             physical_mm=float(axis.physical_mm),
             machine_position=float(axis.machine_position),
             endstop_triggered=bool(axis.endstop_triggered),
+            physical_speed_per_min=float(axis.physical_speed_per_min),
         )
         for axis in axes
     )

@@ -874,6 +874,7 @@ message AxisState {
   double physical_mm = 3;
   double machine_position = 4;
   bool endstop_triggered = 5;
+  double physical_speed_per_min = 6;
 }
 
 // Physical spindle state below firmware PWM/spindle commands.

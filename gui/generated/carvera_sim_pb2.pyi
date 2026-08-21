@@ -1,5 +1,5 @@
 # mypy: disable-error-code="var-annotated"
-# source-schema-sha256: f21932fbb69310f16c216bc104bbafe9ce240b8add41cf528b3173e60ea32b44
+# source-schema-sha256: da4b58ba9feb3eaf4f0ec291ec0a00d7579bec352b6a9a1275e8509a9545c3fc
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -1054,18 +1054,20 @@ class MachineTelemetry(_message.Message):
     def __init__(self, firmware_booted: _Optional[bool] = ..., homed: _Optional[bool] = ..., axes: _Optional[_Iterable[_Union[AxisState, _Mapping]]] = ..., physical_travel: _Optional[_Union[Box, _Mapping]] = ..., spindle: _Optional[_Union[SpindleState, _Mapping]] = ..., atc: _Optional[_Union[AtcState, _Mapping]] = ..., time_us: _Optional[int] = ...) -> None: ...
 
 class AxisState(_message.Message):
-    __slots__ = ("axis", "physical_steps", "physical_mm", "machine_position", "endstop_triggered")
+    __slots__ = ("axis", "physical_steps", "physical_mm", "machine_position", "endstop_triggered", "physical_speed_per_min")
     AXIS_FIELD_NUMBER: _ClassVar[int]
     PHYSICAL_STEPS_FIELD_NUMBER: _ClassVar[int]
     PHYSICAL_MM_FIELD_NUMBER: _ClassVar[int]
     MACHINE_POSITION_FIELD_NUMBER: _ClassVar[int]
     ENDSTOP_TRIGGERED_FIELD_NUMBER: _ClassVar[int]
+    PHYSICAL_SPEED_PER_MIN_FIELD_NUMBER: _ClassVar[int]
     axis: Axis
     physical_steps: int
     physical_mm: float
     machine_position: float
     endstop_triggered: bool
-    def __init__(self, axis: _Optional[_Union[Axis, str]] = ..., physical_steps: _Optional[int] = ..., physical_mm: _Optional[float] = ..., machine_position: _Optional[float] = ..., endstop_triggered: _Optional[bool] = ...) -> None: ...
+    physical_speed_per_min: float
+    def __init__(self, axis: _Optional[_Union[Axis, str]] = ..., physical_steps: _Optional[int] = ..., physical_mm: _Optional[float] = ..., machine_position: _Optional[float] = ..., endstop_triggered: _Optional[bool] = ..., physical_speed_per_min: _Optional[float] = ...) -> None: ...
 
 class SpindleState(_message.Message):
     __slots__ = ("spinning", "actual_rpm", "target_rpm", "max_rpm")
