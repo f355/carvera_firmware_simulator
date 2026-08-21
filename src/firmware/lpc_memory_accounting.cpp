@@ -25,7 +25,6 @@
 #include <stdexcept>
 #include <utility>
 
-#include "ConfigCache.h"
 #include "StreamOutput.h"
 #include "compat/active_context.hpp"
 #include "lpc_memory_layout.hpp"
@@ -33,18 +32,16 @@
 
 namespace {
 
-constexpr std::uint32_t kMainHeapHeaderBytes = 8;
-constexpr std::uint32_t kMainHeapAlignment = 8;
-constexpr std::uint32_t kAhbHeaderBytes = 4;
-constexpr std::uint32_t kAhbAlignment = 4;
+constexpr std::uint32_t kHeapHeaderBytes = 8;
+constexpr std::uint32_t kHeapAlignment = 8;
+constexpr std::uint32_t kHeapMinimumBlockBytes = 2 * kHeapHeaderBytes;
+constexpr std::uint32_t kHeapRegionSentinelBytes = 8;
 
 struct FirmwareCallStack {
   static constexpr std::size_t kMaximumTrackedDepth = 128;
 
   std::array<void*, kMaximumTrackedDepth> functions{};
   std::size_t depth{};
-  void* pending_config_cache_owner{};
-  std::size_t pending_config_cache_depth{};
   bool accounting_suppressed{};
 };
 
@@ -98,8 +95,8 @@ MainSramLayout firmware_main_sram_layout() {
       .static_end = generated::kStaticEnd,
       .stack_top = generated::kStackTop,
       .stack_limit = generated::kStackLimit,
-      .heap_limit = generated::kHeapLimit,
-      .config_cache_bytes = generated::kConfigCacheBytes,
+      .heap_start = generated::kMainHeapStart,
+      .heap_end = generated::kMainHeapEnd,
   };
 }
 
@@ -107,26 +104,21 @@ AhbLayout firmware_ahb_layout() {
   return {
       .region_start = generated::kAhbRegionStart,
       .region_end = generated::kAhbRegionEnd,
-      .dynamic_start = generated::kAhbDynamicStart,
+      .static_end = generated::kAhbStaticEnd,
+      .heap_start = generated::kAhbHeapStart,
+      .heap_end = generated::kAhbHeapEnd,
   };
 }
 
-MemoryAccounting::MemoryAccounting() : main_(firmware_main_sram_layout()), ahb_(firmware_ahb_layout()) {}
+MemoryAccounting::MemoryAccounting() : heap_(firmware_main_sram_layout(), firmware_ahb_layout()) {}
 
-void MemoryAccounting::record_main(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+void MemoryAccounting::record_heap(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
                                    std::string type_name, bool target_size_exact) {
-  record(MemoryRegion::MainSram, pointer, host_payload_bytes, target_payload_bytes, std::move(type_name),
-         target_size_exact);
+  record(pointer, host_payload_bytes, target_payload_bytes, std::move(type_name), target_size_exact);
 }
 
-void MemoryAccounting::record_ahb(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
-                                  std::string type_name, bool target_size_exact) {
-  record(MemoryRegion::AhbSram, pointer, host_payload_bytes, target_payload_bytes, std::move(type_name),
-         target_size_exact);
-}
-
-void MemoryAccounting::record(MemoryRegion region, void* pointer, std::size_t host_payload_bytes,
-                              std::size_t target_payload_bytes, std::string type_name, bool target_size_exact) {
+void MemoryAccounting::record(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+                              std::string type_name, bool target_size_exact) {
   if (pointer == nullptr) {
     return;
   }
@@ -137,22 +129,22 @@ void MemoryAccounting::record(MemoryRegion region, void* pointer, std::size_t ho
     throw std::invalid_argument("host pointer is already tracked by LPC memory accounting");
   }
 
-  const auto group_index =
-      find_or_create_group(region, std::move(type_name), host_payload_bytes, target_payload_bytes, target_size_exact);
-
   const AllocationId id = next_id_++;
   bool modeled = false;
+  MemoryRegion region = MemoryRegion::UnifiedHeap;
   if (target_size_exact) {
-    modeled = region == MemoryRegion::MainSram ? main_.allocate(id, target_payload_bytes)
-                                               : ahb_.allocate(id, target_payload_bytes);
+    if (const auto allocation_region = heap_.allocate(id, target_payload_bytes); allocation_region.has_value()) {
+      region = *allocation_region;
+      modeled = true;
+    }
   }
-  const bool config_cache_owner = region == MemoryRegion::MainSram && groups_[group_index].type_name == "ConfigCache";
+  const auto group_index =
+      find_or_create_group(region, std::move(type_name), host_payload_bytes, target_payload_bytes, target_size_exact);
   allocations_.emplace(pointer, Allocation{
                                     .region = region,
                                     .id = id,
                                     .group_index = group_index,
                                     .modeled = modeled,
-                                    .config_cache_owner = config_cache_owner,
                                 });
 
   charge_group(group_index, target_payload_bytes);
@@ -201,81 +193,37 @@ std::optional<MemoryRegion> MemoryAccounting::deallocate(void* pointer) {
 
   const auto allocation = found->second;
   if (allocation.modeled) {
-    if (allocation.region == MemoryRegion::MainSram) {
-      main_.deallocate(allocation.id);
-    } else {
-      ahb_.deallocate(allocation.id);
-    }
+    heap_.deallocate(allocation.id);
   }
   auto& group = groups_[allocation.group_index];
   --group.live_count;
   group.live_target_bytes -= group.target_payload_bytes;
-  if (allocation.config_cache_owner) {
-    main_.set_config_cache_active(false);
-  }
   allocations_.erase(found);
   return allocation.region;
-}
-
-void MemoryAccounting::mark_config_cache_owner(void* pointer, std::size_t target_payload_bytes) {
-  if (pointer == nullptr) {
-    return;
-  }
-  AccountingSuppression suppression;
-  std::scoped_lock lock(mutex_);
-  const auto found = allocations_.find(pointer);
-  if (found == allocations_.end() || found->second.region != MemoryRegion::MainSram ||
-      found->second.config_cache_owner) {
-    return;
-  }
-
-  auto& allocation = found->second;
-  auto& old_group = groups_[allocation.group_index];
-  if (allocation.modeled) {
-    main_.deallocate(allocation.id);
-  }
-  --old_group.live_count;
-  old_group.live_target_bytes -= old_group.target_payload_bytes;
-
-  const auto group_index = find_or_create_group(MemoryRegion::MainSram, "ConfigCache", old_group.host_payload_bytes,
-                                                target_payload_bytes, true);
-
-  charge_group(group_index, target_payload_bytes);
-  allocation.group_index = group_index;
-  allocation.modeled = main_.allocate(allocation.id, target_payload_bytes);
-  allocation.config_cache_owner = true;
-}
-
-void MemoryAccounting::set_config_cache_active(bool active) {
-  AccountingSuppression suppression;
-  std::scoped_lock lock(mutex_);
-  main_.set_config_cache_active(active);
 }
 
 void MemoryAccounting::release_config_cache() {
   AccountingSuppression suppression;
   std::scoped_lock lock(mutex_);
-  for (auto allocation = allocations_.begin(); allocation != allocations_.end(); ++allocation) {
-    if (!allocation->second.config_cache_owner) {
+  for (auto allocation = allocations_.begin(); allocation != allocations_.end();) {
+    auto& group = groups_[allocation->second.group_index];
+    if (group.type_name != "ConfigCache::Chunk") {
+      ++allocation;
       continue;
     }
     if (allocation->second.modeled) {
-      main_.deallocate(allocation->second.id);
+      heap_.deallocate(allocation->second.id);
     }
-    auto& group = groups_[allocation->second.group_index];
     --group.live_count;
     group.live_target_bytes -= group.target_payload_bytes;
-    allocations_.erase(allocation);
-    break;
+    allocation = allocations_.erase(allocation);
   }
-  main_.set_config_cache_active(false);
 }
 
 void MemoryAccounting::reset() {
   AccountingSuppression suppression;
   std::scoped_lock lock(mutex_);
-  main_.reset();
-  ahb_.reset();
+  heap_.reset();
   allocations_.clear();
   groups_.clear();
   next_id_ = 1;
@@ -284,9 +232,11 @@ void MemoryAccounting::reset() {
 MemoryAccountingSnapshot MemoryAccounting::snapshot() const {
   AccountingSuppression suppression;
   std::scoped_lock lock(mutex_);
+  const auto heap = heap_.snapshot();
   return {
-      .main = main_.snapshot(),
-      .ahb = ahb_.snapshot(),
+      .heap = heap.heap,
+      .main = heap.main,
+      .ahb = heap.ahb,
       .allocation_groups = groups_,
   };
 }
@@ -302,28 +252,11 @@ void exit_firmware_function() noexcept {
   if (firmware_calls.depth > 0) {
     --firmware_calls.depth;
   }
-  if (firmware_calls.pending_config_cache_owner != nullptr &&
-      firmware_calls.depth < firmware_calls.pending_config_cache_depth) {
-    firmware_calls.pending_config_cache_owner = nullptr;
-  }
 }
 
 bool firmware_allocation_active() noexcept { return firmware_calls.depth > 0 && !firmware_calls.accounting_suppressed; }
 
-void config_cache_storage_acquired() noexcept {
-  AccountingSuppression suppression;
-  void* owner = firmware_calls.pending_config_cache_owner;
-  firmware_calls.pending_config_cache_owner = nullptr;
-  try {
-    if (auto* context = compat::try_active_context(); context != nullptr) {
-      context->memory_accounting().mark_config_cache_owner(owner, generated::kConfigCacheObjectBytes);
-      context->memory_accounting().set_config_cache_active(true);
-    }
-  } catch (...) {
-  }
-}
-
-void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept {
+void record_host_heap_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept {
   if (pointer == nullptr || !firmware_allocation_active()) {
     return;
   }
@@ -351,13 +284,9 @@ void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, 
       origin = allocation_implementation;
     }
     auto resolved =
-        resolve_generic_main_allocation(host_payload_bytes, array_allocation, origin, allocation_implementation);
-    context->memory_accounting().record_main(pointer, host_payload_bytes, resolved.target_payload_bytes,
+        resolve_generic_heap_allocation(host_payload_bytes, array_allocation, origin, allocation_implementation);
+    context->memory_accounting().record_heap(pointer, host_payload_bytes, resolved.target_payload_bytes,
                                              std::move(resolved.type_name), resolved.target_size_exact);
-    if (host_payload_bytes == sizeof(ConfigCache)) {
-      firmware_calls.pending_config_cache_owner = pointer;
-      firmware_calls.pending_config_cache_depth = firmware_calls.depth;
-    }
   } catch (...) {
   }
 }
@@ -394,7 +323,7 @@ char* tracked_strdup(const char* source) noexcept {
   AccountingSuppression suppression;
   try {
     if (auto* context = compat::try_active_context(); context != nullptr) {
-      context->memory_accounting().record_main(copy, bytes, bytes, "strdup char[]", true);
+      context->memory_accounting().record_heap(copy, bytes, bytes, "strdup char[]", true);
     }
   } catch (...) {
   }
@@ -418,62 +347,75 @@ void print_memory_report(StreamOutput* stream, bool verbose) {
   }
 
   auto report = context->memory_accounting().snapshot();
+  const auto& heap = report.heap;
+  stream->printf("Heap free: %lu bytes, minimum ever free: %lu bytes\r\n",
+                 static_cast<unsigned long>(heap.total_free_bytes),
+                 static_cast<unsigned long>(heap.minimum_ever_free_bytes));
+  stream->printf("Largest contiguous free area: %lu bytes, free areas: %lu\r\n",
+                 static_cast<unsigned long>(heap.largest_free_block_bytes),
+                 static_cast<unsigned long>(heap.free_area_count));
+
   const auto& main = report.main;
   stream->printf("LPC1768 Main SRAM: capacity=%lu static=%lu stack=%lu\n",
                  static_cast<unsigned long>(main.capacity_bytes), static_cast<unsigned long>(main.static_bytes),
                  static_cast<unsigned long>(main.stack_reserved_bytes));
-  stream->printf(
-      "  Heap: committed=%lu live=%lu peak=%lu overhead=%lu fragmented=%lu top-free=%lu\n",
+  stream->printf("  Heap region: used=%lu live=%lu peak=%lu overhead=%lu free=%lu largest-free=%lu\n",
       static_cast<unsigned long>(main.heap_committed_bytes), static_cast<unsigned long>(main.live_payload_bytes),
       static_cast<unsigned long>(main.peak_live_payload_bytes),
       static_cast<unsigned long>(main.allocator_overhead_bytes), static_cast<unsigned long>(main.fragmented_free_bytes),
-      static_cast<unsigned long>(main.top_unallocated_bytes));
-  stream->printf("  Total Free RAM (Main Heap): %lu bytes; minimum-margin=%lu\n",
-                 static_cast<unsigned long>(main.fragmented_free_bytes + main.top_unallocated_bytes),
-                 static_cast<unsigned long>(main.minimum_margin_bytes));
-  stream->printf("  Config cache: %s start=0x%08lX size=%lu collision=%s\n",
-                 main.config_cache_active ? "active" : "released", static_cast<unsigned long>(main.config_cache_start),
-                 static_cast<unsigned long>(main.config_cache_bytes), main.config_cache_collision ? "yes" : "no");
-  stream->printf("  Main allocation failures: %lu (%llu requested bytes); heap-limit-collision=%s\n",
-                 static_cast<unsigned long>(main.failed_allocation_count),
-                 static_cast<unsigned long long>(main.failed_allocation_bytes),
-                 main.heap_limit_collision ? "yes" : "no");
+      static_cast<unsigned long>(main.largest_free_block_bytes));
 
   const auto& ahb = report.ahb;
-  stream->printf("LPC1768 AHB SRAM: capacity=%lu static=%lu dynamic=%lu\n",
+  stream->printf("LPC1768 AHB SRAM: capacity=%lu static=%lu heap=%lu\n",
                  static_cast<unsigned long>(ahb.capacity_bytes), static_cast<unsigned long>(ahb.static_bytes),
                  static_cast<unsigned long>(ahb.dynamic_capacity_bytes));
-  stream->printf(
-      "  Pool: live=%lu peak=%lu overhead=%lu free=%lu largest-free=%lu\n",
+  const auto ahb_used = ahb.live_payload_bytes + ahb.allocator_overhead_bytes;
+  stream->printf("  Heap region: used=%lu live=%lu peak=%lu overhead=%lu free=%lu largest-free=%lu\n",
+      static_cast<unsigned long>(ahb_used),
       static_cast<unsigned long>(ahb.live_payload_bytes), static_cast<unsigned long>(ahb.peak_live_payload_bytes),
       static_cast<unsigned long>(ahb.allocator_overhead_bytes), static_cast<unsigned long>(ahb.total_free_bytes),
       static_cast<unsigned long>(ahb.largest_free_block_bytes));
-  stream->printf("  AHB allocation failures: %lu (%llu requested bytes)\n",
-                 static_cast<unsigned long>(ahb.failed_allocation_count),
-                 static_cast<unsigned long long>(ahb.failed_allocation_bytes));
+  stream->printf("Unified heap allocation failures: %lu (%llu requested bytes)\n",
+                 static_cast<unsigned long>(heap.failed_allocation_count),
+                 static_cast<unsigned long long>(heap.failed_allocation_bytes));
 
   std::uint64_t unresolved_main_live = 0;
   std::uint64_t unresolved_main_peak = 0;
   std::uint64_t unresolved_ahb_live = 0;
   std::uint64_t unresolved_ahb_peak = 0;
+  std::uint64_t unresolved_heap_live = 0;
+  std::uint64_t unresolved_heap_peak = 0;
   for (const auto& group : report.allocation_groups) {
     if (group.target_size_exact) {
       continue;
     }
-    auto& live = group.region == MemoryRegion::MainSram ? unresolved_main_live : unresolved_ahb_live;
-    auto& peak = group.region == MemoryRegion::MainSram ? unresolved_main_peak : unresolved_ahb_peak;
-    live += static_cast<std::uint64_t>(group.host_payload_bytes) * group.live_count;
-    peak += static_cast<std::uint64_t>(group.host_payload_bytes) * group.peak_live_count;
+    const auto live = static_cast<std::uint64_t>(group.host_payload_bytes) * group.live_count;
+    const auto peak = static_cast<std::uint64_t>(group.host_payload_bytes) * group.peak_live_count;
+    if (group.region == MemoryRegion::MainSram) {
+      unresolved_main_live += live;
+      unresolved_main_peak += peak;
+    } else if (group.region == MemoryRegion::AhbSram) {
+      unresolved_ahb_live += live;
+      unresolved_ahb_peak += peak;
+    } else {
+      unresolved_heap_live += live;
+      unresolved_heap_peak += peak;
+    }
   }
   stream->printf(
       "Unresolved ABI allocations (not charged to LPC totals): main live=%llu peak=%llu; "
-      "AHB live=%llu peak=%llu host-request bytes\n",
+      "AHB live=%llu peak=%llu; unplaced live=%llu peak=%llu host-request bytes\n",
       static_cast<unsigned long long>(unresolved_main_live), static_cast<unsigned long long>(unresolved_main_peak),
-      static_cast<unsigned long long>(unresolved_ahb_live), static_cast<unsigned long long>(unresolved_ahb_peak));
+      static_cast<unsigned long long>(unresolved_ahb_live), static_cast<unsigned long long>(unresolved_ahb_peak),
+      static_cast<unsigned long long>(unresolved_heap_live), static_cast<unsigned long long>(unresolved_heap_peak));
 
   if (!verbose) {
     return;
   }
+  stream->printf("Smallest free area: %lu bytes, allocations: %lu, frees: %lu\r\n",
+                 static_cast<unsigned long>(heap.smallest_free_block_bytes),
+                 static_cast<unsigned long>(heap.successful_allocation_count),
+                 static_cast<unsigned long>(heap.successful_free_count));
   std::ranges::sort(report.allocation_groups, [](const auto& lhs, const auto& rhs) {
     if (lhs.region != rhs.region) {
       return lhs.region < rhs.region;
@@ -482,7 +424,9 @@ void print_memory_report(StreamOutput* stream, bool verbose) {
   });
   stream->printf("Allocation groups (host request -> LPC charge):\n");
   for (const auto& group : report.allocation_groups) {
-    const char* region = group.region == MemoryRegion::MainSram ? "main" : "AHB";
+    const char* region = group.region == MemoryRegion::MainSram
+                             ? "main"
+                             : (group.region == MemoryRegion::AhbSram ? "AHB" : "unplaced");
     const char* type = group.type_name.empty() ? "unlabelled" : group.type_name.c_str();
     stream->printf("  %s %-20s %lu -> %lu bytes, live=%lu peak=%lu total=%lu%s\n", region, type,
                    static_cast<unsigned long>(group.host_payload_bytes),
@@ -492,33 +436,40 @@ void print_memory_report(StreamOutput* stream, bool verbose) {
   }
 }
 
-MainSramModel::MainSramModel(MainSramLayout layout) : layout_(layout) {
-  if (!(layout_.ram_start <= layout_.static_end && layout_.static_end <= layout_.heap_limit &&
-        layout_.heap_limit <= layout_.stack_limit && layout_.stack_limit <= layout_.stack_top &&
-        layout_.stack_top <= layout_.ram_end)) {
-    throw std::invalid_argument("invalid LPC main SRAM layout");
+UnifiedHeapModel::UnifiedHeapModel(MainSramLayout main_layout, AhbLayout ahb_layout)
+    : main_layout_(main_layout), ahb_layout_(ahb_layout) {
+  if (!(main_layout_.ram_start <= main_layout_.static_end && main_layout_.static_end == main_layout_.heap_start &&
+        main_layout_.heap_start < main_layout_.heap_end && main_layout_.heap_end < main_layout_.stack_limit &&
+        main_layout_.stack_limit <= main_layout_.stack_top && main_layout_.stack_top <= main_layout_.ram_end)) {
+    throw std::invalid_argument("invalid LPC main SRAM heap layout");
   }
-  if (layout_.config_cache_bytes > layout_.stack_limit - layout_.ram_start) {
-    throw std::invalid_argument("config cache does not fit below StackLimit");
+  if (!(ahb_layout_.region_start <= ahb_layout_.static_end && ahb_layout_.static_end == ahb_layout_.heap_start &&
+        ahb_layout_.heap_start < ahb_layout_.heap_end && ahb_layout_.heap_end <= ahb_layout_.region_end)) {
+    throw std::invalid_argument("invalid LPC AHB SRAM heap layout");
+  }
+  if ((main_layout_.heap_start & (kHeapAlignment - 1)) != 0 ||
+      (ahb_layout_.heap_start & (kHeapAlignment - 1)) != 0) {
+    throw std::invalid_argument("LPC heap_5 regions must be eight-byte aligned");
   }
   reset();
 }
 
-bool MainSramModel::allocate(AllocationId id, std::size_t target_payload_bytes) {
+std::optional<MemoryRegion> UnifiedHeapModel::allocate(AllocationId id, std::size_t target_payload_bytes) {
   if (allocation_chunks_.contains(id)) {
-    throw std::invalid_argument("duplicate LPC main-heap allocation id");
+    throw std::invalid_argument("duplicate LPC unified-heap allocation id");
   }
 
   const auto payload = checked_size(target_payload_bytes);
-  const auto required = aligned_span(target_payload_bytes, kMainHeapHeaderBytes, kMainHeapAlignment);
+  const auto required = aligned_span(target_payload_bytes, kHeapHeaderBytes, kHeapAlignment);
   for (std::size_t index = 0; index < chunks_.size(); ++index) {
     if (chunks_[index].used || chunks_[index].span_bytes < required) {
       continue;
     }
 
     const auto remaining = chunks_[index].span_bytes - required;
-    if (remaining >= kMainHeapHeaderBytes + kMainHeapAlignment) {
+    if (remaining > kHeapMinimumBlockBytes) {
       const Chunk tail{
+          .region = chunks_[index].region,
           .address = chunks_[index].address + required,
           .span_bytes = remaining,
       };
@@ -531,238 +482,152 @@ bool MainSramModel::allocate(AllocationId id, std::size_t target_payload_bytes) 
     chunk.allocation_id = id;
     live_payload_bytes_ += payload;
     peak_live_payload_bytes_ = std::max(peak_live_payload_bytes_, live_payload_bytes_);
+    auto& region_live = chunk.region == MemoryRegion::MainSram ? main_live_payload_bytes_ : ahb_live_payload_bytes_;
+    auto& region_peak =
+        chunk.region == MemoryRegion::MainSram ? main_peak_live_payload_bytes_ : ahb_peak_live_payload_bytes_;
+    region_live += payload;
+    region_peak = std::max(region_peak, region_live);
+    ++successful_allocation_count_;
     rebuild_allocation_index(chunks_, allocation_chunks_);
-    update_margin();
-    return true;
-  }
 
-  if (required > active_heap_limit() - std::min(heap_break_, active_heap_limit())) {
-    ++failed_allocation_count_;
-    failed_allocation_bytes_ += payload;
-    if (config_cache_active_) {
-      config_cache_collision_ = true;
-    } else {
-      heap_limit_collision_ = true;
+    std::uint32_t total_free = 0;
+    for (const auto& area : chunks_) {
+      if (!area.used) {
+        total_free += area.span_bytes;
+      }
     }
-    return false;
-  }
-
-  chunks_.push_back(Chunk{
-      .address = heap_break_,
-      .span_bytes = required,
-      .payload_bytes = payload,
-      .allocation_id = id,
-      .used = true,
-  });
-  allocation_chunks_[id] = chunks_.size() - 1;
-  heap_break_ += required;
-  live_payload_bytes_ += payload;
-  peak_live_payload_bytes_ = std::max(peak_live_payload_bytes_, live_payload_bytes_);
-  update_margin();
-  return true;
-}
-
-void MainSramModel::deallocate(AllocationId id) {
-  const auto found = allocation_chunks_.find(id);
-  if (found == allocation_chunks_.end()) {
-    return;
-  }
-  auto& chunk = chunks_[found->second];
-  live_payload_bytes_ -= chunk.payload_bytes;
-  chunk.payload_bytes = 0;
-  chunk.allocation_id = 0;
-  chunk.used = false;
-  coalesce_free_chunks();
-  rebuild_allocation_index(chunks_, allocation_chunks_);
-}
-
-void MainSramModel::set_config_cache_active(bool active) {
-  config_cache_active_ = active;
-  if (heap_break_ > active_heap_limit()) {
-    if (config_cache_active_) {
-      config_cache_collision_ = true;
-    } else {
-      heap_limit_collision_ = true;
-    }
-  }
-  update_margin();
-}
-
-void MainSramModel::reset() {
-  chunks_.clear();
-  allocation_chunks_.clear();
-  heap_break_ = layout_.static_end;
-  live_payload_bytes_ = 0;
-  peak_live_payload_bytes_ = 0;
-  minimum_margin_bytes_ = std::numeric_limits<std::uint32_t>::max();
-  failed_allocation_count_ = 0;
-  failed_allocation_bytes_ = 0;
-  config_cache_active_ = false;
-  config_cache_collision_ = false;
-  heap_limit_collision_ = false;
-  update_margin();
-}
-
-MainSramSnapshot MainSramModel::snapshot() const {
-  MainSramSnapshot result{
-      .capacity_bytes = layout_.ram_end - layout_.ram_start,
-      .static_bytes = layout_.static_end - layout_.ram_start,
-      .stack_reserved_bytes = layout_.stack_top - layout_.stack_limit,
-      .heap_break = heap_break_,
-      .active_heap_limit = active_heap_limit(),
-      .heap_committed_bytes = heap_break_ - layout_.static_end,
-      .live_payload_bytes = live_payload_bytes_,
-      .peak_live_payload_bytes = peak_live_payload_bytes_,
-      .top_unallocated_bytes = active_heap_limit() > heap_break_ ? active_heap_limit() - heap_break_ : 0,
-      .minimum_margin_bytes = minimum_margin_bytes_,
-      .config_cache_start = layout_.stack_limit - layout_.config_cache_bytes,
-      .config_cache_bytes = layout_.config_cache_bytes,
-      .failed_allocation_count = failed_allocation_count_,
-      .failed_allocation_bytes = failed_allocation_bytes_,
-      .config_cache_active = config_cache_active_,
-      .config_cache_collision = config_cache_collision_,
-      .heap_limit_collision = heap_limit_collision_,
-  };
-
-  for (const auto& chunk : chunks_) {
-    if (chunk.used) {
-      result.allocator_overhead_bytes += chunk.span_bytes - chunk.payload_bytes;
-      continue;
-    }
-    const auto free_payload = chunk.span_bytes > kMainHeapHeaderBytes ? chunk.span_bytes - kMainHeapHeaderBytes : 0;
-    result.fragmented_free_bytes += free_payload;
-    result.largest_free_block_bytes = std::max(result.largest_free_block_bytes, free_payload);
-  }
-  return result;
-}
-
-std::uint32_t MainSramModel::active_heap_limit() const {
-  if (!config_cache_active_) {
-    return layout_.heap_limit;
-  }
-  return std::min(layout_.heap_limit, layout_.stack_limit - layout_.config_cache_bytes);
-}
-
-void MainSramModel::coalesce_free_chunks() {
-  for (std::size_t index = 0; index + 1 < chunks_.size();) {
-    auto& current = chunks_[index];
-    const auto& next = chunks_[index + 1];
-    if (!current.used && !next.used && current.address + current.span_bytes == next.address) {
-      current.span_bytes += next.span_bytes;
-      chunks_.erase(chunks_.begin() + static_cast<std::ptrdiff_t>(index + 1));
-      continue;
-    }
-    ++index;
-  }
-}
-
-void MainSramModel::update_margin() {
-  const auto limit = active_heap_limit();
-  const auto margin = limit > heap_break_ ? limit - heap_break_ : 0;
-  minimum_margin_bytes_ = std::min(minimum_margin_bytes_, margin);
-}
-
-AhbPoolModel::AhbPoolModel(AhbLayout layout) : layout_(layout) {
-  if (!(layout_.region_start <= layout_.dynamic_start && layout_.dynamic_start <= layout_.region_end)) {
-    throw std::invalid_argument("invalid LPC AHB SRAM layout");
-  }
-  reset();
-}
-
-bool AhbPoolModel::allocate(AllocationId id, std::size_t target_payload_bytes) {
-  if (allocation_chunks_.contains(id)) {
-    throw std::invalid_argument("duplicate LPC AHB allocation id");
-  }
-
-  const auto payload = checked_size(target_payload_bytes);
-  const auto required = aligned_span(target_payload_bytes, kAhbHeaderBytes, kAhbAlignment);
-  for (std::size_t index = 0; index < chunks_.size(); ++index) {
-    if (chunks_[index].used || chunks_[index].span_bytes < required) {
-      continue;
-    }
-
-    const auto remaining = chunks_[index].span_bytes - required;
-    if (remaining >= kAhbHeaderBytes + kAhbAlignment) {
-      const Chunk tail{
-          .offset = chunks_[index].offset + required,
-          .span_bytes = remaining,
-      };
-      chunks_[index].span_bytes = required;
-      chunks_.insert(chunks_.begin() + static_cast<std::ptrdiff_t>(index + 1), tail);
-    }
-    auto& chunk = chunks_[index];
-    chunk.used = true;
-    chunk.payload_bytes = payload;
-    chunk.allocation_id = id;
-    live_payload_bytes_ += payload;
-    peak_live_payload_bytes_ = std::max(peak_live_payload_bytes_, live_payload_bytes_);
-    rebuild_allocation_index(chunks_, allocation_chunks_);
-    return true;
+    minimum_ever_free_bytes_ = std::min(minimum_ever_free_bytes_, total_free);
+    return chunk.region;
   }
 
   ++failed_allocation_count_;
   failed_allocation_bytes_ += payload;
-  return false;
+  return std::nullopt;
 }
 
-void AhbPoolModel::deallocate(AllocationId id) {
+std::optional<MemoryRegion> UnifiedHeapModel::deallocate(AllocationId id) {
   const auto found = allocation_chunks_.find(id);
   if (found == allocation_chunks_.end()) {
-    return;
+    return std::nullopt;
   }
   auto& chunk = chunks_[found->second];
+  const auto region = chunk.region;
   live_payload_bytes_ -= chunk.payload_bytes;
+  auto& region_live = region == MemoryRegion::MainSram ? main_live_payload_bytes_ : ahb_live_payload_bytes_;
+  region_live -= chunk.payload_bytes;
   chunk.payload_bytes = 0;
   chunk.allocation_id = 0;
   chunk.used = false;
+  ++successful_free_count_;
   coalesce_free_chunks();
   rebuild_allocation_index(chunks_, allocation_chunks_);
+  return region;
 }
 
-void AhbPoolModel::reset() {
+void UnifiedHeapModel::reset() {
   chunks_.clear();
   allocation_chunks_.clear();
   live_payload_bytes_ = 0;
   peak_live_payload_bytes_ = 0;
+  main_live_payload_bytes_ = 0;
+  main_peak_live_payload_bytes_ = 0;
+  ahb_live_payload_bytes_ = 0;
+  ahb_peak_live_payload_bytes_ = 0;
   failed_allocation_count_ = 0;
   failed_allocation_bytes_ = 0;
-  const auto capacity = layout_.region_end - layout_.dynamic_start;
-  if (capacity >= kAhbHeaderBytes) {
+  successful_allocation_count_ = 0;
+  successful_free_count_ = 0;
+
+  const auto add_region = [this](MemoryRegion region, std::uint32_t start, std::uint32_t end) {
+    const auto raw_capacity = end - start;
+    if (raw_capacity <= kHeapRegionSentinelBytes) {
+      throw std::invalid_argument("LPC heap_5 region is too small for its sentinel");
+    }
     chunks_.push_back(Chunk{
-        .span_bytes = capacity,
+        .region = region,
+        .address = start,
+        .span_bytes = raw_capacity - kHeapRegionSentinelBytes,
     });
+  };
+  add_region(MemoryRegion::MainSram, main_layout_.heap_start, main_layout_.heap_end);
+  add_region(MemoryRegion::AhbSram, ahb_layout_.heap_start, ahb_layout_.heap_end);
+  minimum_ever_free_bytes_ = 0;
+  for (const auto& chunk : chunks_) {
+    minimum_ever_free_bytes_ += chunk.span_bytes;
   }
 }
 
-AhbPoolSnapshot AhbPoolModel::snapshot() const {
-  AhbPoolSnapshot result{
-      .capacity_bytes = layout_.region_end - layout_.region_start,
-      .static_bytes = layout_.dynamic_start - layout_.region_start,
-      .dynamic_capacity_bytes = layout_.region_end - layout_.dynamic_start,
-      .live_payload_bytes = live_payload_bytes_,
-      .peak_live_payload_bytes = peak_live_payload_bytes_,
-      .failed_allocation_count = failed_allocation_count_,
-      .failed_allocation_bytes = failed_allocation_bytes_,
+UnifiedHeapModelSnapshot UnifiedHeapModel::snapshot() const {
+  UnifiedHeapModelSnapshot result{
+      .heap = {
+          .live_payload_bytes = live_payload_bytes_,
+          .peak_live_payload_bytes = peak_live_payload_bytes_,
+          .minimum_ever_free_bytes = minimum_ever_free_bytes_,
+          .smallest_free_block_bytes = std::numeric_limits<std::uint32_t>::max(),
+          .successful_allocation_count = successful_allocation_count_,
+          .successful_free_count = successful_free_count_,
+          .failed_allocation_count = failed_allocation_count_,
+          .failed_allocation_bytes = failed_allocation_bytes_,
+      },
+      .main = {
+          .capacity_bytes = main_layout_.ram_end - main_layout_.ram_start,
+          .static_bytes = main_layout_.static_end - main_layout_.ram_start,
+          .stack_reserved_bytes = main_layout_.stack_top - main_layout_.stack_limit,
+          .heap_break = main_layout_.heap_start,
+          .active_heap_limit = main_layout_.heap_end,
+          .live_payload_bytes = main_live_payload_bytes_,
+          .peak_live_payload_bytes = main_peak_live_payload_bytes_,
+          .minimum_margin_bytes = minimum_ever_free_bytes_,
+          .failed_allocation_count = failed_allocation_count_,
+          .failed_allocation_bytes = failed_allocation_bytes_,
+      },
+      .ahb = {
+          .capacity_bytes = ahb_layout_.region_end - ahb_layout_.region_start,
+          .static_bytes = ahb_layout_.static_end - ahb_layout_.region_start,
+          .dynamic_capacity_bytes = ahb_layout_.heap_end - ahb_layout_.heap_start - kHeapRegionSentinelBytes,
+          .live_payload_bytes = ahb_live_payload_bytes_,
+          .peak_live_payload_bytes = ahb_peak_live_payload_bytes_,
+      },
   };
+
   for (const auto& chunk : chunks_) {
+    result.heap.capacity_bytes += chunk.span_bytes;
     if (chunk.used) {
-      result.allocator_overhead_bytes += chunk.span_bytes - chunk.payload_bytes;
+      const auto overhead = chunk.span_bytes - chunk.payload_bytes;
+      result.heap.allocator_overhead_bytes += overhead;
+      if (chunk.region == MemoryRegion::MainSram) {
+        result.main.heap_committed_bytes += chunk.span_bytes;
+        result.main.allocator_overhead_bytes += overhead;
+      } else {
+        result.ahb.allocator_overhead_bytes += overhead;
+      }
       continue;
     }
-    const auto free_payload = chunk.span_bytes > kAhbHeaderBytes ? chunk.span_bytes - kAhbHeaderBytes : 0;
-    // Match MemoryPool::free(): the target firmware counts the entire span of
-    // every free block, including the header which will be reused on allocation.
-    result.total_free_bytes += chunk.span_bytes;
-    result.largest_free_block_bytes = std::max(result.largest_free_block_bytes, free_payload);
+
+    result.heap.total_free_bytes += chunk.span_bytes;
+    result.heap.largest_free_block_bytes = std::max(result.heap.largest_free_block_bytes, chunk.span_bytes);
+    result.heap.smallest_free_block_bytes = std::min(result.heap.smallest_free_block_bytes, chunk.span_bytes);
+    ++result.heap.free_area_count;
+    if (chunk.region == MemoryRegion::MainSram) {
+      result.main.fragmented_free_bytes += chunk.span_bytes;
+      result.main.largest_free_block_bytes = std::max(result.main.largest_free_block_bytes, chunk.span_bytes);
+    } else {
+      result.ahb.total_free_bytes += chunk.span_bytes;
+      result.ahb.largest_free_block_bytes = std::max(result.ahb.largest_free_block_bytes, chunk.span_bytes);
+    }
+  }
+  if (result.heap.free_area_count == 0) {
+    result.heap.smallest_free_block_bytes = 0;
   }
   return result;
 }
 
-void AhbPoolModel::coalesce_free_chunks() {
+void UnifiedHeapModel::coalesce_free_chunks() {
   for (std::size_t index = 0; index + 1 < chunks_.size();) {
     auto& current = chunks_[index];
     const auto& next = chunks_[index + 1];
-    if (!current.used && !next.used && current.offset + current.span_bytes == next.offset) {
+    if (!current.used && !next.used && current.region == next.region &&
+        current.address + current.span_bytes == next.address) {
       current.span_bytes += next.span_bytes;
       chunks_.erase(chunks_.begin() + static_cast<std::ptrdiff_t>(index + 1));
       continue;

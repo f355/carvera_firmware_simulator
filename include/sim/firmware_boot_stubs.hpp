@@ -18,12 +18,8 @@
 #ifndef SIMULATOR_FIRMWARE_BOOT_STUBS_HPP
 #define SIMULATOR_FIRMWARE_BOOT_STUBS_HPP
 
-#include <array>
-#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "ConfigValue.h"
@@ -31,9 +27,6 @@
 #include "PinNames.h"
 #include "StreamOutputPool.h"
 #include "sim/host_filesystem.hpp"
-
-class StepperMotor;
-class Block;
 
 class ConfigValue;
 
@@ -67,19 +60,6 @@ class SDFAT {
   }
 };
 
-class SimMemoryPool {
- public:
-  void* alloc(std::size_t bytes);
-  void dealloc(void* ptr);
-  std::uint32_t free() const;
-  void debug(StreamOutput* stream) const;
-};
-
-inline void* operator new(std::size_t bytes, SimMemoryPool& pool) { return pool.alloc(bytes); }
-
-extern SimMemoryPool simulator_ahb;
-
-#define AHB simulator_ahb
 #ifndef STACK_SIZE
 #define STACK_SIZE 0
 #endif

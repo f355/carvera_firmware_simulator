@@ -14,12 +14,18 @@ inline constexpr std::uint32_t kRamEnd = @SIM_LPC_ram_end@U;
 inline constexpr std::uint32_t kStaticEnd = @SIM_LPC_static_end@U;
 inline constexpr std::uint32_t kStackTop = @SIM_LPC_stack_top@U;
 inline constexpr std::uint32_t kStackLimit = @SIM_LPC_stack_limit@U;
-inline constexpr std::uint32_t kHeapLimit = @SIM_LPC_heap_limit@U;
-inline constexpr std::uint32_t kConfigCacheBytes = @SIM_LPC_config_cache_bytes@U;
+inline constexpr std::uint32_t kMainHeapStart = @SIM_LPC_heap_start@U;
+inline constexpr std::uint32_t kMainHeapEnd = @SIM_LPC_heap_end@U;
 
 inline constexpr std::uint32_t kAhbRegionStart = @SIM_LPC_AHB_region_start@U;
 inline constexpr std::uint32_t kAhbRegionEnd = @SIM_LPC_AHB_region_end@U;
-inline constexpr std::uint32_t kAhbDynamicStart = @SIM_LPC_AHB_dynamic_start@U;
+inline constexpr std::uint32_t kAhbStaticEnd = @SIM_LPC_AHB_static_end@U;
+inline constexpr std::uint32_t kAhbHeapStart = @SIM_LPC_AHB_heap_start@U;
+inline constexpr std::uint32_t kAhbHeapEnd = @SIM_LPC_AHB_heap_end@U;
+
+inline constexpr std::uint32_t kHeapAlignmentBytes = @SIM_LPC_ALLOCATOR_alignment_bytes@U;
+inline constexpr std::uint32_t kHeapHeaderBytes = @SIM_LPC_ALLOCATOR_header_bytes@U;
+inline constexpr std::uint32_t kHeapRegionSentinelBytes = @SIM_LPC_ALLOCATOR_region_sentinel_bytes@U;
 
 inline constexpr std::uint32_t kAD8495Bytes = @SIM_LPC_TYPE_AD8495@U;
 inline constexpr std::uint32_t kAtcHandlerBytes = @SIM_LPC_TYPE_ATCHandler@U;
@@ -29,6 +35,7 @@ inline constexpr std::uint32_t kBlockBytes = @SIM_LPC_TYPE_Block@U;
 inline constexpr std::uint32_t kCartesianSolutionBytes = @SIM_LPC_TYPE_CartesianSolution@U;
 inline constexpr std::uint32_t kConfigBytes = @SIM_LPC_TYPE_Config@U;
 inline constexpr std::uint32_t kConfigCacheObjectBytes = @SIM_LPC_TYPE_ConfigCache@U;
+inline constexpr std::uint32_t kConfigValueBytes = @SIM_LPC_TYPE_ConfigValue@U;
 inline constexpr std::uint32_t kConfiguratorBytes = @SIM_LPC_TYPE_Configurator@U;
 inline constexpr std::uint32_t kConveyorBytes = @SIM_LPC_TYPE_Conveyor@U;
 inline constexpr std::uint32_t kDrillingcyclesBytes = @SIM_LPC_TYPE_Drillingcycles@U;

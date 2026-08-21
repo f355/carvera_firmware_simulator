@@ -274,7 +274,7 @@ package-linux = [
 [package.metadata]
 requires-dist = [
     { name = "nicegui", specifier = ">=3.12.1" },
-    { name = "protobuf", specifier = ">=7.35.0" },
+    { name = "protobuf", specifier = ">=7.35.1" },
 ]
 
 [package.metadata.requires-dev]

@@ -25,7 +25,9 @@
 #include "AD8495.h"
 #include "Adc.h"
 #include "AppendFileStream.h"
+#include "Block.h"
 #include "CartesianSolution.h"
+#include "ConfigCache.h"
 #include "Gcode.h"
 #include "PT100_E3D.h"
 #include "Pin.h"
@@ -69,7 +71,7 @@ std::optional<sim::lpc_memory::ResolvedAllocation> resolve_object(std::size_t ho
 
 namespace sim::lpc_memory {
 
-ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_bytes, bool array_allocation,
+ResolvedAllocation resolve_generic_heap_allocation(std::size_t host_payload_bytes, bool array_allocation,
                                                    std::string_view origin,
                                                    std::string_view allocation_implementation) {
   using namespace generated;
@@ -78,10 +80,32 @@ ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_byte
       contains_any(allocation_implementation,
                    {"__libcpp_allocate", "std::allocator<float>::allocate", "std::__new_allocator<float>::allocate"}) &&
       contains_any(allocation_implementation, {"<float>", "allocator<float>"});
-  if (float_storage && contains_any(origin, {"Endstops::test_endstop_repeatability("})) {
+  if (float_storage) {
     return {
         .target_payload_bytes = host_payload_bytes,
         .type_name = "std::vector<float> storage @ " + std::string(origin),
+        .target_size_exact = true,
+    };
+  }
+
+  if (array_allocation && contains_any(origin, {"BlockQueue::resize("}) && host_payload_bytes % sizeof(Block) == 0) {
+    return {
+        .target_payload_bytes = (host_payload_bytes / sizeof(Block)) * kBlockBytes,
+        .type_name = "Block[]",
+        .target_size_exact = true,
+    };
+  }
+
+  if (contains_any(origin, {"ConfigCache::replace_or_push_back("})) {
+    constexpr std::size_t values_per_chunk = 16;
+    constexpr std::size_t pointer_bytes = 4;
+    constexpr std::size_t used_bytes = 1;
+    constexpr std::size_t target_alignment = 4;
+    constexpr std::size_t unaligned = values_per_chunk * kConfigValueBytes + pointer_bytes + used_bytes;
+    constexpr std::size_t target_bytes = (unaligned + target_alignment - 1) & ~(target_alignment - 1);
+    return {
+        .target_payload_bytes = target_bytes,
+        .type_name = "ConfigCache::Chunk",
         .target_size_exact = true,
     };
   }
@@ -105,6 +129,10 @@ ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_byte
 
   if (const auto result = resolve_object<CartesianSolution>(host_payload_bytes, origin, {"Robot::load_config("},
                                                             kCartesianSolutionBytes, "CartesianSolution")) {
+    return *result;
+  }
+  if (const auto result = resolve_object<ConfigCache>(host_payload_bytes, origin, {"Config::config_cache_load("},
+                                                     kConfigCacheObjectBytes, "ConfigCache")) {
     return *result;
   }
   if (const auto result = resolve_object<StreamOutputPool>(host_payload_bytes, origin, {"Kernel::Kernel("},

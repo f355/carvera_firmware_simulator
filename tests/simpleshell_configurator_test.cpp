@@ -49,29 +49,35 @@ int main() {
   runtime.io().write_serial_command("mem -v\n");
   runtime.runner().run_main_loop(8);
   serial = runtime.io().read_serial_text();
+  require_contains(serial, "Heap free:", "mem should report the unified heap's free space");
+  require_contains(serial, "minimum ever free:", "mem should retain heap_5's low-water mark");
   require_contains(serial, "LPC1768 Main SRAM:", "mem should report the target main SRAM layout");
-  require_contains(serial, "Config cache: released", "mem should retain the boot-time cache accounting after release");
   require_contains(serial, "LPC1768 AHB SRAM:", "mem should report the target AHB SRAM layout");
   require_contains(serial, "Block[]", "verbose mem output should identify the motion queue's target allocation type");
   require_contains(serial, "Robot", "verbose mem output should identify core firmware object allocations");
   require_contains(serial, "host request -> LPC charge", "verbose mem output should distinguish host and target sizes");
   const auto memory = simulation.machine().context().memory_accounting().snapshot();
-  require(!memory.main.config_cache_active, "normal C1 boot should release the temporary config cache");
-  require(!memory.main.config_cache_collision, "normal C1 boot should not report a config-cache collision");
+  require(memory.heap.capacity_bytes == 40'520, "normal C1 boot should expose both heap_5 regions as one heap");
+  bool saw_config_cache = false;
+  bool saw_config_cache_chunks = false;
   for (const auto& group : memory.allocation_groups) {
     if (group.type_name == "ConfigCache") {
-      require(group.live_count == 0, "released config cache object should not remain in the LPC heap model");
+      saw_config_cache = true;
+      require(group.live_count == 1, "the ConfigCache object should remain owned by Config");
+    }
+    if (group.type_name == "ConfigCache::Chunk") {
+      saw_config_cache_chunks = true;
+      require(group.live_count == 0, "released config-cache chunks should not remain in the LPC heap model");
     }
   }
-  require(!memory.main.heap_limit_collision, "normal C1 boot should fit in the modeled main heap (committed=" +
-                                                 std::to_string(memory.main.heap_committed_bytes) + ", failed=" +
-                                                 std::to_string(memory.main.failed_allocation_count) + ")\n" + serial);
-  require(memory.ahb.failed_allocation_count == 0, "normal C1 boot should fit in the modeled AHB pool");
+  require(saw_config_cache, "memory details should identify the ConfigCache object\n" + serial);
+  require(saw_config_cache_chunks, "memory details should retain the released config-cache chunk history\n" + serial);
+  require(memory.heap.failed_allocation_count == 0,
+          "normal C1 boot should fit in the modeled unified heap (failed=" +
+              std::to_string(memory.heap.failed_allocation_count) + ")\n" + serial);
   bool saw_attributed_unresolved_allocation = false;
   bool saw_tracked_string_allocation = false;
   for (const auto& group : memory.allocation_groups) {
-    require(group.region != sim::lpc_memory::MemoryRegion::AhbSram || group.target_size_exact,
-            "all AHB allocations in the pinned firmware should have exact LPC byte counts");
     saw_attributed_unresolved_allocation |=
         group.type_name.starts_with("ABI-unresolved @ ") && group.type_name.find("::") != std::string::npos;
     saw_tracked_string_allocation |=

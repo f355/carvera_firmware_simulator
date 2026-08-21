@@ -1,20 +1,27 @@
 {
   "ahb_sram": {
-    "dynamic_start": 537394856,
+    "heap_end": 537411584,
+    "heap_start": 537379840,
     "region_end": 537411584,
-    "region_start": 537378816
+    "region_start": 537378816,
+    "static_end": 537379840
   },
-  "firmware_commit": "bc4d29921214d758fc5ff5f0f3a364e4856706f8",
+  "allocator": {
+    "alignment_bytes": 8,
+    "header_bytes": 8,
+    "region_sentinel_bytes": 8
+  },
+  "firmware_commit": "e153ae1db022a0f4fa71ba7df425b797b9af2b93",
   "main_sram": {
-    "config_cache_bytes": 9100,
-    "heap_limit": 268464096,
+    "heap_end": 268464096,
+    "heap_start": 268455304,
     "ram_end": 268468224,
     "ram_start": 268435656,
     "stack_limit": 268464128,
     "stack_top": 268468224,
-    "static_end": 268439992
+    "static_end": 268455304
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "type_sizes": {
     "AD8495": 24,
     "ATCHandler": 468,
@@ -23,7 +30,7 @@
     "Block": 368,
     "CartesianSolution": 4,
     "Config": 16,
-    "ConfigCache": 8,
+    "ConfigCache": 12,
     "ConfigValue": 26,
     "Configurator": 1,
     "Conveyor": 44,

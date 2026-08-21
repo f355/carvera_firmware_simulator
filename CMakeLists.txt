@@ -111,7 +111,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(SIM_LPC_MEMORY_LAYOUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/firmware/lpc_memory_layout.json")
 file(READ "${SIM_LPC_MEMORY_LAYOUT_FILE}" SIM_LPC_MEMORY_LAYOUT_JSON)
 string(JSON SIM_LPC_LAYOUT_SCHEMA_VERSION GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" schema_version)
-if(NOT SIM_LPC_LAYOUT_SCHEMA_VERSION EQUAL 1)
+if(NOT SIM_LPC_LAYOUT_SCHEMA_VERSION EQUAL 2)
   message(FATAL_ERROR
     "${SIM_LPC_MEMORY_LAYOUT_FILE} has unsupported schema version ${SIM_LPC_LAYOUT_SCHEMA_VERSION}"
   )
@@ -125,11 +125,14 @@ if(NOT SIM_LPC_LAYOUT_FIRMWARE_COMMIT STREQUAL SIM_COMPATIBLE_FIRMWARE_COMMIT)
   )
 endif()
 foreach(layout_value IN ITEMS
-    ram_start ram_end static_end stack_top stack_limit heap_limit config_cache_bytes)
+    ram_start ram_end static_end stack_top stack_limit heap_start heap_end)
   string(JSON SIM_LPC_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" main_sram ${layout_value})
 endforeach()
-foreach(layout_value IN ITEMS region_start region_end dynamic_start)
+foreach(layout_value IN ITEMS region_start region_end static_end heap_start heap_end)
   string(JSON SIM_LPC_AHB_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" ahb_sram ${layout_value})
+endforeach()
+foreach(layout_value IN ITEMS alignment_bytes header_bytes region_sentinel_bytes)
+  string(JSON SIM_LPC_ALLOCATOR_${layout_value} GET "${SIM_LPC_MEMORY_LAYOUT_JSON}" allocator ${layout_value})
 endforeach()
 # The JSON is the source of truth for tracked types; the template maps each
 # entry to its generated constant name.

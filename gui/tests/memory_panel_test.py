@@ -22,6 +22,7 @@ from gui.protocol.model import (
     MemoryDetails,
     MemoryRegion,
     MemorySummary,
+    UnifiedHeapMemory,
 )
 from gui.tests.fakes import FakeControl, FakeLabel
 from gui.views.memory_panel import MemoryPanelView
@@ -29,36 +30,51 @@ from gui.views.memory_panel import MemoryPanelView
 
 def memory_summary() -> MemorySummary:
     return MemorySummary(
+        heap=UnifiedHeapMemory(
+            capacity_bytes=40_520,
+            live_payload_bytes=17_408,
+            peak_live_payload_bytes=20_000,
+            allocator_overhead_bytes=1_136,
+            total_free_bytes=21_976,
+            minimum_ever_free_bytes=20_000,
+            largest_free_block_bytes=19_192,
+            smallest_free_block_bytes=2_784,
+            free_area_count=2,
+            successful_allocation_count=50,
+            successful_free_count=10,
+            failed_allocation_count=0,
+            failed_allocation_bytes=0,
+        ),
         main=MainSramMemory(
             capacity_bytes=32_568,
             static_bytes=8_000,
             stack_reserved_bytes=2_048,
-            heap_committed_bytes=12_000,
+            heap_committed_bytes=6_000,
             live_payload_bytes=5_120,
             peak_live_payload_bytes=6_144,
-            allocator_overhead_bytes=128,
-            fragmented_free_bytes=512,
-            largest_free_block_bytes=10_240,
-            top_unallocated_bytes=15_360,
-            minimum_margin_bytes=9_216,
-            config_cache_active=True,
-            config_cache_start=0x10006000,
-            config_cache_bytes=2_048,
+            allocator_overhead_bytes=880,
+            fragmented_free_bytes=2_784,
+            largest_free_block_bytes=2_784,
+            top_unallocated_bytes=0,
+            minimum_margin_bytes=20_000,
+            config_cache_active=False,
+            config_cache_start=0,
+            config_cache_bytes=0,
             config_cache_collision=False,
             failed_allocation_count=0,
             failed_allocation_bytes=0,
             heap_limit_collision=False,
-            total_free_bytes=18_432,
+            total_free_bytes=2_784,
         ),
         ahb=AhbSramMemory(
             capacity_bytes=32_768,
             static_bytes=8_192,
-            dynamic_capacity_bytes=24_576,
+            dynamic_capacity_bytes=31_736,
             live_payload_bytes=12_288,
             peak_live_payload_bytes=14_336,
             allocator_overhead_bytes=256,
-            total_free_bytes=4_096,
-            largest_free_block_bytes=3_072,
+            total_free_bytes=19_192,
+            largest_free_block_bytes=19_192,
             failed_allocation_count=0,
             failed_allocation_bytes=0,
         ),
@@ -66,6 +82,8 @@ def memory_summary() -> MemorySummary:
         unresolved_main_peak_host_bytes=0,
         unresolved_ahb_live_host_bytes=0,
         unresolved_ahb_peak_host_bytes=0,
+        unresolved_heap_live_host_bytes=0,
+        unresolved_heap_peak_host_bytes=0,
     )
 
 
@@ -73,14 +91,14 @@ def memory_panel() -> MemoryPanelView:
     copy_details_button = FakeControl()
     copy_details_button.disable()
     return MemoryPanelView(
-        main_live_label=FakeLabel(),
-        main_peak_label=FakeLabel(),
+        heap_used_label=FakeLabel(),
+        heap_peak_label=FakeLabel(),
+        heap_free_label=FakeLabel(),
+        heap_min_free_label=FakeLabel(),
+        main_used_label=FakeLabel(),
         main_free_label=FakeLabel(),
-        main_margin_label=FakeLabel(),
-        ahb_live_label=FakeLabel(),
-        ahb_peak_label=FakeLabel(),
+        ahb_used_label=FakeLabel(),
         ahb_free_label=FakeLabel(),
-        ahb_largest_label=FakeLabel(),
         status_label=FakeLabel(),
         details_label=FakeLabel(),
         copy_details_button=copy_details_button,
@@ -92,16 +110,16 @@ def test_memory_panel_updates_periodic_summary_and_resets() -> None:
 
     panel.update_summary(memory_summary())
 
-    assert panel.main_live_label.text == "5,120 / 32,568 B"
-    assert panel.main_margin_label.text == "9,216 B"
-    assert panel.ahb_live_label.text == "20,736 / 32,768 B"
-    assert panel.ahb_largest_label.text == "3,072 B"
-    assert panel.status_label.text == "Config cache 2,048 B · no allocation failures"
+    assert panel.heap_used_label.text == "18,544 / 40,520 B"
+    assert panel.heap_min_free_label.text == "20,000 B"
+    assert panel.main_used_label.text == "6,000 / 8,784 B"
+    assert panel.ahb_used_label.text == "12,544 / 31,736 B"
+    assert panel.status_label.text == "largest free block 19,192 B · no allocation failures"
 
     panel.reset()
 
-    assert panel.main_live_label.text == "--"
-    assert panel.ahb_live_label.text == "--"
+    assert panel.heap_used_label.text == "--"
+    assert panel.ahb_used_label.text == "--"
     assert panel.status_label.text == "Power on to view LPC1768 memory usage."
     assert panel.copy_details_button.disabled
 
@@ -147,6 +165,18 @@ def test_memory_panel_renders_allocation_groups_only_after_details_arrive() -> N
                 target_size_exact=True,
             ),
             MemoryAllocationGroup(
+                region=MemoryRegion.UNIFIED_HEAP,
+                type_name="ABI-unresolved @ Config::Config()",
+                host_payload_bytes=80,
+                target_payload_bytes=80,
+                live_count=1,
+                peak_live_count=1,
+                total_count=1,
+                live_target_bytes=80,
+                peak_target_bytes=80,
+                target_size_exact=False,
+            ),
+            MemoryAllocationGroup(
                 region=MemoryRegion.MAIN_SRAM,
                 type_name="Planner",
                 host_payload_bytes=184,
@@ -184,4 +214,7 @@ def test_memory_panel_renders_allocation_groups_only_after_details_arrive() -> N
         "AHB SRAM",
         "1,024 B · Block[] · 1 live × 1,024 B · peak 1,024 B (1) · 1 allocation",
         "512 B · raw buffer · 2 live × 256 B · peak 512 B (2) · 2 allocations",
+        "",
+        "Unified heap (unplaced estimates)",
+        "80 B (host-size estimate) · ABI-unresolved @ Config::Config() · 1 live × 80 B · peak 80 B (1) · 1 allocation",
     ]

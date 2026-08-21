@@ -32,7 +32,6 @@
 #include "libs/Watchdog.h"
 #include "libs/gpio.h"
 #include "lpc_memory_layout.hpp"
-#include "platform_memory.h"
 #include "modules/communication/SerialConsole2.h"
 #include "modules/tools/atc/ATCHandler.h"
 #include "modules/tools/drillingcycles/Drillingcycles.h"
@@ -84,7 +83,7 @@ Type* tracked_firmware_new(const char* type_name, Args&&... args) {
   Type* object = new Type(std::forward<Args>(args)...);
   try {
     if (auto* context = compat::try_active_context(); context != nullptr) {
-      context->memory_accounting().record_main(object, sizeof(Type), TargetBytes, type_name);
+      context->memory_accounting().record_heap(object, sizeof(Type), TargetBytes, type_name);
     }
   } catch (...) {
   }
@@ -276,7 +275,8 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   kernel.add_module(tracked_firmware_new<ATCHandler, lpc_memory::generated::kAtcHandlerBytes>("ATCHandler"));
 
   BootModules modules;
-  modules.wireless_probe_serial = new (AHB) SerialConsole2();
+  modules.wireless_probe_serial =
+      tracked_firmware_new<SerialConsole2, lpc_memory::generated::kSerialConsole2Bytes>("SerialConsole2");
   kernel.add_module(modules.wireless_probe_serial);
 
   drive_configured_input(simulator, kernel, runtime_checksums::main_button_pin, default_main_button_pin(model), false);
@@ -306,9 +306,9 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   kernel.add_module(
       tracked_firmware_new<Drillingcycles, lpc_memory::generated::kDrillingcyclesBytes>("Drillingcycles"));
   load_watchdog_if_enabled(kernel);
-  // The device deletes the temporary config cache here. Keep the simulator's
-  // cache available to tests and host integrations, but mirror its release in
-  // the LPC shadow model.
+  // The device frees its temporary config-cache chunks here. The simulator
+  // retains the host cache for config inspection and overrides, but removes
+  // the corresponding chunks from the LPC shadow heap.
   simulator.context().memory_accounting().release_config_cache();
   replay_config_override(kernel, simulator);
 

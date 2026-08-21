@@ -22,18 +22,18 @@ _DIE_RE = re.compile(
     r"\(DW_TAG_(?:class_type|structure_type|union_type)\)",
 )
 _ATTRIBUTE_RE = re.compile(r"DW_AT_(?P<name>name|byte_size)\s*:\s*(?P<value>.+?)\s*$")
-_CONFIG_CACHE_CAPACITY_RE = re.compile(r"^\s*#define\s+CONFIG_CACHE_CAPACITY\s+(\d+)\b", re.MULTILINE)
 
 
 def _parse_symbol(map_text: str, symbol: str) -> int:
-    match = re.search(
-        rf"^\s*(0x[0-9a-fA-F]+)\s+.*(?:\b|_){re.escape(symbol)}\b",
-        map_text,
-        re.MULTILINE,
+    patterns = (
+        rf"^\s*(0x[0-9a-fA-F]+)\s+(?:PROVIDE\s*\(\s*)?{re.escape(symbol)}\b",
+        rf"\b{re.escape(symbol)}\s*=\s*(0x[0-9a-fA-F]+)",
     )
-    if match is None:
-        raise ValueError(f"linker map does not define {symbol}")
-    return int(match.group(1), 16)
+    for pattern in patterns:
+        match = re.search(pattern, map_text, re.MULTILINE)
+        if match is not None:
+            return int(match.group(1), 16)
+    raise ValueError(f"linker map does not define {symbol}")
 
 
 def _parse_memory_regions(map_text: str) -> dict[str, tuple[int, int]]:
@@ -96,57 +96,53 @@ def parse_type_sizes(readelf_text: str, type_names: set[str] | None = None) -> d
     return dict(sorted(sizes.items()))
 
 
-def parse_config_cache_capacity(config_cache_header: str) -> int:
-    match = _CONFIG_CACHE_CAPACITY_RE.search(config_cache_header)
-    if match is None:
-        raise ValueError("ConfigCache.h does not define CONFIG_CACHE_CAPACITY")
-    return int(match.group(1))
-
-
 def build_layout_report(
     map_text: str,
     readelf_text: str,
     *,
     firmware_commit: str,
-    config_cache_capacity: int = 350,
     type_names: set[str] | None = None,
 ) -> dict[str, Any]:
     regions = _parse_memory_regions(map_text)
     type_sizes = parse_type_sizes(readelf_text, type_names)
-    try:
-        config_value_size = type_sizes["ConfigValue"]
-    except KeyError as error:
-        raise ValueError("ARM debug information does not contain ConfigValue") from error
 
     ram_start, ram_end = regions["RAM"]
     ahb_start, ahb_end = regions["AHB_SRAM"]
-    static_end = _parse_symbol(map_text, "__end__")
+    main_heap_start = _parse_symbol(map_text, "__MainHeapStart")
+    main_heap_end = _parse_symbol(map_text, "__MainHeapEnd")
     stack_top = _parse_symbol(map_text, "__StackTop")
     stack_limit = _parse_symbol(map_text, "__StackLimit")
-    ahb_dynamic_start = _parse_symbol(map_text, "__AHB_dyn_start")
-    heap_limit = (stack_limit - 32 + 31) & ~31
+    ahb_heap_start = _parse_symbol(map_text, "__GeneralAHBStart")
+    ahb_heap_end = _parse_symbol(map_text, "__GeneralAHBEnd")
 
-    if not (ram_start <= static_end <= heap_limit < stack_limit <= stack_top == ram_end):
+    if not (ram_start <= main_heap_start < main_heap_end < stack_limit <= stack_top == ram_end):
         raise ValueError("main SRAM linker symbols are inconsistent")
-    if not (ahb_start <= ahb_dynamic_start <= ahb_end):
+    if not (ahb_start <= ahb_heap_start < ahb_heap_end == ahb_end):
         raise ValueError("AHB SRAM linker symbols are inconsistent")
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "firmware_commit": firmware_commit,
+        "allocator": {
+            "alignment_bytes": 8,
+            "header_bytes": 8,
+            "region_sentinel_bytes": 8,
+        },
         "main_sram": {
             "ram_start": ram_start,
             "ram_end": ram_end,
-            "static_end": static_end,
+            "static_end": main_heap_start,
             "stack_top": stack_top,
             "stack_limit": stack_limit,
-            "heap_limit": heap_limit,
-            "config_cache_bytes": config_cache_capacity * config_value_size,
+            "heap_start": main_heap_start,
+            "heap_end": main_heap_end,
         },
         "ahb_sram": {
             "region_start": ahb_start,
             "region_end": ahb_end,
-            "dynamic_start": ahb_dynamic_start,
+            "static_end": ahb_heap_start,
+            "heap_start": ahb_heap_start,
+            "heap_end": ahb_heap_end,
         },
         "type_sizes": type_sizes,
     }
@@ -183,13 +179,10 @@ def generate_report(firmware_root: Path, *, build: bool) -> dict[str, Any]:
 
     readelf_text = _run([str(_find_readelf(firmware_root)), "--debug-dump=info", str(elf_path)], cwd=firmware_root)
     firmware_commit = _run(["git", "rev-parse", "HEAD"], cwd=firmware_root).strip()
-    config_cache_header = (firmware_root / "src" / "libs" / "ConfigCache.h").read_text()
-    config_cache_capacity = parse_config_cache_capacity(config_cache_header)
     return build_layout_report(
         map_path.read_text(),
         readelf_text,
         firmware_commit=firmware_commit,
-        config_cache_capacity=config_cache_capacity,
         type_names={
             "Block",
             "ATCHandler",

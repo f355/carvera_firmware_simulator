@@ -1,5 +1,5 @@
 # mypy: disable-error-code="var-annotated"
-# source-schema-sha256: da4b58ba9feb3eaf4f0ec291ec0a00d7579bec352b6a9a1275e8509a9545c3fc
+# source-schema-sha256: d5eb08c2f5160ac43fe82479c9134d0755a9d45a7b555bd55202577a1380f886
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -14,6 +14,7 @@ class MemoryRegion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MEMORY_REGION_UNSPECIFIED: _ClassVar[MemoryRegion]
     MEMORY_REGION_MAIN_SRAM: _ClassVar[MemoryRegion]
     MEMORY_REGION_AHB_SRAM: _ClassVar[MemoryRegion]
+    MEMORY_REGION_UNIFIED_HEAP: _ClassVar[MemoryRegion]
 
 class TimeMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -69,6 +70,7 @@ class ToolKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 MEMORY_REGION_UNSPECIFIED: MemoryRegion
 MEMORY_REGION_MAIN_SRAM: MemoryRegion
 MEMORY_REGION_AHB_SRAM: MemoryRegion
+MEMORY_REGION_UNIFIED_HEAP: MemoryRegion
 TIME_MODE_UNSPECIFIED: TimeMode
 TIME_MODE_MANUAL: TimeMode
 TIME_MODE_REALTIME: TimeMode
@@ -903,6 +905,36 @@ class GetMemoryDetails(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class UnifiedHeapSummary(_message.Message):
+    __slots__ = ("capacity_bytes", "live_payload_bytes", "peak_live_payload_bytes", "allocator_overhead_bytes", "total_free_bytes", "minimum_ever_free_bytes", "largest_free_block_bytes", "failed_allocation_count", "failed_allocation_bytes", "smallest_free_block_bytes", "free_area_count", "successful_allocation_count", "successful_free_count")
+    CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    PEAK_LIVE_PAYLOAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATOR_OVERHEAD_BYTES_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_FREE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    MINIMUM_EVER_FREE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    LARGEST_FREE_BLOCK_BYTES_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_COUNT_FIELD_NUMBER: _ClassVar[int]
+    FAILED_ALLOCATION_BYTES_FIELD_NUMBER: _ClassVar[int]
+    SMALLEST_FREE_BLOCK_BYTES_FIELD_NUMBER: _ClassVar[int]
+    FREE_AREA_COUNT_FIELD_NUMBER: _ClassVar[int]
+    SUCCESSFUL_ALLOCATION_COUNT_FIELD_NUMBER: _ClassVar[int]
+    SUCCESSFUL_FREE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    capacity_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    total_free_bytes: int
+    minimum_ever_free_bytes: int
+    largest_free_block_bytes: int
+    failed_allocation_count: int
+    failed_allocation_bytes: int
+    smallest_free_block_bytes: int
+    free_area_count: int
+    successful_allocation_count: int
+    successful_free_count: int
+    def __init__(self, capacity_bytes: _Optional[int] = ..., live_payload_bytes: _Optional[int] = ..., peak_live_payload_bytes: _Optional[int] = ..., allocator_overhead_bytes: _Optional[int] = ..., total_free_bytes: _Optional[int] = ..., minimum_ever_free_bytes: _Optional[int] = ..., largest_free_block_bytes: _Optional[int] = ..., failed_allocation_count: _Optional[int] = ..., failed_allocation_bytes: _Optional[int] = ..., smallest_free_block_bytes: _Optional[int] = ..., free_area_count: _Optional[int] = ..., successful_allocation_count: _Optional[int] = ..., successful_free_count: _Optional[int] = ...) -> None: ...
+
 class MainSramSummary(_message.Message):
     __slots__ = ("capacity_bytes", "static_bytes", "stack_reserved_bytes", "heap_committed_bytes", "live_payload_bytes", "peak_live_payload_bytes", "allocator_overhead_bytes", "fragmented_free_bytes", "largest_free_block_bytes", "top_unallocated_bytes", "minimum_margin_bytes", "config_cache_active", "config_cache_start", "config_cache_bytes", "config_cache_collision", "failed_allocation_count", "failed_allocation_bytes", "heap_limit_collision", "total_free_bytes")
     CAPACITY_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -970,20 +1002,26 @@ class AhbSramSummary(_message.Message):
     def __init__(self, capacity_bytes: _Optional[int] = ..., static_bytes: _Optional[int] = ..., dynamic_capacity_bytes: _Optional[int] = ..., live_payload_bytes: _Optional[int] = ..., peak_live_payload_bytes: _Optional[int] = ..., allocator_overhead_bytes: _Optional[int] = ..., total_free_bytes: _Optional[int] = ..., largest_free_block_bytes: _Optional[int] = ..., failed_allocation_count: _Optional[int] = ..., failed_allocation_bytes: _Optional[int] = ...) -> None: ...
 
 class MemorySummary(_message.Message):
-    __slots__ = ("main", "ahb", "unresolved_main_live_host_bytes", "unresolved_main_peak_host_bytes", "unresolved_ahb_live_host_bytes", "unresolved_ahb_peak_host_bytes")
+    __slots__ = ("main", "ahb", "unresolved_main_live_host_bytes", "unresolved_main_peak_host_bytes", "unresolved_ahb_live_host_bytes", "unresolved_ahb_peak_host_bytes", "heap", "unresolved_heap_live_host_bytes", "unresolved_heap_peak_host_bytes")
     MAIN_FIELD_NUMBER: _ClassVar[int]
     AHB_FIELD_NUMBER: _ClassVar[int]
     UNRESOLVED_MAIN_LIVE_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
     UNRESOLVED_MAIN_PEAK_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
     UNRESOLVED_AHB_LIVE_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
     UNRESOLVED_AHB_PEAK_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    HEAP_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_HEAP_LIVE_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    UNRESOLVED_HEAP_PEAK_HOST_BYTES_FIELD_NUMBER: _ClassVar[int]
     main: MainSramSummary
     ahb: AhbSramSummary
     unresolved_main_live_host_bytes: int
     unresolved_main_peak_host_bytes: int
     unresolved_ahb_live_host_bytes: int
     unresolved_ahb_peak_host_bytes: int
-    def __init__(self, main: _Optional[_Union[MainSramSummary, _Mapping]] = ..., ahb: _Optional[_Union[AhbSramSummary, _Mapping]] = ..., unresolved_main_live_host_bytes: _Optional[int] = ..., unresolved_main_peak_host_bytes: _Optional[int] = ..., unresolved_ahb_live_host_bytes: _Optional[int] = ..., unresolved_ahb_peak_host_bytes: _Optional[int] = ...) -> None: ...
+    heap: UnifiedHeapSummary
+    unresolved_heap_live_host_bytes: int
+    unresolved_heap_peak_host_bytes: int
+    def __init__(self, main: _Optional[_Union[MainSramSummary, _Mapping]] = ..., ahb: _Optional[_Union[AhbSramSummary, _Mapping]] = ..., unresolved_main_live_host_bytes: _Optional[int] = ..., unresolved_main_peak_host_bytes: _Optional[int] = ..., unresolved_ahb_live_host_bytes: _Optional[int] = ..., unresolved_ahb_peak_host_bytes: _Optional[int] = ..., heap: _Optional[_Union[UnifiedHeapSummary, _Mapping]] = ..., unresolved_heap_live_host_bytes: _Optional[int] = ..., unresolved_heap_peak_host_bytes: _Optional[int] = ...) -> None: ...
 
 class MemoryAllocationGroup(_message.Message):
     __slots__ = ("region", "type_name", "host_payload_bytes", "target_payload_bytes", "live_count", "peak_live_count", "total_count", "live_target_bytes", "peak_target_bytes", "target_size_exact")

@@ -24,12 +24,14 @@ RAM              0x100000c8         0x00007f38         xrw
 AHB_SRAM         0x2007c000         0x00008000         xrw
 
                 0x10000fd0                        __end__ = .
+                0x10000fd0                        __MainHeapStart = ALIGN (__end__, 0x8)
+                0x10006fe0                        __MainHeapEnd = (__StackLimit - 0x20)
                 0x10008000                        __StackTop = (ORIGIN (RAM) + LENGTH (RAM))
                 0x10007000                        __StackLimit = (__StackTop - SIZEOF (.stack_dummy))
 .AHBSRAM        0x2007c000     0x3ca8
-                0x2007c000                        PROVIDE (__AHB_block_start = .)
-                0x2007fca8                        PROVIDE (__AHB_dyn_start = .)
-                0x20084000                        PROVIDE (__AHB_end = (ORIGIN (AHB_SRAM) + LENGTH (AHB_SRAM)))
+                0x2007fca8                        PROVIDE (__AHBSRAM_end = .)
+                0x2007fca8                        __GeneralAHBStart = __AHBSRAM_end
+                0x20084000                        __GeneralAHBEnd = (ORIGIN (AHB_SRAM) + LENGTH (AHB_SRAM))
 """
 
 READELF_TEXT = """
@@ -51,21 +53,28 @@ def test_build_layout_report_uses_linker_addresses_and_arm_type_sizes() -> None:
     )
 
     assert report == {
-        "schema_version": 1,
+        "schema_version": 2,
         "firmware_commit": "0123456789abcdef",
+        "allocator": {
+            "alignment_bytes": 8,
+            "header_bytes": 8,
+            "region_sentinel_bytes": 8,
+        },
         "main_sram": {
             "ram_start": 0x100000C8,
             "ram_end": 0x10008000,
             "static_end": 0x10000FD0,
             "stack_top": 0x10008000,
             "stack_limit": 0x10007000,
-            "heap_limit": 0x10006FE0,
-            "config_cache_bytes": 9100,
+            "heap_start": 0x10000FD0,
+            "heap_end": 0x10006FE0,
         },
         "ahb_sram": {
             "region_start": 0x2007C000,
             "region_end": 0x20084000,
-            "dynamic_start": 0x2007FCA8,
+            "static_end": 0x2007FCA8,
+            "heap_start": 0x2007FCA8,
+            "heap_end": 0x20084000,
         },
         "type_sizes": {
             "Block": 160,

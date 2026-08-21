@@ -69,7 +69,7 @@ void record_firmware_object(lpc_memory::MemoryAccounting& memory, Type* object, 
     return;
   }
   memory.deallocate(object);
-  memory.record_main(object, sizeof(Type), target_bytes, type_name);
+  memory.record_heap(object, sizeof(Type), target_bytes, type_name);
 }
 
 }  // namespace

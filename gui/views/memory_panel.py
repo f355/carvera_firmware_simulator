@@ -33,25 +33,21 @@ def _usage_text(used: int, capacity: int) -> str:
 
 
 def _status_text(summary: MemorySummary) -> str:
-    status = (
-        f"Config cache {format_bytes(summary.main.config_cache_bytes)}"
-        if summary.main.config_cache_active
-        else "Config cache inactive"
+    failures = summary.heap.failed_allocation_count
+    unresolved = (
+        summary.unresolved_main_live_host_bytes
+        + summary.unresolved_ahb_live_host_bytes
+        + summary.unresolved_heap_live_host_bytes
     )
-    failures = summary.main.failed_allocation_count + summary.ahb.failed_allocation_count
-    unresolved = summary.unresolved_main_live_host_bytes + summary.unresolved_ahb_live_host_bytes
     warnings: list[str] = []
-    if summary.main.config_cache_collision:
-        warnings.append("config cache collision")
-    if summary.main.heap_limit_collision:
-        warnings.append("heap limit collision")
+    warnings.append(f"largest free block {format_bytes(summary.heap.largest_free_block_bytes)}")
     if failures:
         warnings.append(f"{failures} allocation failures")
     else:
         warnings.append("no allocation failures")
     if unresolved:
         warnings.append(f"{format_bytes(unresolved)} unresolved host allocations")
-    return " · ".join((status, *warnings))
+    return " · ".join(warnings)
 
 
 def _details_text(details: MemoryDetails) -> str:
@@ -62,6 +58,7 @@ def _details_text(details: MemoryDetails) -> str:
     for region, title in (
         (MemoryRegion.MAIN_SRAM, "Main SRAM"),
         (MemoryRegion.AHB_SRAM, "AHB SRAM"),
+        (MemoryRegion.UNIFIED_HEAP, "Unified heap (unplaced estimates)"),
     ):
         groups = sorted(
             (group for group in details.allocation_groups if group.region is region),
@@ -85,30 +82,30 @@ def _details_text(details: MemoryDetails) -> str:
 
 @dataclass
 class MemoryPanelView:
-    main_live_label: Any
-    main_peak_label: Any
+    heap_used_label: Any
+    heap_peak_label: Any
+    heap_free_label: Any
+    heap_min_free_label: Any
+    main_used_label: Any
     main_free_label: Any
-    main_margin_label: Any
-    ahb_live_label: Any
-    ahb_peak_label: Any
+    ahb_used_label: Any
     ahb_free_label: Any
-    ahb_largest_label: Any
     status_label: Any
     details_label: Any
     copy_details_button: Any
 
     def update_summary(self, summary: MemorySummary) -> None:
-        self.main_live_label.text = _usage_text(summary.main.live_payload_bytes, summary.main.capacity_bytes)
-        self.main_peak_label.text = format_bytes(summary.main.peak_live_payload_bytes)
+        heap_used = summary.heap.capacity_bytes - summary.heap.total_free_bytes
+        self.heap_used_label.text = _usage_text(heap_used, summary.heap.capacity_bytes)
+        self.heap_peak_label.text = format_bytes(summary.heap.peak_live_payload_bytes)
+        self.heap_free_label.text = format_bytes(summary.heap.total_free_bytes)
+        self.heap_min_free_label.text = format_bytes(summary.heap.minimum_ever_free_bytes)
+        main_capacity = summary.main.heap_committed_bytes + summary.main.total_free_bytes
+        self.main_used_label.text = _usage_text(summary.main.heap_committed_bytes, main_capacity)
         self.main_free_label.text = format_bytes(summary.main.total_free_bytes)
-        self.main_margin_label.text = format_bytes(summary.main.minimum_margin_bytes)
-        ahb_used_bytes = (
-            summary.ahb.static_bytes + summary.ahb.live_payload_bytes + summary.ahb.allocator_overhead_bytes
-        )
-        self.ahb_live_label.text = _usage_text(ahb_used_bytes, summary.ahb.capacity_bytes)
-        self.ahb_peak_label.text = format_bytes(summary.ahb.peak_live_payload_bytes)
+        ahb_used = summary.ahb.live_payload_bytes + summary.ahb.allocator_overhead_bytes
+        self.ahb_used_label.text = _usage_text(ahb_used, summary.ahb.dynamic_capacity_bytes)
         self.ahb_free_label.text = format_bytes(summary.ahb.total_free_bytes)
-        self.ahb_largest_label.text = format_bytes(summary.ahb.largest_free_block_bytes)
         self.status_label.text = _status_text(summary)
 
     def set_details(self, details: MemoryDetails) -> None:
@@ -121,14 +118,14 @@ class MemoryPanelView:
 
     def reset(self) -> None:
         for label in (
-            self.main_live_label,
-            self.main_peak_label,
+            self.heap_used_label,
+            self.heap_peak_label,
+            self.heap_free_label,
+            self.heap_min_free_label,
+            self.main_used_label,
             self.main_free_label,
-            self.main_margin_label,
-            self.ahb_live_label,
-            self.ahb_peak_label,
+            self.ahb_used_label,
             self.ahb_free_label,
-            self.ahb_largest_label,
         ):
             label.text = "--"
         self.status_label.text = "Power on to view LPC1768 memory usage."
@@ -146,14 +143,14 @@ def build_memory_panel(*, refresh_details: Callable[[], Awaitable[None]]) -> Mem
     with ui.element("div").classes("panel-section"):
         ui.label("Memory").classes("section-title")
         with ui.element("div").classes("metrics-grid"):
-            main_live_label = _metric("Main SRAM live")
-            main_peak_label = _metric("Main SRAM peak")
-            main_free_label = _metric("Main SRAM free")
-            main_margin_label = _metric("Minimum stack margin")
-            ahb_live_label = _metric("AHB SRAM used")
-            ahb_peak_label = _metric("AHB pool peak")
-            ahb_free_label = _metric("AHB SRAM free")
-            ahb_largest_label = _metric("Largest AHB block")
+            heap_used_label = _metric("Unified heap used")
+            heap_peak_label = _metric("Unified payload peak")
+            heap_free_label = _metric("Unified heap free")
+            heap_min_free_label = _metric("Minimum ever free")
+            main_used_label = _metric("Main SRAM heap used")
+            main_free_label = _metric("Main SRAM heap free")
+            ahb_used_label = _metric("AHB SRAM heap used")
+            ahb_free_label = _metric("AHB SRAM heap free")
         status_label = ui.label("Power on to view LPC1768 memory usage.").classes("section-subtle")
         with ui.row().classes("items-center"):
             ui.button("Allocation details", icon="memory", on_click=refresh_details).props("dense outline")
@@ -164,14 +161,14 @@ def build_memory_panel(*, refresh_details: Callable[[], Awaitable[None]]) -> Mem
         )
 
     panel = MemoryPanelView(
-        main_live_label=main_live_label,
-        main_peak_label=main_peak_label,
+        heap_used_label=heap_used_label,
+        heap_peak_label=heap_peak_label,
+        heap_free_label=heap_free_label,
+        heap_min_free_label=heap_min_free_label,
+        main_used_label=main_used_label,
         main_free_label=main_free_label,
-        main_margin_label=main_margin_label,
-        ahb_live_label=ahb_live_label,
-        ahb_peak_label=ahb_peak_label,
+        ahb_used_label=ahb_used_label,
         ahb_free_label=ahb_free_label,
-        ahb_largest_label=ahb_largest_label,
         status_label=status_label,
         details_label=details_label,
         copy_details_button=copy_details_button,

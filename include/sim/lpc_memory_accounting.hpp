@@ -33,14 +33,20 @@ namespace sim::lpc_memory {
 
 using AllocationId = std::uint64_t;
 
+enum class MemoryRegion {
+  MainSram,
+  AhbSram,
+  UnifiedHeap,
+};
+
 struct MainSramLayout {
   std::uint32_t ram_start{};
   std::uint32_t ram_end{};
   std::uint32_t static_end{};
   std::uint32_t stack_top{};
   std::uint32_t stack_limit{};
-  std::uint32_t heap_limit{};
-  std::uint32_t config_cache_bytes{};
+  std::uint32_t heap_start{};
+  std::uint32_t heap_end{};
 };
 
 MainSramLayout firmware_main_sram_layout();
@@ -68,48 +74,12 @@ struct MainSramSnapshot {
   bool heap_limit_collision{};
 };
 
-class MainSramModel {
- public:
-  explicit MainSramModel(MainSramLayout layout);
-
-  bool allocate(AllocationId id, std::size_t target_payload_bytes);
-  void deallocate(AllocationId id);
-  void set_config_cache_active(bool active);
-  void reset();
-
-  MainSramSnapshot snapshot() const;
-
- private:
-  struct Chunk {
-    std::uint32_t address{};
-    std::uint32_t span_bytes{};
-    std::uint32_t payload_bytes{};
-    AllocationId allocation_id{};
-    bool used{};
-  };
-
-  std::uint32_t active_heap_limit() const;
-  void coalesce_free_chunks();
-  void update_margin();
-
-  MainSramLayout layout_;
-  std::vector<Chunk> chunks_;
-  std::unordered_map<AllocationId, std::size_t> allocation_chunks_;
-  std::uint32_t heap_break_{};
-  std::uint32_t live_payload_bytes_{};
-  std::uint32_t peak_live_payload_bytes_{};
-  std::uint32_t minimum_margin_bytes_{};
-  std::uint32_t failed_allocation_count_{};
-  std::uint64_t failed_allocation_bytes_{};
-  bool config_cache_active_{};
-  bool config_cache_collision_{};
-  bool heap_limit_collision_{};
-};
-
 struct AhbLayout {
   std::uint32_t region_start{};
   std::uint32_t region_end{};
-  std::uint32_t dynamic_start{};
+  std::uint32_t static_end{};
+  std::uint32_t heap_start{};
+  std::uint32_t heap_end{};
 };
 
 AhbLayout firmware_ahb_layout();
@@ -127,19 +97,42 @@ struct AhbPoolSnapshot {
   std::uint64_t failed_allocation_bytes{};
 };
 
-class AhbPoolModel {
- public:
-  explicit AhbPoolModel(AhbLayout layout);
+struct UnifiedHeapSnapshot {
+  std::uint32_t capacity_bytes{};
+  std::uint32_t live_payload_bytes{};
+  std::uint32_t peak_live_payload_bytes{};
+  std::uint32_t allocator_overhead_bytes{};
+  std::uint32_t total_free_bytes{};
+  std::uint32_t minimum_ever_free_bytes{};
+  std::uint32_t largest_free_block_bytes{};
+  std::uint32_t smallest_free_block_bytes{};
+  std::uint32_t free_area_count{};
+  std::uint32_t successful_allocation_count{};
+  std::uint32_t successful_free_count{};
+  std::uint32_t failed_allocation_count{};
+  std::uint64_t failed_allocation_bytes{};
+};
 
-  bool allocate(AllocationId id, std::size_t target_payload_bytes);
-  void deallocate(AllocationId id);
+struct UnifiedHeapModelSnapshot {
+  UnifiedHeapSnapshot heap;
+  MainSramSnapshot main;
+  AhbPoolSnapshot ahb;
+};
+
+class UnifiedHeapModel {
+ public:
+  UnifiedHeapModel(MainSramLayout main_layout, AhbLayout ahb_layout);
+
+  std::optional<MemoryRegion> allocate(AllocationId id, std::size_t target_payload_bytes);
+  std::optional<MemoryRegion> deallocate(AllocationId id);
   void reset();
 
-  AhbPoolSnapshot snapshot() const;
+  UnifiedHeapModelSnapshot snapshot() const;
 
  private:
   struct Chunk {
-    std::uint32_t offset{};
+    MemoryRegion region{};
+    std::uint32_t address{};
     std::uint32_t span_bytes{};
     std::uint32_t payload_bytes{};
     AllocationId allocation_id{};
@@ -148,18 +141,21 @@ class AhbPoolModel {
 
   void coalesce_free_chunks();
 
-  AhbLayout layout_;
+  MainSramLayout main_layout_;
+  AhbLayout ahb_layout_;
   std::vector<Chunk> chunks_;
   std::unordered_map<AllocationId, std::size_t> allocation_chunks_;
   std::uint32_t live_payload_bytes_{};
   std::uint32_t peak_live_payload_bytes_{};
+  std::uint32_t main_live_payload_bytes_{};
+  std::uint32_t main_peak_live_payload_bytes_{};
+  std::uint32_t ahb_live_payload_bytes_{};
+  std::uint32_t ahb_peak_live_payload_bytes_{};
+  std::uint32_t minimum_ever_free_bytes_{};
+  std::uint32_t successful_allocation_count_{};
+  std::uint32_t successful_free_count_{};
   std::uint32_t failed_allocation_count_{};
   std::uint64_t failed_allocation_bytes_{};
-};
-
-enum class MemoryRegion {
-  MainSram,
-  AhbSram,
 };
 
 struct AllocationGroupSnapshot {
@@ -176,6 +172,7 @@ struct AllocationGroupSnapshot {
 };
 
 struct MemoryAccountingSnapshot {
+  UnifiedHeapSnapshot heap;
   MainSramSnapshot main;
   AhbPoolSnapshot ahb;
   std::vector<AllocationGroupSnapshot> allocation_groups;
@@ -187,7 +184,7 @@ struct ResolvedAllocation {
   bool target_size_exact{};
 };
 
-ResolvedAllocation resolve_generic_main_allocation(std::size_t host_payload_bytes, bool array_allocation,
+ResolvedAllocation resolve_generic_heap_allocation(std::size_t host_payload_bytes, bool array_allocation,
                                                    std::string_view origin,
                                                    std::string_view allocation_implementation = {});
 
@@ -198,13 +195,9 @@ class MemoryAccounting {
  public:
   MemoryAccounting();
 
-  void record_main(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
+  void record_heap(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
                    std::string type_name = {}, bool target_size_exact = true);
-  void record_ahb(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
-                  std::string type_name = {}, bool target_size_exact = true);
   std::optional<MemoryRegion> deallocate(void* pointer);
-  void mark_config_cache_owner(void* pointer, std::size_t target_payload_bytes);
-  void set_config_cache_active(bool active);
   void release_config_cache();
   void reset();
 
@@ -216,18 +209,16 @@ class MemoryAccounting {
     AllocationId id{};
     std::size_t group_index{};
     bool modeled{};
-    bool config_cache_owner{};
   };
 
-  void record(MemoryRegion region, void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes,
-              std::string type_name, bool target_size_exact);
+  void record(void* pointer, std::size_t host_payload_bytes, std::size_t target_payload_bytes, std::string type_name,
+              bool target_size_exact);
   std::size_t find_or_create_group(MemoryRegion region, std::string type_name, std::size_t host_payload_bytes,
                                    std::size_t target_payload_bytes, bool target_size_exact);
   void charge_group(std::size_t group_index, std::size_t target_payload_bytes);
 
   mutable std::mutex mutex_;
-  MainSramModel main_;
-  AhbPoolModel ahb_;
+  UnifiedHeapModel heap_;
   std::unordered_map<void*, Allocation> allocations_;
   std::vector<AllocationGroupSnapshot> groups_;
   AllocationId next_id_{1};
@@ -236,8 +227,7 @@ class MemoryAccounting {
 void enter_firmware_function(void* function_address) noexcept;
 void exit_firmware_function() noexcept;
 bool firmware_allocation_active() noexcept;
-void config_cache_storage_acquired() noexcept;
-void record_host_main_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept;
+void record_host_heap_allocation(void* pointer, std::size_t host_payload_bytes, bool array_allocation) noexcept;
 bool release_host_allocation(void* pointer) noexcept;
 char* tracked_strdup(const char* source) noexcept;
 void tracked_free(void* pointer) noexcept;

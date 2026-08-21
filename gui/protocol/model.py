@@ -38,6 +38,24 @@ class MemoryRegion(StrEnum):
     UNSPECIFIED = "unspecified"
     MAIN_SRAM = "main"
     AHB_SRAM = "ahb"
+    UNIFIED_HEAP = "heap"
+
+
+@dataclass(frozen=True, slots=True)
+class UnifiedHeapMemory:
+    capacity_bytes: int
+    live_payload_bytes: int
+    peak_live_payload_bytes: int
+    allocator_overhead_bytes: int
+    total_free_bytes: int
+    minimum_ever_free_bytes: int
+    largest_free_block_bytes: int
+    smallest_free_block_bytes: int
+    free_area_count: int
+    successful_allocation_count: int
+    successful_free_count: int
+    failed_allocation_count: int
+    failed_allocation_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,12 +97,15 @@ class AhbSramMemory:
 
 @dataclass(frozen=True, slots=True)
 class MemorySummary:
+    heap: UnifiedHeapMemory
     main: MainSramMemory
     ahb: AhbSramMemory
     unresolved_main_live_host_bytes: int
     unresolved_main_peak_host_bytes: int
     unresolved_ahb_live_host_bytes: int
     unresolved_ahb_peak_host_bytes: int
+    unresolved_heap_live_host_bytes: int
+    unresolved_heap_peak_host_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -396,6 +417,21 @@ def memory_summary_to_state(summary: pb.MemorySummary) -> MemorySummary:
     main = summary.main
     ahb = summary.ahb
     return MemorySummary(
+        heap=UnifiedHeapMemory(
+            capacity_bytes=int(summary.heap.capacity_bytes),
+            live_payload_bytes=int(summary.heap.live_payload_bytes),
+            peak_live_payload_bytes=int(summary.heap.peak_live_payload_bytes),
+            allocator_overhead_bytes=int(summary.heap.allocator_overhead_bytes),
+            total_free_bytes=int(summary.heap.total_free_bytes),
+            minimum_ever_free_bytes=int(summary.heap.minimum_ever_free_bytes),
+            largest_free_block_bytes=int(summary.heap.largest_free_block_bytes),
+            smallest_free_block_bytes=int(summary.heap.smallest_free_block_bytes),
+            free_area_count=int(summary.heap.free_area_count),
+            successful_allocation_count=int(summary.heap.successful_allocation_count),
+            successful_free_count=int(summary.heap.successful_free_count),
+            failed_allocation_count=int(summary.heap.failed_allocation_count),
+            failed_allocation_bytes=int(summary.heap.failed_allocation_bytes),
+        ),
         main=MainSramMemory(
             capacity_bytes=int(main.capacity_bytes),
             static_bytes=int(main.static_bytes),
@@ -433,6 +469,8 @@ def memory_summary_to_state(summary: pb.MemorySummary) -> MemorySummary:
         unresolved_main_peak_host_bytes=int(summary.unresolved_main_peak_host_bytes),
         unresolved_ahb_live_host_bytes=int(summary.unresolved_ahb_live_host_bytes),
         unresolved_ahb_peak_host_bytes=int(summary.unresolved_ahb_peak_host_bytes),
+        unresolved_heap_live_host_bytes=int(summary.unresolved_heap_live_host_bytes),
+        unresolved_heap_peak_host_bytes=int(summary.unresolved_heap_peak_host_bytes),
     )
 
 
@@ -440,6 +478,7 @@ def memory_details_to_state(details: pb.MemoryDetails) -> MemoryDetails:
     regions = {
         pb.MEMORY_REGION_MAIN_SRAM: MemoryRegion.MAIN_SRAM,
         pb.MEMORY_REGION_AHB_SRAM: MemoryRegion.AHB_SRAM,
+        pb.MEMORY_REGION_UNIFIED_HEAP: MemoryRegion.UNIFIED_HEAP,
     }
     return MemoryDetails(
         summary=memory_summary_to_state(details.summary),

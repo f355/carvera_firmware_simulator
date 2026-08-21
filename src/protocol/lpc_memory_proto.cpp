@@ -23,14 +23,36 @@ namespace sim::api {
 namespace {
 
 carvera::sim::v1::MemoryRegion proto_region(lpc_memory::MemoryRegion region) {
-  return region == lpc_memory::MemoryRegion::MainSram ? carvera::sim::v1::MEMORY_REGION_MAIN_SRAM
-                                                      : carvera::sim::v1::MEMORY_REGION_AHB_SRAM;
+  switch (region) {
+    case lpc_memory::MemoryRegion::MainSram:
+      return carvera::sim::v1::MEMORY_REGION_MAIN_SRAM;
+    case lpc_memory::MemoryRegion::AhbSram:
+      return carvera::sim::v1::MEMORY_REGION_AHB_SRAM;
+    case lpc_memory::MemoryRegion::UnifiedHeap:
+      return carvera::sim::v1::MEMORY_REGION_UNIFIED_HEAP;
+  }
+  return carvera::sim::v1::MEMORY_REGION_UNSPECIFIED;
 }
 
 }  // namespace
 
 void fill_memory_summary(carvera::sim::v1::MemorySummary& target, const lpc_memory::MemoryAccountingSnapshot& source) {
   target.Clear();
+  auto* heap = target.mutable_heap();
+  heap->set_capacity_bytes(source.heap.capacity_bytes);
+  heap->set_live_payload_bytes(source.heap.live_payload_bytes);
+  heap->set_peak_live_payload_bytes(source.heap.peak_live_payload_bytes);
+  heap->set_allocator_overhead_bytes(source.heap.allocator_overhead_bytes);
+  heap->set_total_free_bytes(source.heap.total_free_bytes);
+  heap->set_minimum_ever_free_bytes(source.heap.minimum_ever_free_bytes);
+  heap->set_largest_free_block_bytes(source.heap.largest_free_block_bytes);
+  heap->set_smallest_free_block_bytes(source.heap.smallest_free_block_bytes);
+  heap->set_free_area_count(source.heap.free_area_count);
+  heap->set_successful_allocation_count(source.heap.successful_allocation_count);
+  heap->set_successful_free_count(source.heap.successful_free_count);
+  heap->set_failed_allocation_count(source.heap.failed_allocation_count);
+  heap->set_failed_allocation_bytes(source.heap.failed_allocation_bytes);
+
   auto* main = target.mutable_main();
   main->set_capacity_bytes(source.main.capacity_bytes);
   main->set_static_bytes(source.main.static_bytes);
@@ -70,12 +92,19 @@ void fill_memory_summary(carvera::sim::v1::MemorySummary& target, const lpc_memo
     }
     const auto live = static_cast<std::uint64_t>(group.host_payload_bytes) * group.live_count;
     const auto peak = static_cast<std::uint64_t>(group.host_payload_bytes) * group.peak_live_count;
-    if (group.region == lpc_memory::MemoryRegion::MainSram) {
-      target.set_unresolved_main_live_host_bytes(target.unresolved_main_live_host_bytes() + live);
-      target.set_unresolved_main_peak_host_bytes(target.unresolved_main_peak_host_bytes() + peak);
-    } else {
-      target.set_unresolved_ahb_live_host_bytes(target.unresolved_ahb_live_host_bytes() + live);
-      target.set_unresolved_ahb_peak_host_bytes(target.unresolved_ahb_peak_host_bytes() + peak);
+    switch (group.region) {
+      case lpc_memory::MemoryRegion::MainSram:
+        target.set_unresolved_main_live_host_bytes(target.unresolved_main_live_host_bytes() + live);
+        target.set_unresolved_main_peak_host_bytes(target.unresolved_main_peak_host_bytes() + peak);
+        break;
+      case lpc_memory::MemoryRegion::AhbSram:
+        target.set_unresolved_ahb_live_host_bytes(target.unresolved_ahb_live_host_bytes() + live);
+        target.set_unresolved_ahb_peak_host_bytes(target.unresolved_ahb_peak_host_bytes() + peak);
+        break;
+      case lpc_memory::MemoryRegion::UnifiedHeap:
+        target.set_unresolved_heap_live_host_bytes(target.unresolved_heap_live_host_bytes() + live);
+        target.set_unresolved_heap_peak_host_bytes(target.unresolved_heap_peak_host_bytes() + peak);
+        break;
     }
   }
 }
