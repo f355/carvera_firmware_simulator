@@ -18,10 +18,15 @@
 #ifndef SIMULATOR_SIM_RUNTIME_TEMPERATURE_HPP
 #define SIMULATOR_SIM_RUNTIME_TEMPERATURE_HPP
 
-namespace sim::runtime_temperature {
+namespace sim {
 
-void warm_adc_filter();
+enum class TemperatureSensor;
 
-}  // namespace sim::runtime_temperature
+namespace runtime_temperature {
+
+void refresh_temperature_reading(TemperatureSensor sensor, double expected_celsius);
+
+}  // namespace runtime_temperature
+}  // namespace sim
 
 #endif

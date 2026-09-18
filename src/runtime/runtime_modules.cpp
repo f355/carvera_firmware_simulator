@@ -313,7 +313,8 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   }
   simulator.set_temperature(TemperatureSensor::Spindle, 25.0);
   simulator.set_temperature(TemperatureSensor::Power, 25.0);
-  runtime_temperature::warm_adc_filter();
+  runtime_temperature::refresh_temperature_reading(TemperatureSensor::Spindle, 25.0);
+  runtime_temperature::refresh_temperature_reading(TemperatureSensor::Power, 25.0);
   kernel.add_module(
       tracked_firmware_new<TemperatureSwitch, lpc_memory::generated::kTemperatureSwitchBytes>("TemperatureSwitch"));
   kernel.add_module(

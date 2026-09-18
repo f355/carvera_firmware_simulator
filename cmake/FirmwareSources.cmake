@@ -282,7 +282,7 @@ set(Z1_FIRMWARE_ADDITIONAL_SOURCES
   ${FIRMWARE_SRC}/libs/ConfigSources/RemoteConfigSource.cpp
   ${FIRMWARE_SRC}/modules/communication/RemoteTransfer.cpp
   ${FIRMWARE_SRC}/modules/tools/canopen/CANopen.cpp
-  src/firmware/can_bus_stub.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/firmware/can_bus_stub.cpp
 )
 
 foreach(_firmware_source IN LISTS CARVERA_FIRMWARE_SOURCES)

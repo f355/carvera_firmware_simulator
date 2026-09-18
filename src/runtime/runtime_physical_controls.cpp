@@ -330,7 +330,7 @@ class RuntimePhysicalControls::FaultInjection {
   void set_temperature(TemperatureSensor sensor, double celsius) {
     auto& kernel = controls_.boot_();
     controls_.simulator_.set_temperature(sensor, celsius);
-    runtime_temperature::warm_adc_filter();
+    runtime_temperature::refresh_temperature_reading(sensor, celsius);
     kernel.call_event(ON_SECOND_TICK);
     if (const auto fan = fan_switch_for_temperature(sensor)) {
       const auto state = controls_.firmware_readbacks_->switch_state(*fan);

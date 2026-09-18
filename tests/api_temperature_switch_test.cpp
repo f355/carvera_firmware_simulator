@@ -41,7 +41,7 @@ void write_temperature_config(const std::filesystem::path& root) {
          << "temperature_control.power.max_temp 100\n"
          << "temperatureswitch.power.enable true\n"
          << "temperatureswitch.power.switch powerfan\n"
-         << "temperatureswitch.power.threshold_temp 20.0\n"
+         << "temperatureswitch.power.threshold_temp 40.0\n"
          << "temperatureswitch.power.cooldown_power_init 20.0\n"
          << "temperatureswitch.power.cooldown_power_step 2.5\n"
          << "temperatureswitch.power.cooldown_delay 0\n";
