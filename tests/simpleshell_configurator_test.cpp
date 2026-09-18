@@ -57,7 +57,7 @@ int main() {
   require_contains(serial, "Robot", "verbose mem output should identify core firmware object allocations");
   require_contains(serial, "host request -> LPC charge", "verbose mem output should distinguish host and target sizes");
   const auto memory = simulation.machine().context().memory_accounting().snapshot();
-  require(memory.heap.capacity_bytes == 40'520, "normal C1 boot should expose both heap_5 regions as one heap");
+  require(memory.heap.capacity_bytes == 40'440, "normal C1 boot should expose both heap_5 regions as one heap");
   bool saw_config_cache = false;
   bool saw_config_cache_chunks = false;
   for (const auto& group : memory.allocation_groups) {

@@ -52,6 +52,12 @@ typedef struct {
   __IO uint32_t CCLKCFG;
 } LPC_SC_TypeDef;
 
+typedef struct {
+  __IO uint32_t VTOR;
+} SCB_Type;
+
+extern SCB_Type sim_scb;
+
 struct LPC_TIM_TypeDef;
 
 struct LPC_TIM_ControlRegister {
@@ -176,6 +182,7 @@ extern uint32_t SystemCoreClock;
 #include "sim/lpc1768.hpp"
 
 #define LPC_SC (&::sim::lpc1768::active().sc())
+#define SCB (&sim_scb)
 #define LPC_TIM0 (&::sim::lpc1768::active().timer(0))
 #define LPC_TIM1 (&::sim::lpc1768::active().timer(1))
 #define LPC_TIM2 (&::sim::lpc1768::active().timer(2))

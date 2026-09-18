@@ -19,6 +19,7 @@
 #include <string>
 
 #include "libs/Kernel.h"
+#include "Conveyor.h"
 #include "sim/simulation_instance.hpp"
 #include "sim/physical_scene.hpp"
 #include "support/cartesian_config.hpp"
@@ -66,10 +67,15 @@ void select_and_start(sim::FirmwareRuntime& runtime, const std::string& name) {
 
 void pump_player_line(sim::FirmwareRuntime& runtime) { runtime.runner().run_main_loop(1); }
 
-void pump_timer_ticks(sim::FirmwareRuntime& runtime, std::size_t ticks) {
-  sim::RuntimePumpOptions options;
-  options.max_timer_events = ticks;
-  runtime.runner().pump(options);
+template <typename Predicate>
+bool pump_until(sim::FirmwareRuntime& runtime, Predicate&& predicate, int max_main_loops = 8) {
+  for (int i = 0; i < max_main_loops; ++i) {
+    if (predicate()) {
+      return true;
+    }
+    pump_player_line(runtime);
+  }
+  return predicate();
 }
 
 void run_slow_ticker() {
@@ -88,7 +94,8 @@ void press_front_button(sim::FirmwareRuntime& runtime) {
 void test_player_laser_test_mode(sim::FirmwareRuntime& runtime) {
   select_and_start(runtime, "laser_test");
 
-  pump_player_line(runtime);
+  require(pump_until(runtime, [&runtime]() { return runtime.inputs().laser_state().testing; }),
+          "Player file should reach Laser test mode");
   auto laser = runtime.inputs().laser_state();
   require(laser.available, "runtime should expose real Laser state");
   require(laser.mode, "Player file should switch firmware Laser into laser mode");
@@ -97,7 +104,8 @@ void test_player_laser_test_mode(sim::FirmwareRuntime& runtime) {
   laser = runtime.inputs().laser_state();
   require(laser.power_percent > 0.0F, "Player file M323 should drive test PWM through firmware");
 
-  pump_player_line(runtime);
+  require(pump_until(runtime, [&runtime]() { return !runtime.inputs().laser_state().testing; }),
+          "Player file should leave Laser test mode");
   laser = runtime.inputs().laser_state();
   require(laser.mode, "M324 should stop testing without leaving laser mode");
   require(!laser.testing, "Player file M324 should turn Laser test mode off");
@@ -105,7 +113,8 @@ void test_player_laser_test_mode(sim::FirmwareRuntime& runtime) {
   laser = runtime.inputs().laser_state();
   require(laser.power_percent == 0.0F, "M324 should settle Laser test PWM off on the next slow tick");
 
-  pump_player_line(runtime);
+  require(pump_until(runtime, [&runtime]() { return !runtime.inputs().laser_state().mode; }),
+          "Player file should return to CNC mode");
   laser = runtime.inputs().laser_state();
   require(!laser.mode, "Player file should return firmware Laser to CNC mode");
   require(!laser.firing, "Laser should remain off after returning to CNC mode");
@@ -114,25 +123,30 @@ void test_player_laser_test_mode(sim::FirmwareRuntime& runtime) {
 void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineSimulator& simulator) {
   select_and_start(runtime, "laser_cut");
 
-  pump_player_line(runtime);
+  require(pump_until(runtime, [&runtime]() { return runtime.inputs().laser_state().mode; }),
+          "Player cutting file should enter Laser mode");
   auto laser = runtime.inputs().laser_state();
   require(laser.mode, "Player cutting file should enter firmware Laser mode");
 
-  pump_player_line(runtime);
-  pump_player_line(runtime);
+  require(pump_until(runtime, [&runtime]() { return runtime.inputs().laser_state().firing; }),
+          "Player cutting file should arm Laser firing");
   laser = runtime.inputs().laser_state();
   require(laser.firing, "M3 in Player cutting file should arm Laser firing");
   require(laser.power_percent == 0.0F, "armed Laser should remain at zero PWM before a cutting block runs");
 
   const double start_x = simulator.axis_position_mm(0);
   pump_player_line(runtime);
+  runtime.boot().conveyor->on_idle(nullptr);
+  runtime.boot().conveyor->force_queue();
   bool saw_motion_power = false;
   for (int i = 0; i < 20; ++i) {
-    pump_timer_ticks(runtime, 100);
+    runtime.runner().run_timer_events(100);
     run_slow_ticker();
     laser = runtime.inputs().laser_state();
     if (laser.power_percent > 0.0F) {
       saw_motion_power = true;
+    }
+    if (saw_motion_power && simulator.axis_position_mm(0) < start_x) {
       break;
     }
   }
@@ -143,7 +157,7 @@ void test_player_laser_cutting_move(sim::FirmwareRuntime& runtime, sim::MachineS
   runtime.runner().run_until_motion_idle(200'000);
   pump_player_line(runtime);
   pump_player_line(runtime);
-  pump_timer_ticks(runtime, 4);
+  runtime.runner().run_timer_events(4);
   laser = runtime.inputs().laser_state();
   require(!laser.firing, "M5 in Player cutting file should stop Laser firing");
   require(!laser.mode, "Player cutting file should return to CNC mode");

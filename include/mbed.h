@@ -28,12 +28,18 @@ namespace mbed {
 
 class I2C {
  public:
+  enum Acknowledge {
+    NoACK = 0,
+    ACK = 1,
+  };
+
   I2C(PinName, PinName);
   void frequency(int hz);
   void start();
   int write(int value);
   int read(int ack);
   void stop();
+  bool is_timed_out();
 
  private:
   int frequency_hz_{100000};

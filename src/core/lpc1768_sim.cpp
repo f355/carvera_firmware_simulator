@@ -25,6 +25,7 @@
 #include "sim/stepper_axis.hpp"
 
 uint32_t SystemCoreClock = 100000000;
+SCB_Type sim_scb{};
 
 namespace {
 

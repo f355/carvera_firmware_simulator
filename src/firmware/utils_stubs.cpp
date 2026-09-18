@@ -133,25 +133,31 @@ const char* ltrim_cstr(const char* s) {
   return s;
 }
 
-uint16_t get_checksum(const std::string& to_check) { return get_checksum(to_check.c_str()); }
+uint16_t get_checksum(const std::string& to_check) { return get_checksum(std::string_view(to_check)); }
 
-uint16_t get_checksum(const char* to_check) {
+uint16_t get_checksum(std::string_view to_check) {
   uint16_t sum1 = 0;
   uint16_t sum2 = 0;
-  while (*to_check != '\0') {
-    sum1 = static_cast<uint16_t>((sum1 + *to_check++) % 255);
+  for (const char value : to_check) {
+    sum1 = static_cast<uint16_t>((sum1 + value) % 255);
     sum2 = static_cast<uint16_t>((sum2 + sum1) % 255);
   }
   return static_cast<uint16_t>((sum2 << 8) | sum1);
 }
 
+uint16_t get_checksum(const char* to_check) { return get_checksum(std::string_view(to_check)); }
+
 void get_checksums(uint16_t check_sums[], const std::string& key) {
+  get_checksums(check_sums, std::string_view(key));
+}
+
+void get_checksums(uint16_t check_sums[], std::string_view key) {
   size_t begin = 0;
   for (int index = 0; index < 3; ++index) {
     const size_t dot = key.find('.', begin);
-    const auto part = key.substr(begin, dot == std::string::npos ? std::string::npos : dot - begin);
+    const auto part = key.substr(begin, dot == std::string_view::npos ? std::string_view::npos : dot - begin);
     check_sums[index] = part.empty() ? 0 : get_checksum(part);
-    if (dot == std::string::npos) {
+    if (dot == std::string_view::npos) {
       for (int fill = index + 1; fill < 3; ++fill) {
         check_sums[fill] = 0;
       }

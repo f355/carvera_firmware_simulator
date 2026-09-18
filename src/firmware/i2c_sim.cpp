@@ -237,10 +237,12 @@ void I2C::frequency(int hz) { frequency_hz_ = hz; }
 
 void I2C::start() { sim::i2c_eeprom::active().stop(); }
 
-int I2C::write(int value) { return sim::i2c_eeprom::active().write(static_cast<std::uint8_t>(value)); }
+int I2C::write(int value) { return sim::i2c_eeprom::active().write(static_cast<std::uint8_t>(value)) == 0 ? ACK : NoACK; }
 
 int I2C::read(int) { return sim::i2c_eeprom::active().read(); }
 
 void I2C::stop() { sim::i2c_eeprom::active().stop(); }
+
+bool I2C::is_timed_out() { return false; }
 
 }  // namespace mbed

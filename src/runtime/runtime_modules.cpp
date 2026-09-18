@@ -34,6 +34,8 @@
 #include "lpc_memory_layout.hpp"
 #include "modules/communication/SerialConsole2.h"
 #include "modules/tools/atc/ATCHandler.h"
+#include "modules/tools/accessories/BedCleaning.h"
+#include "modules/tools/accessories/SpindleAccessories.h"
 #include "modules/tools/drillingcycles/Drillingcycles.h"
 #include "modules/tools/endstops/Endstops.h"
 #include "modules/tools/laser/Laser.h"
@@ -68,7 +70,7 @@
 
 namespace sim::runtime_modules {
 
-MachineModel machine_model_from_firmware(char model, MachineModel fallback);
+MachineModel machine_model_from_firmware(Machine model, MachineModel fallback);
 
 namespace {
 
@@ -229,11 +231,11 @@ class SimulatorSpindleTachBridgeModule : public Module {
 
 }  // namespace
 
-MachineModel machine_model_from_firmware(char model, MachineModel fallback) {
+MachineModel machine_model_from_firmware(Machine model, MachineModel fallback) {
   switch (model) {
-    case 1:
+    case Machine::carvera:
       return MachineModel::CarveraC1;
-    case 2:
+    case Machine::carvera_air:
       return MachineModel::CarveraAirCA1;
     default:
       return fallback;
@@ -273,6 +275,13 @@ BootModules load_firmware_modules(Kernel& kernel, MachineSimulator& simulator, E
   kernel.add_module(tracked_firmware_new<Player, lpc_memory::generated::kPlayerBytes>("Player"));
   kernel.add_module(make_atc_physical_module(simulator));
   kernel.add_module(tracked_firmware_new<ATCHandler, lpc_memory::generated::kAtcHandlerBytes>("ATCHandler"));
+  kernel.bed_cleaning =
+      tracked_firmware_new<BedCleaning, lpc_memory::generated::kBedCleaningBytes>("BedCleaning");
+  kernel.spindle_accessories = tracked_firmware_new<SpindleAccessories,
+                                                    lpc_memory::generated::kSpindleAccessoriesBytes>(
+      "SpindleAccessories");
+  kernel.add_module(kernel.bed_cleaning);
+  kernel.add_module(kernel.spindle_accessories);
 
   BootModules modules;
   modules.wireless_probe_serial =

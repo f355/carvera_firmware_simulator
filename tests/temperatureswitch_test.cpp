@@ -16,6 +16,7 @@
  */
 
 #include "support/assertions.hpp"
+#include "support/firmware_accessories.hpp"
 #include "support/memory_config.hpp"
 
 #include "Config.h"
@@ -40,6 +41,7 @@ using sim::test::require;
 int main() {
   sim::MachineSimulator simulator;
   Kernel kernel;
+  sim::test::FirmwareAccessories accessories(kernel);
 
   kernel.factory_set->MachineModel = CARVERA;
   kernel.set_laser_mode(true);

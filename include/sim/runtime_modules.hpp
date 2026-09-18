@@ -18,6 +18,7 @@
 #ifndef SIMULATOR_SIM_RUNTIME_MODULES_HPP
 #define SIMULATOR_SIM_RUNTIME_MODULES_HPP
 
+#include "MachineModel.h"
 #include "sim/machine_simulator.hpp"
 
 class Kernel;
@@ -34,7 +35,7 @@ struct BootModules {
   SerialConsole2* wireless_probe_serial{nullptr};
 };
 
-MachineModel machine_model_from_firmware(char model, MachineModel fallback);
+MachineModel machine_model_from_firmware(Machine model, MachineModel fallback);
 Module* make_atc_physical_module(MachineSimulator& simulator);
 Module* make_spindle_tach_module(MachineSimulator& simulator);
 void initialize_startup_gpio();

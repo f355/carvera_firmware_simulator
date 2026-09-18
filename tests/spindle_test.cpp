@@ -16,6 +16,7 @@
  */
 
 #include "support/assertions.hpp"
+#include "support/firmware_accessories.hpp"
 #include "support/memory_config.hpp"
 
 #include "ATCHandlerPublicAccess.h"
@@ -63,6 +64,7 @@ int main() {
   sim::lpc1768::reset();
   mbed::PwmOut::reset_states();
   Kernel kernel;
+  sim::test::FirmwareAccessories accessories(kernel);
   ToolStatusModule tool_status;
 
   kernel.config = new Config(new MemoryConfigSource({

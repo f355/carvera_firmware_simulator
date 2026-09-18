@@ -25,6 +25,8 @@
 #include <vector>
 
 #include "support/assertions.hpp"
+#include "support/direct_robot_config.hpp"
+#include "support/firmware_accessories.hpp"
 #include "support/memory_config.hpp"
 
 #define private public
@@ -35,9 +37,11 @@
 #include "Gcode.h"
 #include "PlayerPublicAccess.h"
 #include "PublicData.h"
+#include "Robot.h"
 #include "libs/Kernel.h"
 #include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
+#include "sim/robot_axis_binding.hpp"
 #include "support/temp_sdcard.hpp"
 
 namespace {
@@ -95,11 +99,17 @@ int main() {
   sim::host_filesystem::mount("sd", root.string());
 
   Kernel kernel;
-  kernel.config = new Config(new MemoryConfigSource({
+  sim::test::FirmwareAccessories accessories(kernel);
+  auto config_lines = sim::test::direct_robot_config_lines();
+  config_lines.insert(config_lines.end(), {
       "home_on_boot false\n",
       "on_boot_gcode_enable false\n",
-  }));
+  });
+  kernel.config = new Config(new MemoryConfigSource(std::move(config_lines)));
   kernel.config->config_cache_load();
+  kernel.robot->on_module_loaded();
+  sim::attach_configured_stepper_axes(kernel);
+  kernel.set_aborted(false);
 
   Player player;
   player.on_module_loaded();

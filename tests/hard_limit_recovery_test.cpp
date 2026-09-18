@@ -77,7 +77,7 @@ int main() {
           "hard-limit halt should be reported on the firmware stream");
 
   runtime.io().write_serial_command("reset\n");
-  runtime.runner().run_main_loop(1);
+  runtime.runner().run_main_loop(2);
   const auto reset_output = runtime.io().read_serial_text();
   require(reset_output.find("Rebooting machine") != std::string::npos,
           "controller reset command should go through real SimpleShell reset path");

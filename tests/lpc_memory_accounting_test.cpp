@@ -35,8 +35,8 @@ void generated_layout_matches_the_pinned_arm_firmware() {
   const auto main = firmware_main_sram_layout();
   require(main.ram_start == 0x100000c8, "main RAM origin should come from the ARM linker map");
   require(main.ram_end == 0x10008000, "main RAM end should come from the ARM linker map");
-  require(main.static_end == 0x10004d88, "static RAM end should come from the linked image");
-  require(main.heap_start == 0x10004d88, "main heap start should come from the linker map");
+  require(main.static_end == 0x10004dd8, "static RAM end should come from the linked image");
+  require(main.heap_start == 0x10004dd8, "main heap start should come from the linker map");
   require(main.heap_end == 0x10006fe0, "main heap end should preserve the MPU guard");
 
   const auto ahb = firmware_ahb_layout();

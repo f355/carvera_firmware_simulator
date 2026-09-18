@@ -41,32 +41,35 @@ int main() {
 
   mbed::I2C i2c(P0_27, P0_28);
   i2c.frequency(200000);
+  require(mbed::I2C::ACK == 1, "firmware ACK value should request another byte");
+  require(mbed::I2C::NoACK == 0, "firmware NoACK value should terminate a read");
+  require(!i2c.is_timed_out(), "simulated EEPROM transactions should not time out");
 
   i2c.start();
-  require(i2c.write(0xa0) == 0, "EEPROM should acknowledge write device address");
-  require(i2c.write(0x00) == 0, "EEPROM should acknowledge high address byte");
-  require(i2c.write(0x20) == 0, "EEPROM should acknowledge low address byte");
-  require(i2c.write(0x12) == 0, "EEPROM should acknowledge first data byte");
-  require(i2c.write(0x34) == 0, "EEPROM should acknowledge second data byte");
+  require(i2c.write(0xa0) == 1, "EEPROM should acknowledge write device address");
+  require(i2c.write(0x00) == 1, "EEPROM should acknowledge high address byte");
+  require(i2c.write(0x20) == 1, "EEPROM should acknowledge low address byte");
+  require(i2c.write(0x12) == 1, "EEPROM should acknowledge first data byte");
+  require(i2c.write(0x34) == 1, "EEPROM should acknowledge second data byte");
   i2c.stop();
 
   i2c.start();
-  require(i2c.write(0xa0) == 0, "EEPROM should acknowledge read address setup");
-  require(i2c.write(0x00) == 0, "EEPROM should acknowledge high read address byte");
-  require(i2c.write(0x20) == 0, "EEPROM should acknowledge low read address byte");
+  require(i2c.write(0xa0) == 1, "EEPROM should acknowledge read address setup");
+  require(i2c.write(0x00) == 1, "EEPROM should acknowledge high read address byte");
+  require(i2c.write(0x20) == 1, "EEPROM should acknowledge low read address byte");
   i2c.start();
-  require(i2c.write(0xa1) == 0, "EEPROM should acknowledge read device address");
+  require(i2c.write(0xa1) == 1, "EEPROM should acknowledge read device address");
 
-  require(i2c.read(1) == 0x12, "EEPROM should return the first byte at the selected address");
-  require(i2c.read(1) == 0x34, "EEPROM should auto-increment sequential reads");
+  require(i2c.read(mbed::I2C::ACK) == 0x12, "EEPROM should return the first byte at the selected address");
+  require(i2c.read(mbed::I2C::NoACK) == 0x34, "EEPROM should auto-increment sequential reads");
   i2c.stop();
 
   i2c.start();
-  require(i2c.write(0xa0) == 0, "EEPROM should acknowledge page-wrap write device address");
-  require(i2c.write(0x00) == 0, "EEPROM should acknowledge page-wrap high address byte");
-  require(i2c.write(0x3f) == 0, "EEPROM should acknowledge page-wrap low address byte");
-  require(i2c.write(0xaa) == 0, "EEPROM should write the last byte of a page");
-  require(i2c.write(0xbb) == 0, "EEPROM should wrap writes within the selected page");
+  require(i2c.write(0xa0) == 1, "EEPROM should acknowledge page-wrap write device address");
+  require(i2c.write(0x00) == 1, "EEPROM should acknowledge page-wrap high address byte");
+  require(i2c.write(0x3f) == 1, "EEPROM should acknowledge page-wrap low address byte");
+  require(i2c.write(0xaa) == 1, "EEPROM should write the last byte of a page");
+  require(i2c.write(0xbb) == 1, "EEPROM should wrap writes within the selected page");
   i2c.stop();
 
   require(sim::i2c_eeprom::read(0x3f) == 0xaa, "EEPROM page write should update the selected byte");

@@ -154,7 +154,7 @@ int main() {
   require(ca1_led_runtime.set_factory_settings({sim::MachineModel::CarveraAirCA1, 2}),
           "CA1 LED strip test should configure factory settings");
   ca1_led_runtime.boot();
-  led_rgb colors{12, 34, 56};
+  led_rgb colors{12, 34, 56, 0};
   require(PublicData::set_value(main_button_checksum, set_led_bar_checksum, &colors),
           "MainButton should accept LED bar PublicData writes");
   const auto ca1_led_panel = ca1_led_runtime.inputs().front_panel_state();

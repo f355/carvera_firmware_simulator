@@ -19,9 +19,34 @@
 
 #include "sim/main_button_led.hpp"
 
-void mainbutton_led_write_strip(unsigned char R1, unsigned char G1, unsigned char B1, unsigned char R2,
-                                unsigned char G2, unsigned char B2, unsigned char R3, unsigned char G3,
-                                unsigned char B3, unsigned char R4, unsigned char G4, unsigned char B4,
-                                unsigned char R5, unsigned char G5, unsigned char B5) {
-  sim::main_button_led::set_strip({{{R1, G1, B1}, {R2, G2, B2}, {R3, G3, B3}, {R4, G4, B4}, {R5, G5, B5}}});
+void MainButtonLed::set_pin(const Pin&) {}
+
+void MainButtonLed::set_all(Color color) const {
+  Colors colors;
+  colors.fill(color);
+  write(colors, false);
+}
+
+void MainButtonLed::set_number(Color front, Color back, uint8_t number, bool row) const {
+  const uint8_t maximum = row ? 5 : 3;
+  if (number == 0 || number > maximum) {
+    return;
+  }
+
+  Colors colors;
+  colors.fill(back);
+  for (uint8_t index = 0; index < colors.size(); ++index) {
+    if (row ? index < number : index % 2 == 0 && index / 2 < number) {
+      colors[index] = front;
+    }
+  }
+  write(colors, true);
+}
+
+void MainButtonLed::write(const Colors& colors, bool) const {
+  sim::main_button_led::LedStrip strip;
+  for (std::size_t index = 0; index < colors.size(); ++index) {
+    strip[index] = {colors[index].red, colors[index].green, colors[index].blue};
+  }
+  sim::main_button_led::set_strip(strip);
 }

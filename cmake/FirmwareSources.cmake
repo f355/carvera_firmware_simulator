@@ -215,6 +215,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/libs/ConfigCache.cpp
   ${FIRMWARE_SRC}/libs/ConfigSource.cpp
   ${FIRMWARE_SRC}/libs/ConfigValue.cpp
+  ${FIRMWARE_SRC}/libs/FactorySettings.cpp
   ${FIRMWARE_SRC}/libs/Hook.cpp
   ${FIRMWARE_SRC}/libs/Kernel.cpp
   ${FIRMWARE_SRC}/libs/MakeraControl.cpp
@@ -239,6 +240,7 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/utils/configurator/Configurator.cpp
   ${FIRMWARE_SRC}/modules/utils/mainbutton/MainButton.cpp
   ${FIRMWARE_SRC}/modules/utils/player/OCodeHandler.cpp
+  ${FIRMWARE_SRC}/modules/utils/player/PlayerLineSources.cpp
   ${_player_host_source}
   ${FIRMWARE_SRC}/modules/utils/player/quicklz.c
   ${_simpleshell_host_source}
@@ -249,6 +251,8 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/robot/Planner.cpp
   ${FIRMWARE_SRC}/modules/robot/Robot.cpp
   ${FIRMWARE_SRC}/modules/robot/arm_solutions/CartesianSolution.cpp
+  ${FIRMWARE_SRC}/modules/tools/accessories/BedCleaning.cpp
+  ${FIRMWARE_SRC}/modules/tools/accessories/SpindleAccessories.cpp
   ${FIRMWARE_SRC}/modules/tools/atc/ATCHandler.cpp
   ${FIRMWARE_SRC}/modules/tools/endstops/Endstops.cpp
   ${FIRMWARE_SRC}/modules/tools/laser/Laser.cpp

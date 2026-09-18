@@ -16,6 +16,7 @@
  */
 
 #include "support/assertions.hpp"
+#include "support/firmware_accessories.hpp"
 #include "support/memory_config.hpp"
 
 #include "Config.h"
@@ -46,6 +47,7 @@ void sample_temperatures(int ticks = 6) {
 int main() {
   sim::MachineSimulator simulator;
   Kernel kernel;
+  sim::test::FirmwareAccessories accessories(kernel);
 
   kernel.factory_set->MachineModel = CARVERA_AIR;
   kernel.config = new Config(new MemoryConfigSource({

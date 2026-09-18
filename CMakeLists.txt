@@ -172,6 +172,7 @@ set(CARVERA_FIRMWARE_INCLUDE_DIRS
   ${FIRMWARE_SRC}/modules/tools/spindle
   ${FIRMWARE_SRC}/modules/tools/toolmanager
   ${FIRMWARE_SRC}/modules/tools/atc
+  ${FIRMWARE_SRC}/modules/tools/accessories
   ${FIRMWARE_SRC}/modules/tools/laser
   ${FIRMWARE_SRC}/modules/tools/zprobe
   ${FIRMWARE_SRC}/modules/tools/temperaturecontrol

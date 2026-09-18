@@ -93,7 +93,7 @@ int main() {
   require(response.machine_snapshot().memory().main().capacity_bytes() == 32'568,
           "memory summary should expose the LPC1768 main SRAM capacity");
   require(response.machine_snapshot().memory().has_heap(), "memory summary should expose the unified heap totals");
-  require(response.machine_snapshot().memory().heap().capacity_bytes() == 40'520,
+  require(response.machine_snapshot().memory().heap().capacity_bytes() == 40'440,
           "unified heap capacity should exclude one heap_5 sentinel per physical region");
   require(response.machine_snapshot().memory().heap().total_free_bytes() > 0,
           "memory summary should expose unified heap free space");

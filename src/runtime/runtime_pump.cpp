@@ -64,6 +64,12 @@ void RuntimePump::run_main_loop(std::size_t iterations) {
   pump(options);
 }
 
+RuntimePumpResult RuntimePump::run_timer_events(std::size_t max_timer_events) {
+  RuntimePumpOptions options;
+  options.max_timer_events = max_timer_events;
+  return engine_.run(boot_session_.boot(), options);
+}
+
 RuntimePumpResult RuntimePump::run_until_motion_idle(std::size_t max_timer_events) {
   RuntimePumpOptions options;
   options.main_loop_iterations = 64;

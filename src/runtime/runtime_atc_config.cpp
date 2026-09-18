@@ -45,7 +45,7 @@ constexpr uint16_t probe_mcs_y_checksum = CHECKSUM("probe_mcs_y");
 constexpr uint16_t atc_checksum = CHECKSUM("atc");
 constexpr uint16_t action_mm_checksum = CHECKSUM("action_mm");
 
-MachineModel model_from_factory(char model) {
+MachineModel model_from_factory(Machine model) {
   return model == CARVERA_AIR ? MachineModel::CarveraAirCA1 : MachineModel::CarveraC1;
 }
 
