@@ -15,25 +15,43 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from gui.app_view import AppView
-from gui.presenters.base import SessionPresenter
-from gui.scene.lighting import (
+from gui.core.simulator_settings import (
     DEFAULT_MODEL_COLOR,
     ModelMaterialSettings,
     SceneLightingSettings,
-    apply_scene_lighting,
 )
+from gui.presenters.base import SessionPresenter
+from gui.scene.lighting import apply_scene_lighting
 from gui.views.ui_helpers import event_bool
 
 
 class AppearancePresenter(SessionPresenter):
+    def restore_view(self, view: AppView) -> None:
+        settings = self.session.settings_store.snapshot()
+        if view.environment_tab_view is not None:
+            for name, value in asdict(settings.lighting).items():
+                control = view.environment_tab_view.lighting_controls.get(name)
+                if control is not None:
+                    control.value = value
+            for name, value in asdict(settings.material).items():
+                control = view.environment_tab_view.material_controls.get(name)
+                if control is not None:
+                    control.value = value
+        if view.machine_scene_view is not None:
+            apply_scene_lighting(view.machine_scene_view.scene, settings.lighting)
+            view.machine_scene_view.apply_model_material(settings.material)
+
     def scene_appearance_changed(self, view: AppView, _event: Any = None) -> None:
-        if view.machine_scene_view is None:
-            return
-        apply_scene_lighting(view.machine_scene_view.scene, self.current_lighting_settings(view))
-        view.machine_scene_view.apply_model_material(self.current_material_settings(view))
+        lighting = self.current_lighting_settings(view)
+        material = self.current_material_settings(view)
+        self.session.settings_store.set_appearance(lighting, material)
+        if view.machine_scene_view is not None:
+            apply_scene_lighting(view.machine_scene_view.scene, lighting)
+            view.machine_scene_view.apply_model_material(material)
 
     def current_lighting_settings(self, view: AppView) -> SceneLightingSettings:
         controls = view.environment_tab_view.lighting_controls if view.environment_tab_view is not None else {}

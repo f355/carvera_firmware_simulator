@@ -17,38 +17,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Any
 
 from nicegui import ui
 
-DEFAULT_MODEL_COLOR = "#d9dee4"
-
-
-@dataclass(frozen=True)
-class SceneLightingSettings:
-    ambient: float = 0.2
-    key: float = 0.5
-    key_x: float = -50.0
-    key_y: float = -250.0
-    key_z: float = 250.0
-    fill: float = 0.3
-    fill_x: float = 40.0
-    fill_y: float = 170.0
-    fill_z: float = 160.0
-    exposure: float = 0.88
-    shadows: bool = True
-    shadow_radius: float = 3.0
-    shadow_bias: float = -0.003
-    shadow_map_size: float = 1536.0
-
-
-@dataclass(frozen=True)
-class ModelMaterialSettings:
-    color: str = DEFAULT_MODEL_COLOR
-    opacity: float = 1.0
-    roughness: float = 0.45
-    metalness: float = 0.1
+from gui.core.simulator_settings import ModelMaterialSettings, SceneLightingSettings
 
 
 def scene_lighting_patch_javascript(scene_id: int, settings: SceneLightingSettings | None = None) -> str:

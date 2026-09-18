@@ -38,7 +38,7 @@ from gui.views.signals_tab import build_signals_tab
 from gui.views.stock_tab import build_stock_tab
 from gui.views.styles import SIM_CSS
 from gui.views.transport_panel import build_transport_panel
-from gui.views.ui_helpers import event_value
+from gui.views.ui_helpers import event_bool, event_value
 
 ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
 
@@ -46,6 +46,7 @@ ORTHOGRAPHIC_CAMERA_SIZE_MM = 780.0
 def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
     view = AppView()
     gui_state = session.state_store.snapshot()
+    persistent_settings = session.settings_store.snapshot()
     selected_model = gui_state.machine_model or session.args.model
 
     def machine_model_value() -> str:
@@ -56,25 +57,33 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
         actions.appearance.scene_appearance_changed(view, event)
 
     def machine_model_changed() -> None:
-        actions.state.update_machine_shell_model(view)
-        actions.tooling.load_default_stock(view)
+        actions.state.machine_model_changed(view)
+        actions.physical.restore_rotary_accessory(view)
+        actions.tooling.restore_stock(view)
+        actions.state.restore_camera(view)
 
     ui.add_css(SIM_CSS)
     with ui.element("div").classes("sim-page"):
         with ui.element("div").classes("sim-toolbar"):
             ui.label("Carvera Simulator").classes("sim-title")
-            view.header.model_select = ui.toggle(
-                {
-                    "c1": "Carvera (C1)",
-                    "ca1": "Carvera Air (CA1)",
-                    "z1": "Makera Z1",
-                    "z1pro": "Makera Z1 Pro",
-                },
-                value=selected_model,
-                on_change=lambda _: machine_model_changed(),
-            ).props("dense unelevated toggle-color=primary")
+            view.header.model_select = (
+                ui.select(
+                    {
+                        "c1": "Carvera (C1)",
+                        "ca1": "Carvera Air (CA1)",
+                        "z1": "Makera Z1",
+                        "z1pro": "Makera Z1 Pro",
+                    },
+                    value=selected_model,
+                    on_change=lambda _: machine_model_changed(),
+                )
+                .props("dense outlined options-dense")
+                .classes("machine-model-select")
+            )
             view.header.cad_models_switch = ui.switch(
-                "Show 3D Machine", value=True, on_change=lambda event: actions.state.cad_models_changed(view, event)
+                "Show 3D Machine",
+                value=persistent_settings.show_3d_machine,
+                on_change=lambda event: actions.state.cad_models_changed(view, event),
             )
             with ui.element("div").classes("header-controls"):
                 with ui.element("div").classes("axis-strip"):
@@ -99,7 +108,7 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                     view.header.power_switch = ui.switch(
                         "Power", value=False, on_change=lambda event: actions.power.power_changed(view, event)
                     )
-        with ui.splitter(value=64).classes("main-splitter") as main_splitter:
+        with ui.splitter(value=persistent_settings.splitter_position).classes("main-splitter") as main_splitter:
             with main_splitter.before:
                 with ui.element("div").classes("scene-pane"):
                     machine_scene = (
@@ -192,7 +201,14 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
                             )
 
                         with ui.tab_panel(comms_tab):
-                            view.comms_log_view = build_comms_log_tab()
+                            view.comms_log_view = build_comms_log_tab(
+                                autoscroll_enabled=persistent_settings.comms_autoscroll,
+                                autoscroll_changed=lambda event: session.settings_store.set_comms_autoscroll(
+                                    event_bool(event)
+                                ),
+                            )
+
+        main_splitter.on_value_change(lambda event: session.settings_store.set_splitter_position(float(event.value)))
 
         view.axis_panel_view = AxisPanelView(
             axis_labels=axis_labels,
@@ -253,9 +269,15 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
         assert view.cad_models_switch is not None
         view.machine_scene_view.set_cad_models_visible(bool(view.cad_models_switch.value))
         actions.state.update_machine_shell_model(view)
+        actions.physical.restore_rotary_accessory(view)
+        actions.physical.restore_realtime_speed(view)
+        actions.tooling.restore_stock(view)
+        actions.appearance.restore_view(view)
+        actions.state.restore_camera(view)
         actions.state.restore_view(view)
 
     ui.timer(0.033, lambda: actions.state.drain_telemetry(view))
     ui.timer(0.1, lambda: actions.state.drain_snapshots(view))
     ui.timer(0.1, lambda: actions.state.drain_physical_io(view))
     ui.timer(0.1, lambda: actions.state.drain_transport_log(view))
+    ui.timer(1.0, lambda: actions.state.persist_camera(view))

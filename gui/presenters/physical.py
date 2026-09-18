@@ -81,6 +81,8 @@ class PhysicalPresenter(SessionPresenter):
 
     async def rotary_accessory_changed(self, view: AppView, event: Any) -> None:
         installed = event_bool(event)
+        assert view.model_select is not None
+        self.session.settings_store.set_rotary_accessory(str(view.model_select.value), installed)
         if view.machine_tab_view is not None and view.machine_tab_view.rotary_accessory_badge is not None:
             set_status_badge(view.machine_tab_view.rotary_accessory_badge, installed, "connected", "not connected")
         self.state.update_machine_shell_model(view)
@@ -88,6 +90,16 @@ class PhysicalPresenter(SessionPresenter):
             return
         with self.notify_client_errors():
             await self.session.process_controller.call(self.session.client.set_rotary_accessory_installed, installed)
+
+    def restore_rotary_accessory(self, view: AppView) -> None:
+        if view.model_select is None or view.rotary_accessory_switch is None:
+            return
+        machine = self.session.settings_store.snapshot().machines.get(str(view.model_select.value))
+        installed = machine.rotary_accessory if machine is not None else False
+        view.rotary_accessory_switch.value = installed
+        if view.machine_tab_view is not None and view.machine_tab_view.rotary_accessory_badge is not None:
+            set_status_badge(view.machine_tab_view.rotary_accessory_badge, installed, "connected", "not connected")
+        self.state.update_machine_shell_model(view)
 
     async def set_temperature(self, view: AppView) -> None:
         if not self.machine_online:
@@ -103,14 +115,21 @@ class PhysicalPresenter(SessionPresenter):
                 view.io_panel_view.set_temperature_status(celsius)
 
     async def realtime_speed_changed(self, view: AppView, value: float | int | str | None = None) -> None:
-        if not self.machine_online:
-            ui.notify("Power the simulator before changing realtime speed.", type="warning")
-            return
         if view.realtime_speed is None:
             return
-        with self.notify_client_errors(TypeError, ValueError):
+        try:
             source_value = value if value is not None else view.realtime_speed.value
             multiplier = max(0.25, min(GUI_REALTIME_SPEED_MAX, float(source_value or 1.0)))
             view.realtime_speed.value = multiplier
+            self.session.settings_store.set_realtime_speed(multiplier)
+        except (TypeError, ValueError):
+            return
+        if not self.machine_online:
+            return
+        with self.notify_client_errors():
             log_gui_event(f"realtime speed requested={multiplier:g}x")
             await self.session.process_controller.call(self.session.client.set_realtime_speed, multiplier)
+
+    def restore_realtime_speed(self, view: AppView) -> None:
+        if view.realtime_speed is not None:
+            view.realtime_speed.value = self.session.settings_store.snapshot().realtime_speed

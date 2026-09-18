@@ -25,6 +25,7 @@ body { background: #f6f7f9; color: #1f2933; }
   box-sizing: border-box; width: 100vw; padding: 10px 14px; border-bottom: 1px solid #d7dde5; background: #ffffff;
 }
 .sim-title { font-size: 17px; font-weight: 650; margin-right: 6px; }
+.machine-model-select { width: 190px; }
 .header-controls {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
 }

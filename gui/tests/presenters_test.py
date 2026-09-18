@@ -16,11 +16,13 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
 from gui.app_view import AppView
 from gui.core.gui_state import GuiStateStore
+from gui.core.simulator_settings import SimulatorSettingsStore, StockSettings
 from gui.presenters.app import AppPresenters
 from gui.presenters.appearance import AppearancePresenter
 from gui.presenters.physical import PhysicalPresenter
@@ -343,13 +345,14 @@ def test_restore_view_applies_running_machine_state_to_new_page() -> None:
     assert transport_panel.updated_with == transport
 
 
-def test_realtime_speed_changed_sends_selected_multiplier() -> None:
+def test_realtime_speed_changed_sends_selected_multiplier(tmp_path: Path) -> None:
     store = GuiStateStore()
     store.set_online(transport=None)
     process_controller = FakeProcessController()
     client = FakeClient()
     session = SimpleNamespace(
         state_store=store,
+        settings_store=SimulatorSettingsStore(tmp_path / "settings.json"),
         process_controller=process_controller,
         client=client,
     )
@@ -362,12 +365,18 @@ def test_realtime_speed_changed_sends_selected_multiplier() -> None:
     assert process_controller.calls == [(client.set_realtime_speed, (5.0,))]
 
 
-def test_applying_stock_updates_collision_geometry_and_scene_together() -> None:
+def test_applying_stock_updates_collision_geometry_scene_and_preferences(tmp_path: Path) -> None:
     store = GuiStateStore()
     store.set_online(transport=None)
     process_controller = FakeProcessController()
     client = FakeClient()
-    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    settings_store = SimulatorSettingsStore(tmp_path / "settings.json")
+    session = SimpleNamespace(
+        state_store=store,
+        settings_store=settings_store,
+        process_controller=process_controller,
+        client=client,
+    )
     actions = AppPresenters(session)  # type: ignore[arg-type]
     values = (-288.669, -201.902, -122.0, -138.669, -51.902, -112.0)
     names = ("min_x", "min_y", "min_z", "max_x", "max_y", "max_z")
@@ -377,20 +386,27 @@ def test_applying_stock_updates_collision_geometry_and_scene_together() -> None:
     view = AppView()
     view.stock_tab_view = SimpleNamespace(box_controls={"stock": controls})  # type: ignore[assignment]
     view.machine_scene_view = cast(Any, scene)
+    view.header.model_select = FakeControl("ca1")
 
     asyncio.run(actions.tooling.apply_physical_boxes(view, notify=False))
 
     assert process_controller.calls == [(client.set_stock_box, (values,))]
     assert process_controller.keyword_calls == [{"enabled": True}]
     assert scene.stock_box == (Box3D(*values), True)
+    assert settings_store.snapshot().machines["ca1"].stock == StockSettings(True, *values)
 
 
-def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> None:
+def test_realtime_speed_changed_uses_event_value_before_control_catches_up(tmp_path: Path) -> None:
     store = GuiStateStore()
     store.set_online(transport=None)
     process_controller = FakeProcessController()
     client = FakeClient()
-    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    session = SimpleNamespace(
+        state_store=store,
+        settings_store=SimulatorSettingsStore(tmp_path / "settings.json"),
+        process_controller=process_controller,
+        client=client,
+    )
     actions = AppPresenters(session)  # type: ignore[arg-type]
     view = AppView()
     view.environment_tab_view = SimpleNamespace(realtime_speed=FakeControl(1.0))  # type: ignore[assignment]
@@ -400,12 +416,17 @@ def test_realtime_speed_changed_uses_event_value_before_control_catches_up() -> 
     assert process_controller.calls == [(client.set_realtime_speed, (6.0,))]
 
 
-def test_realtime_speed_changed_clamps_to_gui_cap() -> None:
+def test_realtime_speed_changed_clamps_to_gui_cap(tmp_path: Path) -> None:
     store = GuiStateStore()
     store.set_online(transport=None)
     process_controller = FakeProcessController()
     client = FakeClient()
-    session = SimpleNamespace(state_store=store, process_controller=process_controller, client=client)
+    session = SimpleNamespace(
+        state_store=store,
+        settings_store=SimulatorSettingsStore(tmp_path / "settings.json"),
+        process_controller=process_controller,
+        client=client,
+    )
     actions = AppPresenters(session)  # type: ignore[arg-type]
     speed_control = FakeControl(1.0)
     view = AppView()

@@ -23,7 +23,9 @@ from typing import Any, Self
 
 from gui.core.app_config import default_sd_seed_root, parse_args, parse_vec3
 from gui.core.gui_state import GuiStateStore
+from gui.core.platform_paths import user_data_root
 from gui.core.process_controller import SimulatorProcessController
+from gui.core.simulator_settings import SimulatorSettingsStore
 from gui.core.telemetry import TelemetryBuffer
 from gui.core.transport_log import TransportLogFormatter, TransportLogStore, parse_transport_log_line
 from gui.protocol.model import (
@@ -49,6 +51,7 @@ class SimulatorSession:
     transport_log_store: TransportLogStore
     backplot_history: BackplotHistoryStore
     state_store: GuiStateStore
+    settings_store: SimulatorSettingsStore
     client: SimulatorClient
     process_controller: SimulatorProcessController
     sd_root: Path
@@ -59,6 +62,11 @@ class SimulatorSession:
     @classmethod
     def create(cls, simulator_root: Path, static_file_app: Any) -> Self:
         args = parse_args(simulator_root)
+        settings_store = SimulatorSettingsStore(user_data_root() / "settings.json")
+        requested_model = args.model
+        args.model = requested_model or settings_store.snapshot().machine_model
+        if requested_model is not None:
+            settings_store.set_machine_model(requested_model)
         offset_override = parse_vec3(args.machine_model_offset) if args.machine_model_offset is not None else None
         rotation_override: tuple[float, float, float] | None = None
         if args.machine_model_rotation is not None:
@@ -116,6 +124,7 @@ class SimulatorSession:
             transport_log_store=transport_log_store,
             backplot_history=backplot_history,
             state_store=state_store,
+            settings_store=settings_store,
             client=client,
             process_controller=process_controller,
             sd_root=sd_root,

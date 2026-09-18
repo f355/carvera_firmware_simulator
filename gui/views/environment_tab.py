@@ -21,7 +21,7 @@ from typing import Any
 
 from nicegui import ui
 
-from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, SceneLightingSettings
+from gui.core.simulator_settings import DEFAULT_MODEL_COLOR, ModelMaterialSettings, SceneLightingSettings
 
 GUI_REALTIME_SPEED_MAX = 10.0
 

@@ -23,8 +23,9 @@ from typing import Any
 from nicegui import ui
 
 from gui.core.defaults import MACHINE_COMPONENT_COLORS, TOOL_SHANK_INSERT_MM
+from gui.core.simulator_settings import DEFAULT_MODEL_COLOR, ModelMaterialSettings
 from gui.protocol.model import AtcSnapshot, Box3D, MachineState, ToolKind
-from gui.scene.lighting import DEFAULT_MODEL_COLOR, ModelMaterialSettings, scene_material_patch_javascript
+from gui.scene.lighting import scene_material_patch_javascript
 from gui.views.io_panel import front_panel_led_text
 
 from .atc_tool_layer import AtcToolLayer

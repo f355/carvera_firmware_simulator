@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -49,10 +50,18 @@ class CommsLogTabView:
         self.rows.clear()
 
 
-def build_comms_log_tab() -> CommsLogTabView:
+def build_comms_log_tab(
+    *,
+    autoscroll_enabled: bool = True,
+    autoscroll_changed: Callable[[Any], None] | None = None,
+) -> CommsLogTabView:
     view: CommsLogTabView
     with ui.element("div").classes("panel-section comm-toolbar"):
-        autoscroll = ui.switch("Auto-scroll", value=True).props("dense")
+        autoscroll = ui.switch(
+            "Auto-scroll",
+            value=autoscroll_enabled,
+            on_change=autoscroll_changed,
+        ).props("dense")
         clear_button = ui.button("Clear").props("dense outline")
     log_container = ui.element("div").classes("comm-log")
     view = CommsLogTabView(container=log_container, autoscroll=autoscroll)

@@ -18,6 +18,7 @@ from __future__ import annotations
 from nicegui import ui
 
 from gui.app_view import AppView
+from gui.core.simulator_settings import StockSettings
 from gui.presenters.base import SessionPresenter
 from gui.protocol.model import Box3D, ToolKind
 from gui.views.stock_tab import load_default_stock as load_default_stock_controls
@@ -56,12 +57,33 @@ class ToolingPresenter(SessionPresenter):
         if view.stock_tab_view is not None and view.model_select is not None:
             load_default_stock_controls(view.stock_tab_view, str(view.model_select.value))
 
+    def restore_stock(self, view: AppView) -> None:
+        if view.stock_tab_view is None or view.model_select is None:
+            return
+        model = str(view.model_select.value)
+        machine = self.session.settings_store.snapshot().machines.get(model)
+        if machine is None or machine.stock is None:
+            self.load_default_stock(view)
+        else:
+            controls = view.box_controls["stock"]
+            for name in ("enabled", "min_x", "min_y", "min_z", "max_x", "max_y", "max_z"):
+                controls[name].value = getattr(machine.stock, name)
+        box_values = self.collect_box(view, "stock")
+        enabled = event_bool(view.box_controls["stock"]["enabled"])
+        if view.machine_scene_view is not None:
+            view.machine_scene_view.set_stock_box(Box3D(*box_values), enabled=enabled)
+
     def collect_box(self, view: AppView, name: str) -> tuple[float, float, float, float, float, float]:
         return collect_box_values(view.box_controls[name])
 
     async def apply_physical_boxes(self, view: AppView, *, notify: bool = True) -> None:
         box_values = self.collect_box(view, "stock")
         enabled = event_bool(view.box_controls["stock"]["enabled"])
+        assert view.model_select is not None
+        self.session.settings_store.set_stock(
+            str(view.model_select.value),
+            StockSettings(enabled, *box_values),
+        )
         if not self.machine_online:
             if view.machine_scene_view is not None:
                 view.machine_scene_view.set_stock_box(Box3D(*box_values), enabled=enabled)

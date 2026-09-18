@@ -18,8 +18,10 @@ from __future__ import annotations
 from typing import Any
 
 from gui.app_view import AppView
+from gui.core.simulator_settings import CameraPose
 from gui.presenters.base import SessionPresenter
 from gui.protocol.model import InteractiveTransportState, MachineState, pb, snapshot_to_state
+from gui.scene.camera_pose import read_camera_pose, restore_camera_pose
 from gui.views.ui_helpers import event_bool, set_control_locked
 
 
@@ -43,9 +45,34 @@ class StatePresenter(SessionPresenter):
         if view.machine_scene_view is not None:
             view.machine_scene_view.update_shell_model(str(view.model_select.value))
 
+    def machine_model_changed(self, view: AppView) -> None:
+        assert view.model_select is not None
+        self.session.settings_store.set_machine_model(str(view.model_select.value))
+        self.update_machine_shell_model(view)
+
     def cad_models_changed(self, view: AppView, event: Any) -> None:
+        visible = event_bool(event)
+        self.session.settings_store.set_show_3d_machine(visible)
         if view.machine_scene_view is not None:
-            view.machine_scene_view.set_cad_models_visible(event_bool(event))
+            view.machine_scene_view.set_cad_models_visible(visible)
+
+    def restore_camera(self, view: AppView) -> None:
+        if view.machine_scene_view is None or view.model_select is None:
+            return
+        model = str(view.model_select.value)
+        machine = self.session.settings_store.snapshot().machines.get(model)
+        pose = machine.camera if machine is not None and machine.camera is not None else CameraPose()
+        restore_camera_pose(view.machine_scene_view.scene, pose)
+
+    async def persist_camera(self, view: AppView) -> None:
+        if view.machine_scene_view is None or view.model_select is None:
+            return
+        try:
+            pose = await read_camera_pose(view.machine_scene_view.scene)
+        except Exception:
+            return
+        if pose is not None:
+            self.session.settings_store.set_camera(str(view.model_select.value), pose)
 
     def clear_backplot(self, view: AppView) -> None:
         if view.machine_scene_view is not None:

@@ -118,6 +118,7 @@ def test_parser_uses_platform_data_for_writable_sd_root(tmp_path: Path) -> None:
     assert args.port is None
     assert args.wifi_port == 2222
     assert args.log_transport is True
+    assert args.model is None
 
 
 def test_prepare_sd_root_copies_seed_payload(tmp_path: Path) -> None:
