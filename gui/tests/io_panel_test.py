@@ -59,6 +59,7 @@ def make_io_panel_view(main_button_control: FakeStyleControl | None = None) -> I
 
 def test_front_panel_helpers_format_led_and_pwm_state() -> None:
     assert front_panel_led_text("ca1") == ("CA1 LED strip", "not available")
+    assert front_panel_led_text("z1") == ("Z1 status LED", "not available")
     assert front_panel_led_text("c1") == ("C1 RGB LED", "not available")
 
     rgb = SimpleNamespace(r=3, g=25, b=255)

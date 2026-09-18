@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "sim/i2c_eeprom.hpp"
+#include "sim/z1_mainboard.hpp"
 
 class Kernel;
 class SerialConsole2;
@@ -46,6 +47,9 @@ class RuntimeBootSession {
   bool set_factory_settings(const FactorySettings& settings);
   FactorySettings factory_settings() const;
   MachineModel machine_model() const { return factory_settings().machine_model; }
+  void set_sd_root(const std::filesystem::path& root);
+  void service_mainboard_link();
+  Z1Mainboard* z1_mainboard();
 
   SerialConsole2* wireless_probe_serial() const { return wireless_probe_serial_; }
 
@@ -56,6 +60,9 @@ class RuntimeBootSession {
   FactorySettings factory_settings_;
   SerialConsole2* wireless_probe_serial_{nullptr};
   bool homed_{false};
+#if defined(MACHINE_FAMILY_Z1)
+  std::unique_ptr<Z1Mainboard> z1_mainboard_;
+#endif
 };
 
 }  // namespace sim

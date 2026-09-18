@@ -64,6 +64,12 @@ SWITCH_NAME_TO_PROTO = {
 }
 BoxTuple = tuple[float, float, float, float, float, float]
 DEFAULT_FUNCTION_SETTING = 0x02
+MACHINE_MODEL_TO_PROTO = {
+    "c1": pb.MACHINE_MODEL_CARVERA_C1,
+    "ca1": pb.MACHINE_MODEL_CARVERA_AIR_CA1,
+    "z1": pb.MACHINE_MODEL_MAKERA_Z1,
+    "z1pro": pb.MACHINE_MODEL_MAKERA_Z1_PRO,
+}
 
 
 class SimulatorClient:
@@ -77,6 +83,9 @@ class SimulatorClient:
         inherit_stderr: bool = False,
         request_timeout_s: float = 10.0,
     ) -> None:
+        self._standard_binary = Path(binary)
+        suffix = self._standard_binary.suffix
+        self._z1_binary = self._standard_binary.with_name(f"{self._standard_binary.stem}_z1{suffix}")
         self.process = SimulatorProcess(
             binary,
             stderr_handler=stderr_handler,
@@ -96,6 +105,10 @@ class SimulatorClient:
     def start(self) -> None:
         self.transport.start()
 
+    def prepare_machine_model(self, model: str) -> None:
+        binary = self._z1_binary if model in {"z1", "z1pro"} else self._standard_binary
+        self.process.select_binary(binary)
+
     def stop(self) -> None:
         self.transport.stop()
 
@@ -110,11 +123,11 @@ class SimulatorClient:
 
     def set_machine_model(self, model: str) -> None:
         request = pb.Request()
-        if model == "ca1":
-            request.set_machine_model.machine_model = pb.MACHINE_MODEL_CARVERA_AIR_CA1
-        else:
-            request.set_machine_model.machine_model = pb.MACHINE_MODEL_CARVERA_C1
-        request.set_machine_model.function_setting = DEFAULT_FUNCTION_SETTING
+        try:
+            request.set_machine_model.machine_model = MACHINE_MODEL_TO_PROTO[model]
+        except KeyError as exc:
+            raise ValueError(f"unknown machine model: {model}") from exc
+        request.set_machine_model.function_setting = 0 if model in {"z1", "z1pro"} else DEFAULT_FUNCTION_SETTING
         self.request(request)
 
     def set_rotary_accessory_installed(self, installed: bool) -> None:

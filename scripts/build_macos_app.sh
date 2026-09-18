@@ -48,13 +48,16 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCARVERA_SIM_ENABLE_COVERAGE=OFF \
   -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
-cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$JOBS"
+cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio carvera_sim_stream_stdio_z1 --parallel "$JOBS"
 
 SIMULATOR_BINARY="$BUILD_DIR/carvera_sim_stream_stdio"
-if [[ "$(lipo -archs "$SIMULATOR_BINARY")" != "arm64" ]]; then
-  echo "error: simulator binary is not ARM64: $(lipo -archs "$SIMULATOR_BINARY")" >&2
-  exit 1
-fi
+Z1_SIMULATOR_BINARY="$BUILD_DIR/carvera_sim_stream_stdio_z1"
+for binary in "$SIMULATOR_BINARY" "$Z1_SIMULATOR_BINARY"; do
+  if [[ "$(lipo -archs "$binary")" != "arm64" ]]; then
+    echo "error: simulator binary is not ARM64: $binary ($(lipo -archs "$binary"))" >&2
+    exit 1
+  fi
+done
 
 rm -rf "$PACKAGE_WORK_DIR" "$OUTPUT_DIR"
 mkdir -p "$PYINSTALLER_DIST" "$PYINSTALLER_WORK" "$SPEC_DIR" "$OUTPUT_DIR"
@@ -69,6 +72,7 @@ uv run --project "$ROOT_DIR" python -m PyInstaller \
   --osx-bundle-identifier "$BUNDLE_IDENTIFIER" \
   --paths "$ROOT_DIR" \
   --add-binary "$SIMULATOR_BINARY:bin" \
+  --add-binary "$Z1_SIMULATOR_BINARY:bin" \
   --add-data "$ROOT_DIR/machine_models:machine_models" \
   --add-data "$ROOT_DIR/default_sdcard:default_sdcard" \
   --distpath "$PYINSTALLER_DIST" \
@@ -82,19 +86,22 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 PACKAGED_SIMULATOR="$(find "$APP_PATH" -type f -name carvera_sim_stream_stdio -print -quit)"
-if [[ -z "$PACKAGED_SIMULATOR" ]]; then
-  echo "error: packaged simulator binary is missing" >&2
+PACKAGED_Z1_SIMULATOR="$(find "$APP_PATH" -type f -name carvera_sim_stream_stdio_z1 -print -quit)"
+if [[ -z "$PACKAGED_SIMULATOR" || -z "$PACKAGED_Z1_SIMULATOR" ]]; then
+  echo "error: packaged simulator binaries are missing" >&2
   exit 1
 fi
-if [[ "$(lipo -archs "$PACKAGED_SIMULATOR")" != "arm64" ]]; then
-  echo "error: packaged simulator binary is not ARM64" >&2
-  exit 1
-fi
-if otool -L "$PACKAGED_SIMULATOR" | grep -q '/opt/homebrew'; then
-  echo "error: packaged simulator still references Homebrew libraries" >&2
-  otool -L "$PACKAGED_SIMULATOR" >&2
-  exit 1
-fi
+for binary in "$PACKAGED_SIMULATOR" "$PACKAGED_Z1_SIMULATOR"; do
+  if [[ "$(lipo -archs "$binary")" != "arm64" ]]; then
+    echo "error: packaged simulator binary is not ARM64: $binary" >&2
+    exit 1
+  fi
+  if otool -L "$binary" | grep -q '/opt/homebrew'; then
+    echo "error: packaged simulator still references Homebrew libraries: $binary" >&2
+    otool -L "$binary" >&2
+    exit 1
+  fi
+done
 
 mkdir -p "$DMG_STAGE"
 ditto "$APP_PATH" "$DMG_STAGE/$APP_NAME.app"

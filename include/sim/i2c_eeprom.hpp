@@ -35,6 +35,8 @@ namespace sim {
 enum class MachineModel : std::uint8_t {
   CarveraC1 = 1,
   CarveraAirCA1 = 2,
+  MakeraZ1 = 3,
+  MakeraZ1Pro = 4,
 };
 
 struct FactorySettings {

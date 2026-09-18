@@ -146,12 +146,16 @@ Invoke-NativeCommand $Cmake @(
     "-DCARVERA_FIRMWARE_ROOT=$FirmwareRoot"
 )
 Invoke-NativeCommand $Cmake @(
-    "--build", $BuildDir, "--target", "carvera_sim_stream_stdio", "--parallel", $env:NUMBER_OF_PROCESSORS
+    "--build", $BuildDir, "--target", "carvera_sim_stream_stdio", "carvera_sim_stream_stdio_z1", "--parallel", $env:NUMBER_OF_PROCESSORS
 )
 
 $SimulatorBinary = Join-Path $BuildDir "carvera_sim_stream_stdio.exe"
+$Z1SimulatorBinary = Join-Path $BuildDir "carvera_sim_stream_stdio_z1.exe"
 if (-not (Test-Path -LiteralPath $SimulatorBinary -PathType Leaf)) {
     throw "Native simulator binary is missing: $SimulatorBinary"
+}
+if (-not (Test-Path -LiteralPath $Z1SimulatorBinary -PathType Leaf)) {
+    throw "Native Z1 simulator binary is missing: $Z1SimulatorBinary"
 }
 
 $DownloadDir = Join-Path $BuildDir "downloads"
@@ -197,6 +201,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $WebView2Runtime "msedgewebview2.exe
 }
 
 Copy-Item -LiteralPath $SimulatorBinary -Destination $RuntimeBin
+Copy-Item -LiteralPath $Z1SimulatorBinary -Destination $RuntimeBin
 foreach ($dll in Get-UcrtRuntimeDlls -Executable $SimulatorBinary -UcrtBin $UcrtBin -Objdump $Objdump) {
     Copy-Item -LiteralPath $dll -Destination $RuntimeBin
 }
@@ -239,8 +244,9 @@ if (-not (Test-Path -LiteralPath $AppConfig -PathType Leaf)) {
 }
 Copy-Item -LiteralPath $AppConfig -Destination "$DesktopExecutable.config"
 $PackagedBackend = @(Get-ChildItem -LiteralPath $PyInstallerApp -Recurse -File -Filter "carvera_sim_stream_stdio.exe")
-if ($PackagedBackend.Count -ne 1) {
-    throw "Expected exactly one packaged simulator backend, found $($PackagedBackend.Count)"
+$PackagedZ1Backend = @(Get-ChildItem -LiteralPath $PyInstallerApp -Recurse -File -Filter "carvera_sim_stream_stdio_z1.exe")
+if ($PackagedBackend.Count -ne 1 -or $PackagedZ1Backend.Count -ne 1) {
+    throw "Expected one packaged backend per firmware family; found C1/CA1=$($PackagedBackend.Count), Z1=$($PackagedZ1Backend.Count)"
 }
 $PackagedBin = $PackagedBackend[0].Directory.FullName
 foreach ($runtimeFile in Get-ChildItem -LiteralPath $RuntimeBin -File) {

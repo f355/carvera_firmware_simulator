@@ -178,13 +178,13 @@ set(CARVERA_FIRMWARE_INCLUDE_DIRS
   ${FIRMWARE_SRC}/modules/tools/temperaturecontrol
   ${FIRMWARE_SRC}/modules/tools/temperatureswitch
   ${FIRMWARE_SRC}/modules/tools/drillingcycles
+  ${FIRMWARE_SRC}/modules/tools/canopen
 )
 
-set(CARVERA_FIRMWARE_COMPILE_DEFINITIONS
+set(SIM_FIRMWARE_COMMON_DEFINITIONS
   # Mirror build/build.sh -> make AXIS=5 PAXIS=3 CNC=1, plus the
   # release-profile defines emitted by src/makefile/build/common.mk.
   __GITVERSIONSTRING__="2.1.0c-simulator"
-  DEFAULT_SERIAL_BAUD_RATE=115200
   CNC
   MAX_ROBOT_ACTUATORS=5
   N_PRIMARY_AXIS=3
@@ -209,6 +209,25 @@ set(CARVERA_FIRMWARE_COMPILE_DEFINITIONS
   NO_PID_AUTOTUNE=1
 )
 
+set(SIM_CARVERA_FIRMWARE_DEFINITIONS
+  ${SIM_FIRMWARE_COMMON_DEFINITIONS}
+  DEFAULT_SERIAL_BAUD_RATE=115200
+  MACHINE_FAMILY_CARVERA
+)
+
+set(SIM_Z1_FIRMWARE_DEFINITIONS
+  ${SIM_FIRMWARE_COMMON_DEFINITIONS}
+  DEFAULT_SERIAL_BAUD_RATE=230400
+  MACHINE_FAMILY_Z1
+  REMOTE_SETTINGS_TRANSFER
+  STREAMED_JOB_PLAYBACK
+  CANOPEN_SUPPORT
+  NO_USB_HOST
+  NO_SD_CARD
+  NO_WIRELESS_PROBE
+  NO_WIFI_PROVIDER
+)
+
 function(sim_force_include target_name)
   set(_include_flags)
   foreach(_include_path IN LISTS ARGN)
@@ -220,57 +239,6 @@ function(sim_force_include target_name)
   )
 endfunction()
 
-add_library(carvera_firmware_objects OBJECT ${CARVERA_FIRMWARE_SOURCES})
-target_include_directories(carvera_firmware_objects PRIVATE include)
-target_include_directories(carvera_firmware_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
-if(MSVC)
-  target_compile_options(carvera_firmware_objects PRIVATE /J)
-else()
-  target_compile_options(carvera_firmware_objects PRIVATE -funsigned-char)
-endif()
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-  target_compile_options(carvera_firmware_objects PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-finstrument-functions>)
-endif()
-target_compile_definitions(carvera_firmware_objects PRIVATE
-  CHECKSUM_USE_CPP
-  ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
-)
-sim_force_include(carvera_firmware_objects ${HOST_PRELUDE})
-sim_enable_instrumentation(carvera_firmware_objects)
-
-add_library(carvera_sim_host_objects OBJECT
-  ${SIM_FIRMWARE_FACADE_SOURCES}
-  ${SIM_CORE_SOURCES}
-  ${SIM_PROTOCOL_SOURCES}
-  ${SIM_RUNTIME_SUPPORT_SOURCES}
-)
-target_include_directories(carvera_sim_host_objects PRIVATE include src ${CMAKE_CURRENT_BINARY_DIR}/generated)
-target_include_directories(carvera_sim_host_objects SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
-target_compile_definitions(carvera_sim_host_objects PRIVATE
-  CHECKSUM_USE_CPP
-  ${CARVERA_FIRMWARE_COMPILE_DEFINITIONS}
-)
-sim_force_include(carvera_sim_host_objects ${HOST_PRELUDE})
-sim_enable_project_diagnostics(carvera_sim_host_objects)
-
-add_library(carvera_firmware_sim STATIC
-  $<TARGET_OBJECTS:carvera_firmware_objects>
-  $<TARGET_OBJECTS:carvera_sim_host_objects>
-)
-target_include_directories(carvera_firmware_sim PUBLIC include)
-target_include_directories(carvera_firmware_sim SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
-target_link_libraries(carvera_firmware_sim PUBLIC ${CMAKE_DL_LIBS})
-if(WIN32)
-  target_link_libraries(carvera_firmware_sim PUBLIC dbghelp)
-  if(MINGW)
-    target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-all-symbols)
-  endif()
-elseif(NOT APPLE)
-  target_link_options(carvera_firmware_sim INTERFACE -Wl,--export-dynamic)
-endif()
-target_compile_definitions(carvera_firmware_sim PUBLIC CHECKSUM_USE_CPP)
-sim_enable_instrumentation(carvera_firmware_sim)
-
 set_property(
   SOURCE
   ${_simpleshell_host_source}
@@ -279,19 +247,79 @@ set_property(
   "$<$<PLATFORM_ID:Windows>:-fpermissive>"
 )
 
-add_library(carvera_sim_runtime
-  src/runtime/firmware_runtime.cpp
-  src/runtime/runtime_boot_session.cpp
-  src/runtime/runtime_io.cpp
-  src/runtime/runtime_physical_controls.cpp
-  src/runtime/runtime_pump.cpp
-  src/runtime/simulation_instance.cpp
+function(sim_add_firmware_family family firmware_objects host_objects firmware_sim runtime)
+  set(family_definitions ${ARGN})
+  set(firmware_sources ${CARVERA_FIRMWARE_SOURCES})
+  if(family STREQUAL "z1")
+    list(APPEND firmware_sources ${Z1_FIRMWARE_ADDITIONAL_SOURCES})
+  endif()
+
+  add_library(${firmware_objects} OBJECT ${firmware_sources})
+  target_include_directories(${firmware_objects} PRIVATE include)
+  target_include_directories(${firmware_objects} SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+  if(MSVC)
+    target_compile_options(${firmware_objects} PRIVATE /J)
+  else()
+    target_compile_options(${firmware_objects} PRIVATE -funsigned-char)
+  endif()
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(${firmware_objects} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-finstrument-functions>)
+  endif()
+  target_compile_definitions(${firmware_objects} PRIVATE CHECKSUM_USE_CPP ${family_definitions})
+  sim_force_include(${firmware_objects} ${HOST_PRELUDE})
+  sim_enable_instrumentation(${firmware_objects})
+
+  add_library(${host_objects} OBJECT
+    ${SIM_FIRMWARE_FACADE_SOURCES}
+    ${SIM_CORE_SOURCES}
+    ${SIM_PROTOCOL_SOURCES}
+    ${SIM_RUNTIME_SUPPORT_SOURCES}
+  )
+  target_include_directories(${host_objects} PRIVATE include src ${CMAKE_CURRENT_BINARY_DIR}/generated)
+  target_include_directories(${host_objects} SYSTEM PRIVATE ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+  target_compile_definitions(${host_objects} PRIVATE CHECKSUM_USE_CPP ${family_definitions})
+  sim_force_include(${host_objects} ${HOST_PRELUDE})
+  sim_enable_project_diagnostics(${host_objects})
+
+  add_library(${firmware_sim} STATIC $<TARGET_OBJECTS:${firmware_objects}> $<TARGET_OBJECTS:${host_objects}>)
+  target_include_directories(${firmware_sim} PUBLIC include)
+  target_include_directories(${firmware_sim} SYSTEM PUBLIC ${CARVERA_FIRMWARE_INCLUDE_DIRS})
+  target_link_libraries(${firmware_sim} PUBLIC ${CMAKE_DL_LIBS})
+  if(WIN32)
+    target_link_libraries(${firmware_sim} PUBLIC dbghelp)
+    if(MINGW)
+      target_link_options(${firmware_sim} INTERFACE -Wl,--export-all-symbols)
+    endif()
+  elseif(NOT APPLE)
+    target_link_options(${firmware_sim} INTERFACE -Wl,--export-dynamic)
+  endif()
+  target_compile_definitions(${firmware_sim} PUBLIC CHECKSUM_USE_CPP)
+  sim_enable_instrumentation(${firmware_sim})
+
+  add_library(${runtime}
+    src/runtime/firmware_runtime.cpp
+    src/runtime/runtime_boot_session.cpp
+    src/runtime/runtime_io.cpp
+    src/runtime/runtime_physical_controls.cpp
+    src/runtime/runtime_pump.cpp
+    src/runtime/simulation_instance.cpp
+  )
+  target_include_directories(${runtime} PUBLIC include)
+  target_include_directories(${runtime} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
+  target_compile_definitions(${runtime} PRIVATE ${family_definitions})
+  target_link_libraries(${runtime} PUBLIC ${firmware_sim})
+  sim_force_include(${runtime} ${HOST_PRELUDE})
+  sim_enable_project_diagnostics(${runtime})
+endfunction()
+
+sim_add_firmware_family(
+  carvera carvera_firmware_objects carvera_sim_host_objects carvera_firmware_sim carvera_sim_runtime
+  ${SIM_CARVERA_FIRMWARE_DEFINITIONS}
 )
-target_include_directories(carvera_sim_runtime PUBLIC include)
-target_include_directories(carvera_sim_runtime PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
-target_link_libraries(carvera_sim_runtime PUBLIC carvera_firmware_sim)
-sim_force_include(carvera_sim_runtime ${HOST_PRELUDE})
-sim_enable_project_diagnostics(carvera_sim_runtime)
+sim_add_firmware_family(
+  z1 z1_firmware_objects z1_sim_host_objects z1_firmware_sim z1_sim_runtime
+  ${SIM_Z1_FIRMWARE_DEFINITIONS}
+)
 
 add_library(carvera_sim_proto ${SIM_PROTO_SRCS})
 target_include_directories(carvera_sim_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
@@ -315,7 +343,7 @@ else()
   )
 endif()
 
-add_library(carvera_sim_api
+set(SIM_API_SOURCES
   src/protocol/api_conversions.cpp
   src/protocol/api_harness_commands.cpp
   src/protocol/api_lifecycle_commands.cpp
@@ -333,12 +361,19 @@ add_library(carvera_sim_api
   src/protocol/framed_proto.cpp
   ${SIM_PLATFORM_API_SOURCES}
 )
-target_include_directories(carvera_sim_api PUBLIC include)
-target_link_libraries(carvera_sim_api PUBLIC carvera_sim_runtime carvera_sim_proto)
-if(WIN32)
-  target_link_libraries(carvera_sim_api PRIVATE ws2_32)
-endif()
-sim_force_include(carvera_sim_api ${HOST_PRELUDE})
-sim_enable_project_diagnostics(carvera_sim_api)
+
+function(sim_add_api_family api_target runtime_target)
+  add_library(${api_target} ${SIM_API_SOURCES})
+  target_include_directories(${api_target} PUBLIC include)
+  target_link_libraries(${api_target} PUBLIC ${runtime_target} carvera_sim_proto)
+  if(WIN32)
+    target_link_libraries(${api_target} PRIVATE ws2_32)
+  endif()
+  sim_force_include(${api_target} ${HOST_PRELUDE})
+  sim_enable_project_diagnostics(${api_target})
+endfunction()
+
+sim_add_api_family(carvera_sim_api carvera_sim_runtime)
+sim_add_api_family(z1_sim_api z1_sim_runtime)
 
 include(cmake/TestsAndApps.cmake)

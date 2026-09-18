@@ -26,6 +26,7 @@
 namespace sim::makera {
 
 enum class PacketType : std::uint8_t {
+  FirmwareVersion = 0x71,
   StatusResponse = 0x81,
   DiagnosticResponse = 0x82,
   LoadInfo = 0x83,
@@ -41,6 +42,29 @@ enum class PacketType : std::uint8_t {
   FileEnd = 0xb4,
   FileCancel = 0xb5,
   FileRetry = 0xb6,
+  PlayStatus = 0xb7,
+  FirmwareStart = 0xc1,
+  FirmwareView = 0xc2,
+  FirmwareData = 0xc3,
+  FirmwareEnd = 0xc4,
+  FirmwareCancel = 0xc5,
+  ConfigStart = 0xd1,
+  ConfigView = 0xd2,
+  ConfigData = 0xd3,
+  ConfigEnd = 0xd4,
+  ConfigCancel = 0xd5,
+  FactoryStart = 0xe1,
+  FactoryView = 0xe2,
+  FactoryData = 0xe3,
+  FactoryEnd = 0xe4,
+  FactoryCancel = 0xe5,
+  PlayStart = 0xf1,
+  PlayView = 0xf2,
+  PlayData = 0xf3,
+  PlayEnd = 0xf4,
+  PlayCancel = 0xf5,
+  PlayGoto = 0xf6,
+  PlayGotoProgress = 0xf7,
 };
 
 struct Frame {

@@ -38,6 +38,9 @@ class FakeClient:
         self.stopped = False
         self.calls.append(("start", (), {}))
 
+    def prepare_machine_model(self, model: str) -> None:
+        self.calls.append(("prepare_machine_model", (model,), {}))
+
     def set_machine_model(self, model: str) -> None:
         self.calls.append(("set_machine_model", (model,), {}))
 
@@ -110,6 +113,7 @@ async def exercise_process_controller() -> None:
         assert not hasattr(process_controller, "power_transition")
         assert (mounted_sd_root / "config.txt").read_text(encoding="utf-8") == "sd_ok true\n"
         assert [name for name, _, _ in client.calls] == [
+            "prepare_machine_model",
             "start",
             "set_machine_model",
             "mount_filesystem",
@@ -118,8 +122,8 @@ async def exercise_process_controller() -> None:
             "set_realtime",
             "start_interactive_transport",
         ]
-        assert client.calls[3][1] == (True,)
-        assert client.calls[2][1] == ("sd", mounted_sd_root)
+        assert client.calls[4][1] == (True,)
+        assert client.calls[3][1] == ("sd", mounted_sd_root)
         assert client.calls[-1][2] == {"enable_uart": True, "tcp_ports": [2222], "log_traffic": True}
         assert process_controller.current_sd_root == mounted_sd_root
 

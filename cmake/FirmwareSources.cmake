@@ -21,6 +21,8 @@ endfunction()
 
 sim_config_bytes("${FIRMWARE_SRC}/config.default" SIM_CONFIG_DEFAULT_BYTES)
 sim_config_bytes("${FIRMWARE_SRC}/config2.default" SIM_CONFIG2_DEFAULT_BYTES)
+sim_config_bytes("${FIRMWARE_SRC}/config_z1.default" SIM_CONFIG_Z1_DEFAULT_BYTES)
+sim_config_bytes("${FIRMWARE_SRC}/config_z1pro.default" SIM_CONFIG_Z1PRO_DEFAULT_BYTES)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/firmware/firm_config_data.cpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/firm_config_data.cpp
@@ -194,6 +196,7 @@ set(SIM_CORE_SOURCES
 set(SIM_PROTOCOL_SOURCES
   src/protocol/makera_protocol.cpp
   src/protocol/m8266_wifi.cpp
+  src/protocol/z1_mainboard.cpp
 )
 
 set(SIM_RUNTIME_SUPPORT_SOURCES
@@ -275,8 +278,20 @@ set(CARVERA_FIRMWARE_SOURCES
   ${FIRMWARE_SRC}/modules/tools/drillingcycles/Drillingcycles.cpp
 )
 
+set(Z1_FIRMWARE_ADDITIONAL_SOURCES
+  ${FIRMWARE_SRC}/libs/ConfigSources/RemoteConfigSource.cpp
+  ${FIRMWARE_SRC}/modules/communication/RemoteTransfer.cpp
+  ${FIRMWARE_SRC}/modules/tools/canopen/CANopen.cpp
+  src/firmware/can_bus_stub.cpp
+)
+
 foreach(_firmware_source IN LISTS CARVERA_FIRMWARE_SOURCES)
   if(NOT EXISTS "${_firmware_source}")
     message(FATAL_ERROR "Pinned firmware source is missing: ${_firmware_source}")
+  endif()
+endforeach()
+foreach(_firmware_source IN LISTS Z1_FIRMWARE_ADDITIONAL_SOURCES)
+  if(NOT EXISTS "${_firmware_source}")
+    message(FATAL_ERROR "Pinned Z1 firmware source is missing: ${_firmware_source}")
   endif()
 endforeach()

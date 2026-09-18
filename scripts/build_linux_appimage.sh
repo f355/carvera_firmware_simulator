@@ -62,14 +62,17 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCARVERA_SIM_ENABLE_COVERAGE=OFF \
   -DCARVERA_FIRMWARE_ROOT="$FIRMWARE_ROOT"
-cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio --parallel "$JOBS"
+cmake --build "$BUILD_DIR" --target carvera_sim_stream_stdio carvera_sim_stream_stdio_z1 --parallel "$JOBS"
 
 SIMULATOR_BINARY="$BUILD_DIR/carvera_sim_stream_stdio"
-if ! readelf -h "$SIMULATOR_BINARY" | grep -Fq "Machine:                           $ELF_MACHINE_PATTERN"; then
-  echo "error: simulator binary has the wrong architecture" >&2
-  readelf -h "$SIMULATOR_BINARY" >&2
-  exit 1
-fi
+Z1_SIMULATOR_BINARY="$BUILD_DIR/carvera_sim_stream_stdio_z1"
+for binary in "$SIMULATOR_BINARY" "$Z1_SIMULATOR_BINARY"; do
+  if ! readelf -h "$binary" | grep -Fq "Machine:                           $ELF_MACHINE_PATTERN"; then
+    echo "error: simulator binary has the wrong architecture: $binary" >&2
+    readelf -h "$binary" >&2
+    exit 1
+  fi
+done
 
 rm -rf "$PACKAGE_WORK_DIR"
 mkdir -p "$PYINSTALLER_DIST" "$PYINSTALLER_WORK" "$SPEC_DIR" "$OUTPUT_DIR"
@@ -82,6 +85,7 @@ uv run --project "$ROOT_DIR" --no-sync python -m PyInstaller \
   --clean \
   --paths "$ROOT_DIR" \
   --add-binary "$SIMULATOR_BINARY:bin" \
+  --add-binary "$Z1_SIMULATOR_BINARY:bin" \
   --add-data "$ROOT_DIR/machine_models:machine_models" \
   --add-data "$ROOT_DIR/default_sdcard:default_sdcard" \
   --distpath "$PYINSTALLER_DIST" \
@@ -114,15 +118,18 @@ rsvg-convert --width 512 --height 512 \
   "$ROOT_DIR/packaging/linux/carvera-simulator.svg"
 
 PACKAGED_SIMULATOR="$(find "$ELECTRON_APP_DIR/resources/backend" -type f -name carvera_sim_stream_stdio -print -quit)"
-if [[ -z "$PACKAGED_SIMULATOR" ]]; then
-  echo "error: packaged simulator binary is missing" >&2
+PACKAGED_Z1_SIMULATOR="$(find "$ELECTRON_APP_DIR/resources/backend" -type f -name carvera_sim_stream_stdio_z1 -print -quit)"
+if [[ -z "$PACKAGED_SIMULATOR" || -z "$PACKAGED_Z1_SIMULATOR" ]]; then
+  echo "error: packaged simulator binaries are missing" >&2
   exit 1
 fi
-if ! readelf -h "$PACKAGED_SIMULATOR" | grep -Fq "Machine:                           $ELF_MACHINE_PATTERN"; then
-  echo "error: packaged simulator binary has the wrong architecture" >&2
-  readelf -h "$PACKAGED_SIMULATOR" >&2
-  exit 1
-fi
+for binary in "$PACKAGED_SIMULATOR" "$PACKAGED_Z1_SIMULATOR"; do
+  if ! readelf -h "$binary" | grep -Fq "Machine:                           $ELF_MACHINE_PATTERN"; then
+    echo "error: packaged simulator binary has the wrong architecture: $binary" >&2
+    readelf -h "$binary" >&2
+    exit 1
+  fi
+done
 
 (
   cd "$ELECTRON_APP_DIR"

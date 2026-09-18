@@ -25,13 +25,16 @@
 #include "Planner.h"
 #include "Robot.h"
 #include "SimpleShell.h"
+#include "modules/communication/SerialConsole.h"
 #include "StepperMotor.h"
 #include "lpc_memory_layout.hpp"
 #include "libs/Kernel.h"
 #include "sim/firm_config_data.hpp"
+#include "sim/host_filesystem.hpp"
 #include "sim/machine_simulator.hpp"
 #include "sim/runtime_modules.hpp"
 #include "sim/simulator_context.hpp"
+#include "Serial.h"
 
 namespace sim {
 namespace {
@@ -79,9 +82,23 @@ RuntimeBootSession::RuntimeBootSession(MachineSimulator& simulator, EventEngine&
     : simulator_(simulator), event_engine_(event_engine), factory_settings_(factory_settings) {
   initialize_eeprom_for_power_on(simulator_.context().eeprom(), factory_settings_);
   simulator_.context().m8266_wifi().reset();
+#if defined(MACHINE_FAMILY_Z1)
+  z1_mainboard_ = std::make_unique<Z1Mainboard>(host_filesystem::default_mount_root("sd"));
+  mbed::Serial::set_tx_sink([this](mbed::Serial& serial, char byte) {
+    if (serial.tx_pin() != P2_8 || serial.rx_pin() != P2_9) return false;
+    z1_mainboard_->receive_from_lpc(std::string_view(&byte, 1));
+    const auto reply = z1_mainboard_->take_lpc_tx();
+    if (!reply.empty()) serial.simulate_rx(reply);
+    return true;
+  });
+#endif
 }
 
-RuntimeBootSession::~RuntimeBootSession() = default;
+RuntimeBootSession::~RuntimeBootSession() {
+#if defined(MACHINE_FAMILY_Z1)
+  mbed::Serial::set_tx_sink({});
+#endif
+}
 
 Kernel& RuntimeBootSession::boot() {
   if (kernel_ != nullptr) {
@@ -128,6 +145,9 @@ void RuntimeBootSession::reset() {
   }
   initialize_eeprom_for_reboot(simulator_.context().eeprom(), factory_settings_);
   simulator_.context().m8266_wifi().reset();
+#if defined(MACHINE_FAMILY_Z1)
+  z1_mainboard_->reset();
+#endif
   homed_ = false;
 }
 
@@ -159,6 +179,31 @@ FactorySettings RuntimeBootSession::factory_settings() const {
       static_cast<std::uint8_t>(kernel_->factory_set->reserve1),
       static_cast<std::uint8_t>(kernel_->factory_set->reserve2),
   };
+}
+
+void RuntimeBootSession::set_sd_root(const std::filesystem::path& root) {
+#if defined(MACHINE_FAMILY_Z1)
+  z1_mainboard_->set_sd_root(root);
+#else
+  (void)root;
+#endif
+}
+
+Z1Mainboard* RuntimeBootSession::z1_mainboard() {
+#if defined(MACHINE_FAMILY_Z1)
+  return z1_mainboard_.get();
+#else
+  return nullptr;
+#endif
+}
+
+void RuntimeBootSession::service_mainboard_link() {
+#if defined(MACHINE_FAMILY_Z1)
+  z1_mainboard_->tick(simulator_.time_us() / 1000);
+  if (kernel_ == nullptr || kernel_->serial == nullptr || kernel_->serial->serial == nullptr) return;
+  const auto bytes = z1_mainboard_->take_lpc_tx();
+  if (!bytes.empty()) kernel_->serial->serial->simulate_rx(bytes);
+#endif
 }
 
 }  // namespace sim

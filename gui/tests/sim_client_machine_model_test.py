@@ -43,10 +43,20 @@ def recorded_function_setting(model: str) -> int:
 def test_client_maps_machine_models_and_rotary_accessory_to_protocol_requests() -> None:
     assert recorded_function_setting("ca1") == 0x02
     assert recorded_function_setting("c1") == 0x02
+    assert recorded_function_setting("z1") == 0
+    assert recorded_function_setting("z1pro") == 0
 
     client = RecordingClient()
     client.set_rotary_accessory_installed(True)
     assert client.requests[-1].set_rotary_accessory_installed.installed is True
+
+
+def test_client_selects_backend_for_firmware_family(tmp_path: Path) -> None:
+    client = SimulatorClient(tmp_path / "carvera_sim_stream_stdio")
+    client.prepare_machine_model("z1")
+    assert client.process.binary == tmp_path / "carvera_sim_stream_stdio_z1"
+    client.prepare_machine_model("ca1")
+    assert client.process.binary == tmp_path / "carvera_sim_stream_stdio"
 
 
 def test_client_sends_structured_eeprom_contents() -> None:

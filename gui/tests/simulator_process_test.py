@@ -25,6 +25,7 @@ from typing import cast
 
 import pytest
 
+from gui.protocol.client_error import SimulatorClientError
 from gui.protocol.simulator_process import SimulatorProcess
 
 
@@ -42,6 +43,16 @@ def test_stderr_reader_survives_a_raising_handler(tmp_path: Path) -> None:
 
     assert handled == ["bad", "good"]
     assert "good" in process.format_error("boom")
+
+
+def test_binary_can_be_selected_only_while_stopped(tmp_path: Path) -> None:
+    process = SimulatorProcess(tmp_path / "c1")
+    process.select_binary(tmp_path / "z1")
+    assert process.binary == tmp_path / "z1"
+
+    process._process = cast("subprocess.Popen[bytes]", SimpleNamespace(poll=lambda: None))
+    with pytest.raises(SimulatorClientError, match="while it is running"):
+        process.select_binary(tmp_path / "other")
 
 
 def test_start_does_not_allocate_a_windows_console(tmp_path: Path) -> None:

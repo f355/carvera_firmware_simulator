@@ -42,6 +42,14 @@ ConfigBlob blob_for_machine_model() {
       return {reinterpret_cast<const char*>(sim::firm_config_data::config2_default),
               reinterpret_cast<const char*>(sim::firm_config_data::config2_default) +
                   sim::firm_config_data::config2_default_size};
+    case Z1:
+      return {reinterpret_cast<const char*>(sim::firm_config_data::config_z1_default),
+              reinterpret_cast<const char*>(sim::firm_config_data::config_z1_default) +
+                  sim::firm_config_data::config_z1_default_size};
+    case Z1PRO:
+      return {reinterpret_cast<const char*>(sim::firm_config_data::config_z1pro_default),
+              reinterpret_cast<const char*>(sim::firm_config_data::config_z1pro_default) +
+                  sim::firm_config_data::config_z1pro_default_size};
     case CARVERA:
     default:
       return {reinterpret_cast<const char*>(sim::firm_config_data::config_default),

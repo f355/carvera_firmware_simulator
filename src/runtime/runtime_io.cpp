@@ -34,17 +34,31 @@ RuntimeIo::RuntimeIo(MachineSimulator& simulator, RuntimeBootSession& boot_sessi
 
 void RuntimeIo::write_serial(const std::string& data) {
   auto& kernel = boot_();
+#if defined(MACHINE_FAMILY_Z1)
+  auto* mainboard = boot_session_.z1_mainboard();
+  mainboard->receive_from_host(Z1Mainboard::HostChannel::uart, data);
+  const auto bytes = mainboard->take_lpc_tx();
+  if (kernel.serial != nullptr && kernel.serial->serial != nullptr && !bytes.empty()) {
+    kernel.serial->serial->simulate_rx(bytes);
+  }
+#else
   if (kernel.serial != nullptr && kernel.serial->serial != nullptr) {
     kernel.serial->serial->simulate_rx(data);
   }
+#endif
 }
 
 std::string RuntimeIo::read_serial() {
   auto& kernel = boot_();
+#if defined(MACHINE_FAMILY_Z1)
+  (void)kernel;
+  return boot_session_.z1_mainboard()->take_host_tx(Z1Mainboard::HostChannel::uart);
+#else
   if (kernel.serial == nullptr || kernel.serial->serial == nullptr) {
     return "";
   }
   return kernel.serial->serial->take_tx();
+#endif
 }
 
 void RuntimeIo::write_serial_command(const std::string& command) {
@@ -63,6 +77,15 @@ std::string RuntimeIo::read_serial_text() {
 }
 
 void RuntimeIo::write_wifi_tcp(const std::string& data) {
+#if defined(MACHINE_FAMILY_Z1)
+  auto& kernel = boot_();
+  auto* mainboard = boot_session_.z1_mainboard();
+  mainboard->receive_from_host(Z1Mainboard::HostChannel::tcp, data);
+  const auto bytes = mainboard->take_lpc_tx();
+  if (kernel.serial != nullptr && kernel.serial->serial != nullptr && !bytes.empty()) {
+    kernel.serial->serial->simulate_rx(bytes);
+  }
+#else
   auto& wifi = simulator_.context().m8266_wifi();
   const bool had_client = wifi.has_tcp_client();
   boot_();
@@ -70,11 +93,17 @@ void RuntimeIo::write_wifi_tcp(const std::string& data) {
     wifi.connect_tcp_client();
   }
   wifi.receive_tcp(data);
+#endif
 }
 
 std::string RuntimeIo::read_wifi_tcp() {
+#if defined(MACHINE_FAMILY_Z1)
+  boot_();
+  return boot_session_.z1_mainboard()->take_host_tx(Z1Mainboard::HostChannel::tcp);
+#else
   boot_();
   return simulator_.context().m8266_wifi().take_tcp_tx();
+#endif
 }
 
 void RuntimeIo::write_wifi_command(const std::string& command) {

@@ -61,6 +61,10 @@ int main() {
           "CA1 model should map to protobuf");
   require(sim::api::machine_model(pb::MACHINE_MODEL_CARVERA_C1) == sim::MachineModel::CarveraC1,
           "C1 protobuf model should map to simulator model");
+  require(sim::api::proto_machine_model(sim::MachineModel::MakeraZ1) == pb::MACHINE_MODEL_MAKERA_Z1,
+          "Z1 model should map to protobuf");
+  require(sim::api::machine_model(pb::MACHINE_MODEL_MAKERA_Z1_PRO) == sim::MachineModel::MakeraZ1Pro,
+          "Z1 Pro protobuf model should map to simulator model");
   require(sim::api::machine_model(pb::MACHINE_MODEL_UNSPECIFIED) == sim::MachineModel{},
           "unspecified protobuf model should map to empty simulator model");
 

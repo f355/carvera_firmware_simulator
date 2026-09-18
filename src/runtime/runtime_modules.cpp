@@ -237,6 +237,10 @@ MachineModel machine_model_from_firmware(Machine model, MachineModel fallback) {
       return MachineModel::CarveraC1;
     case Machine::carvera_air:
       return MachineModel::CarveraAirCA1;
+    case Machine::makera_z1:
+      return MachineModel::MakeraZ1;
+    case Machine::makera_z1_pro:
+      return MachineModel::MakeraZ1Pro;
     default:
       return fallback;
   }

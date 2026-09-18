@@ -1,5 +1,5 @@
 # mypy: disable-error-code="var-annotated"
-# source-schema-sha256: d5eb08c2f5160ac43fe82479c9134d0755a9d45a7b555bd55202577a1380f886
+# source-schema-sha256: 43aad282c2e83669d50c5a6435f0ba62f935873c33b0c402e18c56ad8222c476
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -60,6 +60,8 @@ class MachineModel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MACHINE_MODEL_UNSPECIFIED: _ClassVar[MachineModel]
     MACHINE_MODEL_CARVERA_C1: _ClassVar[MachineModel]
     MACHINE_MODEL_CARVERA_AIR_CA1: _ClassVar[MachineModel]
+    MACHINE_MODEL_MAKERA_Z1: _ClassVar[MachineModel]
+    MACHINE_MODEL_MAKERA_Z1_PRO: _ClassVar[MachineModel]
 
 class ToolKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -98,6 +100,8 @@ SWITCH_NAME_BEEP: SwitchName
 MACHINE_MODEL_UNSPECIFIED: MachineModel
 MACHINE_MODEL_CARVERA_C1: MachineModel
 MACHINE_MODEL_CARVERA_AIR_CA1: MachineModel
+MACHINE_MODEL_MAKERA_Z1: MachineModel
+MACHINE_MODEL_MAKERA_Z1_PRO: MachineModel
 TOOL_KIND_UNSPECIFIED: ToolKind
 TOOL_KIND_CUTTING_TOOL: ToolKind
 TOOL_KIND_STOCK_Z_PROBE: ToolKind

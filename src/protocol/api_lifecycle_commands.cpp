@@ -34,6 +34,10 @@ const char* machine_model_name(MachineModel model) {
       return "C1";
     case MachineModel::CarveraAirCA1:
       return "CA1";
+    case MachineModel::MakeraZ1:
+      return "Z1";
+    case MachineModel::MakeraZ1Pro:
+      return "Z1 Pro";
   }
   return "unknown";
 }
@@ -97,6 +101,7 @@ std::optional<ApiService::Response> ApiService::handle_lifecycle_command(const c
         return error(request.id(), "mount host_path is required");
       }
       persistent_state_.mount(mount.name(), mount.host_path());
+      if (mount.name() == "sd") firmware_.set_sd_root(mount.host_path());
       logging::event("filesystem", "mounted /" + mount.name() + " -> " + mount.host_path());
       return ok(request.id());
     }

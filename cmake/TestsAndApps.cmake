@@ -113,6 +113,7 @@ set(SIM_SPECIAL_TESTS
   stream_interactive_transport_test
   stream_player_realtime_speed_test
   stream_startup_telemetry_test
+  z1_backend_boot_test
 )
 
 file(GLOB SIM_ALL_TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*_test.cpp)
@@ -147,6 +148,11 @@ sim_force_include(carvera_sim_stream_stdio ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_stream_stdio PRIVATE carvera_sim_api)
 sim_enable_project_diagnostics(carvera_sim_stream_stdio)
 
+add_executable(carvera_sim_stream_stdio_z1 src/apps/sim_stream_stdio_server.cpp)
+sim_force_include(carvera_sim_stream_stdio_z1 ${HOST_PRELUDE})
+target_link_libraries(carvera_sim_stream_stdio_z1 PRIVATE z1_sim_api)
+sim_enable_project_diagnostics(carvera_sim_stream_stdio_z1)
+
 add_executable(carvera_sim_interactive src/apps/sim_interactive.cpp)
 sim_force_include(carvera_sim_interactive ${HOST_PRELUDE})
 target_link_libraries(carvera_sim_interactive PRIVATE carvera_sim_api)
@@ -164,6 +170,14 @@ function(sim_add_server_test test_name server_target)
 endfunction()
 
 sim_add_server_test(stdio_api_test carvera_sim_stdio)
+add_executable(z1_backend_boot_test tests/z1_backend_boot_test.cpp)
+sim_force_include(z1_backend_boot_test ${HOST_PRELUDE})
+target_link_libraries(z1_backend_boot_test PRIVATE z1_sim_api)
+sim_enable_test_diagnostics(z1_backend_boot_test)
+add_dependencies(z1_backend_boot_test carvera_sim_stream_stdio_z1)
+add_test(NAME z1_backend_boot_test COMMAND z1_backend_boot_test $<TARGET_FILE:carvera_sim_stream_stdio_z1>)
+sim_register_test(z1_backend_boot_test TIMEOUT ${SIM_LONG_TEST_TIMEOUT_SECONDS} LABELS integration)
+target_compile_definitions(z1_backend_boot_test PRIVATE CARVERA_FIRMWARE_ROOT="${CARVERA_FIRMWARE_ROOT}")
 foreach(test_name IN ITEMS
   stream_interactive_transport_test
   stream_startup_telemetry_test

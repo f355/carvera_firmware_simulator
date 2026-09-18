@@ -29,6 +29,7 @@ namespace mbed {
 
 class Serial {
  public:
+  using TxSink = std::function<bool(Serial&, char)>;
   enum Parity { None = 0, Odd, Even, Forced1, Forced0 };
 
   enum IrqType { RxIrq = 0, TxIrq };
@@ -71,7 +72,8 @@ class Serial {
   }
 
   int putc(int c) {
-    tx_.push_back(static_cast<char>(c));
+    const auto byte = static_cast<char>(c);
+    if (!tx_sink_ || !tx_sink_(*this, byte)) tx_.push_back(byte);
     if (irq_[TxIrq]) {
       irq_[TxIrq]();
     }
@@ -79,6 +81,14 @@ class Serial {
   }
 
   void simulate_rx(const std::string& bytes) {
+    // Boot-time protocols poll the UART before SerialConsole installs its RX
+    // interrupt. Make the complete peer response visible to that poller; once
+    // an IRQ is attached, retain the LPC FIFO-sized delivery used by normal
+    // runtime traffic.
+    if (!irq_[RxIrq]) {
+      rx_.insert(rx_.end(), bytes.begin(), bytes.end());
+      return;
+    }
     for (char c : bytes) {
       wire_.push_back(c);
     }
@@ -112,6 +122,8 @@ class Serial {
   PinName rx_pin() const { return rx_pin_; }
   const std::string& name() const { return name_; }
 
+  static void set_tx_sink(TxSink sink) { tx_sink_ = std::move(sink); }
+
  private:
   PinName tx_pin_;
   PinName rx_pin_;
@@ -127,6 +139,7 @@ class Serial {
   std::deque<char> rx_;    // bytes the firmware can read now
   std::string tx_;
   std::function<void()> irq_[2];
+  static inline TxSink tx_sink_{};
 };
 
 }  // namespace mbed

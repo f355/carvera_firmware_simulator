@@ -1031,6 +1031,8 @@ enum MachineModel {
   MACHINE_MODEL_UNSPECIFIED = 0;
   MACHINE_MODEL_CARVERA_C1 = 1;
   MACHINE_MODEL_CARVERA_AIR_CA1 = 2;
+  MACHINE_MODEL_MAKERA_Z1 = 3;
+  MACHINE_MODEL_MAKERA_Z1_PRO = 4;
 }
 
 // Physical tool class known to the simulator.

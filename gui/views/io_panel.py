@@ -44,6 +44,10 @@ def front_panel_led_text(machine_model: str, front_panel: Any | None = None) -> 
         if front_panel is not None and getattr(front_panel, "led_strip_available", False):
             return ("CA1 LED strip", "active")
         return ("CA1 LED strip", "not available")
+    if machine_model in {"z1", "z1pro"}:
+        if front_panel is not None and getattr(front_panel, "direct_rgb_available", False):
+            return ("Z1 status LED", "on" if front_panel.direct_rgb.g else "off")
+        return ("Z1 status LED", "not available")
     if front_panel is not None and getattr(front_panel, "direct_rgb_available", False):
         rgb = front_panel.direct_rgb
         return ("C1 RGB LED", f"R{rgb.r:03d} G{rgb.g:03d} B{rgb.b:03d}")

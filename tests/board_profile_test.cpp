@@ -73,5 +73,17 @@ int main() {
   require(ca1.geometry.has_value(), "CA1 machine geometry should live with the board profile");
   require(ca1.geometry->physical_travel.min_x == -303.0, "CA1 physical travel should be inventoried");
   require(ca1.geometry->tool_setter.max_z == -115.0, "CA1 ETS trigger point should match the CAD model top");
+
+  for (const auto model : {sim::MachineModel::MakeraZ1, sim::MachineModel::MakeraZ1Pro}) {
+    const auto& z1 = sim::board_profile(model);
+    require(z1.default_main_button_pin == std::string("1.8!^"), "Z1 main-button pin should come from its config");
+    require(z1.default_e_stop_pin == std::string("0.20^"), "Z1 e-stop pin should come from its config");
+    require(z1.default_cover_pin == std::string("1.9!v"), "Z1 cover pin should come from its config");
+    require(z1.physical_tool_setter.pin.port == 1 && z1.physical_tool_setter.pin.pin == 10,
+            "Z1 tool setter should use its calibration input");
+    require(z1.physical_limits[0].max.pin.port == 0 && z1.physical_limits[0].max.pin.pin == 24,
+            "Z1 X limit should be inventoried independently of C1");
+    require(!z1.geometry.has_value(), "unknown Z1 physical geometry should not be fabricated from another model");
+  }
   return 0;
 }

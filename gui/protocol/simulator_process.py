@@ -46,6 +46,11 @@ class SimulatorProcess:
     def powered(self) -> bool:
         return self._process is not None and self._process.poll() is None
 
+    def select_binary(self, binary: Path) -> None:
+        if self.powered:
+            raise SimulatorClientError("cannot change simulator binary while it is running")
+        self.binary = Path(binary)
+
     @property
     def handle(self) -> subprocess.Popen[bytes]:
         if self._process is None:

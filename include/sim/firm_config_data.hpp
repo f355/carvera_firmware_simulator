@@ -25,6 +25,10 @@ extern const unsigned char config_default[];
 extern const std::size_t config_default_size;
 extern const unsigned char config2_default[];
 extern const std::size_t config2_default_size;
+extern const unsigned char config_z1_default[];
+extern const std::size_t config_z1_default_size;
+extern const unsigned char config_z1pro_default[];
+extern const std::size_t config_z1pro_default_size;
 
 void set_enabled(bool enabled);
 bool enabled();

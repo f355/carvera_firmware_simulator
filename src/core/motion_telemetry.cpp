@@ -32,10 +32,18 @@ namespace {
 constexpr std::uint64_t physical_speed_window_us = 100'000;
 
 MachineModel machine_model_from_kernel(Kernel& kernel) {
-  if (kernel.factory_set != nullptr && kernel.factory_set->MachineModel == CARVERA_AIR) {
-    return MachineModel::CarveraAirCA1;
+  if (kernel.factory_set == nullptr) return MachineModel::CarveraC1;
+  switch (kernel.factory_set->MachineModel) {
+    case CARVERA_AIR:
+      return MachineModel::CarveraAirCA1;
+    case Z1:
+      return MachineModel::MakeraZ1;
+    case Z1PRO:
+      return MachineModel::MakeraZ1Pro;
+    case CARVERA:
+    default:
+      return MachineModel::CarveraC1;
   }
-  return MachineModel::CarveraC1;
 }
 
 }  // namespace

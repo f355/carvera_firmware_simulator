@@ -137,6 +137,10 @@ carvera::sim::v1::MachineModel proto_machine_model(MachineModel model) {
       return carvera::sim::v1::MACHINE_MODEL_CARVERA_C1;
     case MachineModel::CarveraAirCA1:
       return carvera::sim::v1::MACHINE_MODEL_CARVERA_AIR_CA1;
+    case MachineModel::MakeraZ1:
+      return carvera::sim::v1::MACHINE_MODEL_MAKERA_Z1;
+    case MachineModel::MakeraZ1Pro:
+      return carvera::sim::v1::MACHINE_MODEL_MAKERA_Z1_PRO;
   }
   return carvera::sim::v1::MACHINE_MODEL_UNSPECIFIED;
 }
@@ -147,6 +151,10 @@ MachineModel machine_model(carvera::sim::v1::MachineModel model) {
       return MachineModel::CarveraC1;
     case carvera::sim::v1::MACHINE_MODEL_CARVERA_AIR_CA1:
       return MachineModel::CarveraAirCA1;
+    case carvera::sim::v1::MACHINE_MODEL_MAKERA_Z1:
+      return MachineModel::MakeraZ1;
+    case carvera::sim::v1::MACHINE_MODEL_MAKERA_Z1_PRO:
+      return MachineModel::MakeraZ1Pro;
     default:
       return {};
   }

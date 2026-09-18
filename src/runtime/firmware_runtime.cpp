@@ -80,6 +80,8 @@ bool FirmwareRuntime::set_factory_settings(const FactorySettings& settings) {
 
 FactorySettings FirmwareRuntime::factory_settings() const { return boot_session_.factory_settings(); }
 
+void FirmwareRuntime::set_sd_root(const std::filesystem::path& root) { boot_session_.set_sd_root(root); }
+
 bool FirmwareRuntime::is_uploading() { return start().is_uploading(); }
 
 RuntimePhysicalControls& FirmwareRuntime::inputs() { return physical_controls_; }

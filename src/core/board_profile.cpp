@@ -116,11 +116,50 @@ const BoardProfile& ca1_profile() {
   return profile;
 }
 
+const BoardProfile& z1_profile(MachineModel model) {
+  static const BoardProfile z1 = [] {
+    BoardProfile profile;
+    profile.model = MachineModel::MakeraZ1;
+    profile.name = "Z1";
+    profile.default_main_button_pin = "1.8!^";
+    profile.default_e_stop_pin = "0.20^";
+    profile.default_cover_pin = "1.9!v";
+    profile.default_main_button_led_r_pin = "nc";
+    profile.default_main_button_led_g_pin = "0.22";
+    profile.default_main_button_led_b_pin = "nc";
+    profile.physical_main_button = signal({1, 8}, false);
+    profile.physical_e_stop = signal({0, 20});
+    profile.physical_probe = signal({2, 6});
+    profile.physical_tool_setter = signal({1, 10});
+    profile.spindle_fan_output = signal({2, 0});
+    profile.physical_limits = {{
+        {{}, signal({0, 24})},
+        {{}, signal({0, 25})},
+        {{}, signal({1, 1})},
+    }};
+    return profile;
+  }();
+  static const BoardProfile z1_pro = [] {
+    BoardProfile profile = z1;
+    profile.model = MachineModel::MakeraZ1Pro;
+    profile.name = "Z1 Pro";
+    profile.power_fan_output = signal({2, 3});
+    return profile;
+  }();
+  return model == MachineModel::MakeraZ1Pro ? z1_pro : z1;
+}
+
 }  // namespace
 
 const BoardProfile& board_profile(MachineModel model) {
-  if (model == MachineModel::CarveraAirCA1) {
-    return ca1_profile();
+  switch (model) {
+    case MachineModel::CarveraAirCA1:
+      return ca1_profile();
+    case MachineModel::MakeraZ1:
+    case MachineModel::MakeraZ1Pro:
+      return z1_profile(model);
+    case MachineModel::CarveraC1:
+      return c1_profile();
   }
   return c1_profile();
 }

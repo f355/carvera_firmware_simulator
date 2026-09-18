@@ -16,6 +16,12 @@ const std::size_t config_default_size = sizeof(config_default);
 const unsigned char config2_default[] = {@SIM_CONFIG2_DEFAULT_BYTES@};
 const std::size_t config2_default_size = sizeof(config2_default);
 
+const unsigned char config_z1_default[] = {@SIM_CONFIG_Z1_DEFAULT_BYTES@};
+const std::size_t config_z1_default_size = sizeof(config_z1_default);
+
+const unsigned char config_z1pro_default[] = {@SIM_CONFIG_Z1PRO_DEFAULT_BYTES@};
+const std::size_t config_z1pro_default_size = sizeof(config_z1pro_default);
+
 void set_enabled(bool enabled) { defaults_enabled.store(enabled); }
 
 bool enabled() { return defaults_enabled.load(); }

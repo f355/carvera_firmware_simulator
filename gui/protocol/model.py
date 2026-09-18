@@ -32,6 +32,8 @@ class ToolKind(StrEnum):
 class MachineModel(StrEnum):
     CARVERA_C1 = "c1"
     CARVERA_AIR_CA1 = "ca1"
+    MAKERA_Z1 = "z1"
+    MAKERA_Z1_PRO = "z1pro"
 
 
 class MemoryRegion(StrEnum):

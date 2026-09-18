@@ -33,6 +33,7 @@ RuntimePump::RuntimePump(MachineSimulator& simulator, EventEngine& engine, Runti
 
 RuntimePumpResult RuntimePump::pump(const RuntimePumpOptions& options) {
   auto& kernel = boot_session_.boot();
+  boot_session_.service_mainboard_link();
   auto reset = [this]() { boot_session_.reset(); };
   auto runtime_options = options;
   const bool timers_advance_clock = runtime_options.max_timer_events > 0 &&
@@ -41,6 +42,7 @@ RuntimePumpResult RuntimePump::pump(const RuntimePumpOptions& options) {
     runtime_options.main_loop_interval_us = kManualMainLoopIntervalUs;
   }
   auto result = engine_.run(kernel, runtime_options, reset);
+  boot_session_.service_mainboard_link();
   if (options.max_timer_events == 0 || result.reset_requested) {
     return result;
   }
@@ -67,7 +69,9 @@ void RuntimePump::run_main_loop(std::size_t iterations) {
 RuntimePumpResult RuntimePump::run_timer_events(std::size_t max_timer_events) {
   RuntimePumpOptions options;
   options.max_timer_events = max_timer_events;
-  return engine_.run(boot_session_.boot(), options);
+  auto result = engine_.run(boot_session_.boot(), options);
+  boot_session_.service_mainboard_link();
+  return result;
 }
 
 RuntimePumpResult RuntimePump::run_until_motion_idle(std::size_t max_timer_events) {

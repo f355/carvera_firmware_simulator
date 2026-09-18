@@ -46,7 +46,17 @@ constexpr uint16_t atc_checksum = CHECKSUM("atc");
 constexpr uint16_t action_mm_checksum = CHECKSUM("action_mm");
 
 MachineModel model_from_factory(Machine model) {
-  return model == CARVERA_AIR ? MachineModel::CarveraAirCA1 : MachineModel::CarveraC1;
+  switch (model) {
+    case CARVERA_AIR:
+      return MachineModel::CarveraAirCA1;
+    case Z1:
+      return MachineModel::MakeraZ1;
+    case Z1PRO:
+      return MachineModel::MakeraZ1Pro;
+    case CARVERA:
+    default:
+      return MachineModel::CarveraC1;
+  }
 }
 
 std::optional<int> active_tool_from_eeprom(Kernel& kernel, bool reconcile_persisted_tool) {

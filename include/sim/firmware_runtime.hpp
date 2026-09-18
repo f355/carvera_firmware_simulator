@@ -45,6 +45,7 @@ class FirmwareRuntime {
   void home_machine();
   bool set_factory_settings(const FactorySettings& settings);
   FactorySettings factory_settings() const;
+  void set_sd_root(const std::filesystem::path& root);
 
   RuntimePhysicalControls& inputs();
   RuntimeIo& io();

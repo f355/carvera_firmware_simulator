@@ -32,6 +32,8 @@ class SimulatorProcessClient(Protocol):
 
     def stop(self) -> None: ...
 
+    def prepare_machine_model(self, model: str) -> None: ...
+
     def set_machine_model(self, model: str) -> None: ...
 
     def mount_filesystem(self, name: str, root: Path) -> None: ...
@@ -87,6 +89,7 @@ class SimulatorProcessController:
             self.snapshot = None
             try:
                 self.current_sd_root = prepare_model_sd_root(self.sd_root, self.sd_seed_root, machine_model)
+                await self.call(self.client.prepare_machine_model, machine_model)
                 await self.call(self.client.start)
                 await self.call(self.client.set_machine_model, machine_model)
                 await self.call(self.client.mount_filesystem, "sd", self.current_sd_root)

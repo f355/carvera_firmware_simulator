@@ -126,7 +126,7 @@ def build_arg_parser(simulator_root: Path, *, platform: str | None = None) -> ar
     parser.add_argument("--simulator", type=Path, default=default_stream_simulator(simulator_root, platform=platform))
     parser.add_argument("--firmware-root", type=Path, default=default_firmware_root(simulator_root))
     parser.add_argument("--sd-root", type=Path, default=default_sd_root())
-    parser.add_argument("--model", choices=["c1", "ca1"], default="c1")
+    parser.add_argument("--model", choices=["c1", "ca1", "z1", "z1pro"], default="c1")
     parser.add_argument(
         "--machine-model",
         default=None,

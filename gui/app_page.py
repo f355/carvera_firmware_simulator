@@ -64,7 +64,12 @@ def build_ui_page(session: SimulatorSession, actions: AppPresenters) -> None:
         with ui.element("div").classes("sim-toolbar"):
             ui.label("Carvera Simulator").classes("sim-title")
             view.header.model_select = ui.toggle(
-                {"c1": "Carvera (C1)", "ca1": "Carvera Air (CA1)"},
+                {
+                    "c1": "Carvera (C1)",
+                    "ca1": "Carvera Air (CA1)",
+                    "z1": "Makera Z1",
+                    "z1pro": "Makera Z1 Pro",
+                },
                 value=selected_model,
                 on_change=lambda _: machine_model_changed(),
             ).props("dense unelevated toggle-color=primary")

@@ -1,0 +1,11 @@
+# Makera Z1 Pro user settings. Hardware defaults are embedded in the firmware.
+protocol makera
+switch.vacuum.default_on_value 80
+switch.light.startup_state true
+light.turn_off_min 0.0
+power.auto_sleep false
+power.auto_sleep_min 5
+soft_endstop.enable false
+zprobe.slow_feedrate 1.5
+zprobe.fast_feedrate 5
+zprobe.return_feedrate 20
