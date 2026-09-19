@@ -45,7 +45,7 @@ bool boot_model(const char* binary, carvera::sim::v1::MachineModel model, std::s
   request.Clear();
   response.Clear();
   request.mutable_get_machine_snapshot();
-  if (!expect(simulator.request_ok(request, 3, response, std::chrono::seconds(10)), "Z1 firmware boot failed") ||
+  if (!expect(simulator.request_ok(request, 3, response), "Z1 firmware boot failed") ||
       !expect(response.machine_snapshot().firmware_booted(), std::string(model_name) + " firmware should report booted") ||
       !expect(response.machine_snapshot().homed(), std::string(model_name) + " should home during firmware startup") ||
       !expect(response.machine_snapshot().tool_setter_available(),
