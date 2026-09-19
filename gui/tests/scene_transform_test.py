@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 from gui.protocol.model import Box3D
-from gui.scene.machine_visual_spec import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL
+from gui.scene.machine_visual_spec import C1_SPINDLE_FACE_LOCAL, CA1_SPINDLE_FACE_LOCAL, Z1_SPINDLE_FACE_LOCAL
 from gui.scene.scene_geometry import MachineSceneGeometry
 from gui.scene.scene_transform import (
     C1_ATC_RACK_TOP_SCENE_Z,
@@ -25,9 +25,12 @@ from gui.scene.scene_transform import (
     CA1_BED_SURFACE_SCENE_Z,
     CA1_ETS_SCENE_XY,
     CA1_HOME_SWITCH_SCENE_XY,
+    Z1_BED_SURFACE_SCENE_Z,
+    Z1_HOME_SWITCH_SCENE_XYZ,
     SceneTransform,
     c1_anchors,
     ca1_anchors,
+    z1_anchors,
 )
 
 
@@ -87,6 +90,32 @@ def test_c1_landmarks_align_with_machine_model() -> None:
         c1_physical_travel.max_y,
         c1_physical_travel.max_z,
     ) == [177.658, 226.068, 179.5]
+
+
+def test_z1_factory_calibration_aligns_anchor_and_ets_with_model() -> None:
+    anchor1 = z1_anchors().model_point(-190.93, -193.49, -108.0)
+    tool_setter = z1_anchors().model_point(-9.93, -12.49, -108.0)
+
+    assert Z1_HOME_SWITCH_SCENE_XYZ == (101.93, -107.51, 119.877)
+    assert [round(value, 3) for value in anchor1] == [-89.0, -301.0, Z1_BED_SURFACE_SCENE_Z]
+    assert [round(value, 3) for value in tool_setter] == [92.0, -120.0, Z1_BED_SURFACE_SCENE_Z]
+
+    transform = SceneTransform.from_work_area(
+        Box3D(min_x=-210.0, min_y=-210.0, min_z=-105.0, max_x=1.0, max_y=1.0, max_z=1.0)
+    )
+    geometry = MachineSceneGeometry(
+        machine_model="z1",
+        asset_machine_model="z1",
+        has_split_components=True,
+        transform=transform,
+        spindle_face_local=Z1_SPINDLE_FACE_LOCAL,
+    )
+    raw_position = [-100.0, -50.0, -25.0]
+    positions = geometry.axis_component_positions(raw_position, transform.point(*raw_position))
+    assert positions.bed_y_delta == 50.0
+    assert positions.positions["x"][0] == 110.664
+    assert round(positions.positions["z"][2], 3) == -33.28
+    assert positions.positions["y3"][1] == 50.0
 
 
 def test_machine_scene_geometry_mapper_keeps_view_placement_math_pure() -> None:

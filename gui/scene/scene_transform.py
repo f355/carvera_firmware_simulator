@@ -32,6 +32,14 @@ CA1_ETS_SCENE_XY = (
 CA1_BED_SURFACE_SCENE_Z = -22.0
 CA1_ETS_TOP_SCENE_Z = 0.0
 
+# The Z1 STEP assembly is aligned from its Anchor1 component origin. The
+# factory SD-card calibration maps (-190.93, -193.49) to model-space
+# (-89, -301) after the GLB's 180-degree X rotation. The derived ETS center
+# (-9.93, -12.49, -108) consequently lands at (92, -120) on the modeled bed.
+Z1_HOME_SWITCH_SCENE_XYZ = (101.93, -107.51, 119.877)
+Z1_BED_SURFACE_SCENE_Z = 11.877
+Z1_ETS_TOP_SCENE_Z = Z1_BED_SURFACE_SCENE_Z
+
 # C1 model-space coordinates for the physical G53 home switch point. Z is
 # visually aligned to the real work volume; the GLB omits pocket depth.
 C1_HOME_SWITCH_SCENE_XYZ = (176.658, 225.068, 160.5)
@@ -117,6 +125,13 @@ def ca1_anchors(transform: SceneTransform) -> FrameAnchors:
             -transform.center_y,
             CA1_SPINDLE_FACE_SCENE_Z_CORRECTION_MM - transform.bed_z,
         ),
+    )
+
+
+def z1_anchors() -> FrameAnchors:
+    return FrameAnchors(
+        model=Z1_HOME_SWITCH_SCENE_XYZ,
+        spindle_face=Z1_HOME_SWITCH_SCENE_XYZ,
     )
 
 

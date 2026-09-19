@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from .machine_model_asset import (
     MachineModelAsset,
@@ -59,6 +60,8 @@ class MachineModelRegistry:
                 return self.c1_bundled_asset()
             if machine_model == "ca1":
                 return self.ca1_bundled_asset()
+            if machine_model in {"z1", "z1pro"}:
+                return self.z1_bundled_asset(machine_model)
             return None
 
         kind = machine_model_kind(self.configured_model)
@@ -119,6 +122,27 @@ class MachineModelRegistry:
             },
         )
 
+    def z1_bundled_asset(self, machine_model: str) -> MachineModelAsset | None:
+        bundled = self.bundled_model_dir / "z1" / "makera_z1_3axis.glb"
+        if not bundled.exists():
+            return None
+        return self._bundled_asset(
+            bundled=bundled,
+            machine_model=machine_model,
+            filenames={
+                "base": "z1/makera_z1_base.glb",
+                "x": "z1/makera_z1_x_axis.glb",
+                "z": "z1/makera_z1_z_axis.glb",
+                "y3": "z1/makera_z1_y_axis_3.glb",
+                "y4": "z1/makera_z1_y_axis_4_static.glb",
+                "a_chuck": "z1/makera_z1_a_chuck.glb",
+            },
+        )
+
+    def _bundled_url(self, path: Path) -> str:
+        relative = path.relative_to(self.bundled_model_dir).as_posix()
+        return f"{self.bundled_mount.rstrip('/')}/{quote(relative, safe='/')}"
+
     def _bundled_asset(
         self,
         *,
@@ -131,10 +155,10 @@ class MachineModelRegistry:
             for name, filename in filenames.items()
             if (self.bundled_model_dir / filename).exists()
         }
-        components = {name: local_model_url(path, self.bundled_mount) for name, path in component_paths.items()}
+        components = {name: self._bundled_url(path) for name, path in component_paths.items()}
         spec = VISUAL_SPECS[machine_model]
         return MachineModelAsset(
-            url=local_model_url(bundled, self.bundled_mount),
+            url=self._bundled_url(bundled),
             kind=machine_model_kind(bundled),
             label=bundled.name,
             machine_model=machine_model,

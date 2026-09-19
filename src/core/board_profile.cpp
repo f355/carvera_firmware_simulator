@@ -39,6 +39,14 @@ constexpr Box ca1_tool_setter{
     -17.0, -13.0, -117.0, -5.0, -1.0, -115.0,
 };
 
+constexpr Box z1_physical_travel{
+    -210.0, -210.0, -105.0, 1.0, 1.0, 1.0,
+};
+constexpr double z1_bed_z = -108.0;
+constexpr Box z1_tool_setter{
+    -15.93, -18.49, -110.0, -3.93, -6.49, -108.0,
+};
+
 BoardSignal signal(PinAddress pin, bool active_level = true) { return BoardSignal{pin, active_level, true}; }
 
 const BoardProfile& c1_profile() {
@@ -137,6 +145,16 @@ const BoardProfile& z1_profile(MachineModel model) {
         {{}, signal({0, 25})},
         {{}, signal({1, 1})},
     }};
+    profile.geometry = MachineGeometry{
+        z1_physical_travel,
+        z1_bed_z,
+        z1_tool_setter,
+        {{
+            {-10.0, z1_physical_travel.min_x, z1_physical_travel.max_x},
+            {-10.0, z1_physical_travel.min_y, z1_physical_travel.max_y},
+            {-10.0, z1_physical_travel.min_z, z1_physical_travel.max_z},
+        }},
+    };
     return profile;
   }();
   static const BoardProfile z1_pro = [] {

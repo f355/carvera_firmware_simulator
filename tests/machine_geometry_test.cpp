@@ -54,5 +54,17 @@ int main() {
   require_equal(ca1->tool_setter.min_z, ca1->tool_setter.max_z - 2.0,
                 "CA1 ETS contact volume should keep a small finite thickness");
 
+  for (const auto model : {sim::MachineModel::MakeraZ1, sim::MachineModel::MakeraZ1Pro}) {
+    const auto z1 = sim::geometry_for(model);
+    require(z1.has_value(), "Z1 variants should expose simulator-owned hardware geometry");
+    require_equal(z1->physical_travel.min_x, -210.0, "Z1 physical X travel should enclose its soft limit");
+    require_equal(z1->physical_travel.min_y, -210.0, "Z1 physical Y travel should enclose its soft limit");
+    require_equal(z1->physical_travel.min_z, -105.0, "Z1 physical Z travel should enclose its soft limit");
+    require_equal(z1->bed_z, -108.0, "Z1 bed should match its calibrated tool-rack height");
+    require_equal(z1->tool_setter.max_x, -3.93, "Z1 ETS X should derive from the factory Anchor 1 coordinate");
+    require_equal(z1->tool_setter.max_y, -6.49, "Z1 ETS Y should derive from the factory Anchor 1 coordinate");
+    require_equal(z1->tool_setter.max_z, -108.0, "Z1 ETS trigger should match the calibrated tool-rack height");
+  }
+
   return 0;
 }

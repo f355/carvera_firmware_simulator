@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIR = ROOT / "machine_models"
 CA1_SOURCE = MODEL_DIR / "carvera_air_ca1.glb"
 C1_SOURCE = MODEL_DIR / "carvera_c1.glb"
+Z1_3_AXIS_SOURCE = MODEL_DIR / "z1" / "makera_z1_3axis.glb"
+Z1_4_AXIS_SOURCE = MODEL_DIR / "z1" / "makera_z1_4axis.glb"
 
 
 def read_glb(path: Path) -> tuple[dict, bytes]:
@@ -104,6 +106,24 @@ def main() -> None:
     }
     for name, variant in c1_variants.items():
         write_glb(MODEL_DIR / name, apply_material(variant, (0.84, 0.87, 0.9, 1.0)), binary)
+
+    document, binary = read_glb(Z1_3_AXIS_SOURCE)
+    z1_3_axis_variants = {
+        "makera_z1_base.glb": copy_for_scene(document, 1, {}),
+        "makera_z1_x_axis.glb": copy_for_scene(document, 9, {9: [11]}),
+        "makera_z1_z_axis.glb": copy_for_scene(document, 9, {9: [10]}),
+        "makera_z1_y_axis_3.glb": copy_for_scene(document, 12, {}),
+    }
+    for name, variant in z1_3_axis_variants.items():
+        write_glb(MODEL_DIR / "z1" / name, apply_material(variant, (0.84, 0.87, 0.9, 1.0)), binary)
+
+    document, binary = read_glb(Z1_4_AXIS_SOURCE)
+    z1_4_axis_variants = {
+        "makera_z1_y_axis_4_static.glb": copy_for_scene(document, 12, {14: [15, 22]}),
+        "makera_z1_a_chuck.glb": copy_for_scene(document, 12, {12: [14], 14: [21]}),
+    }
+    for name, variant in z1_4_axis_variants.items():
+        write_glb(MODEL_DIR / "z1" / name, apply_material(variant, (0.84, 0.87, 0.9, 1.0)), binary)
 
 
 if __name__ == "__main__":

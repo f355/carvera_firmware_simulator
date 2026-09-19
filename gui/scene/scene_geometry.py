@@ -22,11 +22,13 @@ from .scene_transform import (
     C1_BED_MESH_Y_ALIGNMENT_MM,
     C1_BED_SURFACE_SCENE_Z,
     CA1_BED_SURFACE_SCENE_Z,
+    Z1_BED_SURFACE_SCENE_Z,
     FrameAnchors,
     SceneTransform,
     c1_anchors,
     ca1_anchors,
     transform_anchors,
+    z1_anchors,
 )
 
 Vector3 = tuple[float, float, float]
@@ -56,16 +58,20 @@ class MachineSceneGeometry:
         return self.asset_machine_model == "c1" and self.has_split_components
 
     @property
+    def is_z1_split_model(self) -> bool:
+        return self.asset_machine_model in {"z1", "z1pro"} and self.has_split_components
+
+    @property
     def is_c1_model(self) -> bool:
         return self.machine_model == "c1" or self.is_c1_split_model
 
     @property
     def uses_bed_aligned_motion(self) -> bool:
-        return self.is_ca1_split_model
+        return self.is_ca1_split_model or self.is_z1_split_model
 
     @property
     def bed_carries_scene_objects(self) -> bool:
-        """Both machine models keep the spindle Y fixed and move the bed instead."""
+        """These machines keep the spindle Y fixed and move the bed instead."""
         return self.uses_bed_aligned_motion or self.is_c1_model
 
     def _anchors(self) -> FrameAnchors | None:
@@ -73,6 +79,8 @@ class MachineSceneGeometry:
             return c1_anchors()
         if self.transform is None:
             return None
+        if self.is_z1_split_model:
+            return z1_anchors()
         if self.is_ca1_split_model:
             return ca1_anchors(self.transform)
         return transform_anchors(self.transform)
@@ -95,6 +103,8 @@ class MachineSceneGeometry:
             return C1_BED_SURFACE_SCENE_Z - anchors.spindle_face[2]
         if self.is_ca1_split_model:
             return CA1_BED_SURFACE_SCENE_Z - anchors.spindle_face[2]
+        if self.is_z1_split_model:
+            return Z1_BED_SURFACE_SCENE_Z - anchors.spindle_face[2]
         return self.transform.bed_z if self.transform is not None else None
 
     def spindle_face_point(self, x: float, y: float, z: float) -> list[float]:
@@ -106,7 +116,7 @@ class MachineSceneGeometry:
         return anchors.envelope_point(x, y, z) if anchors is not None else [x, y, z]
 
     def bed_y_delta(self, raw_position: list[float], scene_position: list[float]) -> float:
-        if self.uses_bed_aligned_motion and self.transform is not None:
+        if self.is_ca1_split_model and self.transform is not None:
             return -scene_position[1]
         return -raw_position[1]
 
@@ -123,7 +133,9 @@ class MachineSceneGeometry:
 
     def _tracks_spindle_face(self) -> bool:
         """Whether split components follow the calibrated spindle-face frame."""
-        return (self.is_c1_split_model or self.is_ca1_split_model) and self.transform is not None
+        return (
+            self.is_c1_split_model or self.is_ca1_split_model or self.is_z1_split_model
+        ) and self.transform is not None
 
     def spindle_marker_position(self, raw_position: list[float], scene_position: list[float]) -> list[float]:
         if not self.has_split_components:

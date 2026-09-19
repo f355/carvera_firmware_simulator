@@ -17,8 +17,8 @@
 
 Every value here was measured against the bundled GLB exports (produced by
 scripts/split_machine_models.py from one specific CAD Assistant export) using
-scripts/model_tools/analyze_glb_geometry.py, which replays the GUI transform
-(scale 1000, rotate X 90 degrees, model offset). Re-exporting or re-splitting
+scripts/model_tools/analyze_glb_geometry.py, which replays each model's GUI
+transform (scale, rotation, and model offset). Re-exporting or re-splitting
 the models invalidates these values together with the scene anchors in
 gui/scene/scene_transform.py - regenerate them, do not tweak them by eye.
 """
@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .scene_transform import C1_ATC_RACK_TOP_SCENE_Z, CA1_ETS_TOP_SCENE_Z
+from .scene_transform import C1_ATC_RACK_TOP_SCENE_Z, CA1_ETS_TOP_SCENE_Z, Z1_ETS_TOP_SCENE_Z
 
 Vector3 = tuple[float, float, float]
 
@@ -35,11 +35,13 @@ Vector3 = tuple[float, float, float]
 # the physical spindle face, not a firmware coordinate.
 CA1_SPINDLE_FACE_LOCAL: Vector3 = (58.597, 12.939, 49.0)
 C1_SPINDLE_FACE_LOCAL: Vector3 = (-29.954, -19.092, 66.625)
+Z1_SPINDLE_FACE_LOCAL: Vector3 = (-108.734, -116.28, 128.157)
 
 TOOL_SETTER_BUTTON_RADIUS_MM = 4.0
 TOOL_SETTER_TRIGGER_BELOW_TOP_MM = 1.0
 _C1_TOOL_SETTER_BUTTON_HEIGHT_MM = 8.0
 _CA1_TOOL_SETTER_BUTTON_HEIGHT_MM = 3.0
+_Z1_TOOL_SETTER_BUTTON_HEIGHT_MM = 3.0
 
 
 @dataclass(frozen=True)
@@ -74,4 +76,18 @@ CA1_VISUAL_SPEC = MachineVisualSpec(
     spindle_max_rpm=14_500.0,
 )
 
-VISUAL_SPECS = {"c1": C1_VISUAL_SPEC, "ca1": CA1_VISUAL_SPEC}
+Z1_VISUAL_SPEC = MachineVisualSpec(
+    model_offset=(0.0, 0.0, 0.0),
+    model_rotation_degrees=(180.0, 0.0, 0.0),
+    spindle_face_local=Z1_SPINDLE_FACE_LOCAL,
+    tool_setter_button_height_mm=_Z1_TOOL_SETTER_BUTTON_HEIGHT_MM,
+    tool_setter_scene_top_z=Z1_ETS_TOP_SCENE_Z + TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
+    spindle_max_rpm=13_000.0,
+)
+
+VISUAL_SPECS = {
+    "c1": C1_VISUAL_SPEC,
+    "ca1": CA1_VISUAL_SPEC,
+    "z1": Z1_VISUAL_SPEC,
+    "z1pro": Z1_VISUAL_SPEC,
+}

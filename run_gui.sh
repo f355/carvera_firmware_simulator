@@ -45,11 +45,12 @@ Options:
   --host HOST           GUI bind host. Defaults to 127.0.0.1.
   --port PORT           GUI port. Defaults to 8080.
   --wifi-port PORT      Fake WiFi controller port. Defaults to 2222.
-  --model c1|ca1        Initial machine model. Defaults to c1.
+  --model c1|ca1|z1|z1pro
+                        Initial machine model. Defaults to c1.
   --machine-model PATH  Optional GLB/GLTF/STL shell asset for the 3D viewport.
-                        CA1 uses ./machine_models/carvera_air_ca1.glb by default
-                        when the file exists. Other machine-model flags are
-                        forwarded to the GUI; see -- --help.
+                        Supported machines use their bundled model by default
+                        when it exists. Other machine-model flags are forwarded
+                        to the GUI; see -- --help.
   --no-open             Do not open a browser.
   --no-log-transport    Do not dump UART/WiFi traffic to this terminal.
   -h, --help            Show this help.
@@ -127,8 +128,8 @@ if [[ ! -f "$FIRMWARE_ROOT/src/main.cpp" ]]; then
   exit 2
 fi
 
-if [[ "$MODEL" != "c1" && "$MODEL" != "ca1" ]]; then
-  echo "error: --model must be c1 or ca1" >&2
+if [[ "$MODEL" != "c1" && "$MODEL" != "ca1" && "$MODEL" != "z1" && "$MODEL" != "z1pro" ]]; then
+  echo "error: --model must be c1, ca1, z1, or z1pro" >&2
   exit 2
 fi
 

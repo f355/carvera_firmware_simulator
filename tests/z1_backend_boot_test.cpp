@@ -46,7 +46,11 @@ bool boot_model(const char* binary, carvera::sim::v1::MachineModel model, std::s
   response.Clear();
   request.mutable_get_machine_snapshot();
   if (!expect(simulator.request_ok(request, 3, response, std::chrono::seconds(10)), "Z1 firmware boot failed") ||
-      !expect(response.machine_snapshot().firmware_booted(), std::string(model_name) + " firmware should report booted")) {
+      !expect(response.machine_snapshot().firmware_booted(), std::string(model_name) + " firmware should report booted") ||
+      !expect(response.machine_snapshot().tool_setter_available(),
+              std::string(model_name) + " should expose its calibrated ETS") ||
+      !expect(response.machine_snapshot().tool_setter().max_z() == -108.0,
+              std::string(model_name) + " ETS should use the calibrated trigger height")) {
     std::cerr << simulator.stderr_output();
     return false;
   }

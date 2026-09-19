@@ -32,10 +32,10 @@ from .atc_tool_layer import AtcToolLayer
 from .backplot_layer import BackplotHistoryStore, BackplotLayer
 from .machine_model_asset import MachineModelAsset
 from .machine_visual_spec import (
-    C1_VISUAL_SPEC,
     CA1_VISUAL_SPEC,
     TOOL_SETTER_BUTTON_RADIUS_MM,
     TOOL_SETTER_TRIGGER_BELOW_TOP_MM,
+    VISUAL_SPECS,
     MachineVisualSpec,
 )
 from .scene_geometry import MachineSceneGeometry
@@ -145,7 +145,7 @@ class MachineSceneView:
         self.backplot.restore_from_history()
 
     def _visual_spec(self) -> MachineVisualSpec:
-        return C1_VISUAL_SPEC if self._is_c1_model() else CA1_VISUAL_SPEC
+        return VISUAL_SPECS.get(self.current_machine_model or "", CA1_VISUAL_SPEC)
 
     def update_shell_model(self, machine_model: str) -> None:
         self.current_machine_model = machine_model

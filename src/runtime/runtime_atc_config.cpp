@@ -79,7 +79,7 @@ PhysicalAtcConfig read_config(Kernel& kernel, bool reconcile_persisted_tool) {
     return config;
   }
 
-  if (config.model == MachineModel::CarveraAirCA1) {
+  if (config.model != MachineModel::CarveraC1) {
     if (const auto geometry = geometry_for(config.model)) {
       config.tool_setter_box = geometry->tool_setter;
     }

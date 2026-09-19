@@ -83,7 +83,11 @@ int main() {
             "Z1 tool setter should use its calibration input");
     require(z1.physical_limits[0].max.pin.port == 0 && z1.physical_limits[0].max.pin.pin == 24,
             "Z1 X limit should be inventoried independently of C1");
-    require(!z1.geometry.has_value(), "unknown Z1 physical geometry should not be fabricated from another model");
+    require(z1.geometry.has_value(), "Z1 should expose its calibrated physical geometry");
+    require(z1.geometry->physical_travel.min_x == -210.0, "Z1 physical X travel should enclose the soft limit");
+    require(z1.geometry->tool_setter.max_x == -3.93, "Z1 ETS should use the factory SD-card calibration");
+    require(z1.geometry->tool_setter.max_y == -6.49, "Z1 ETS should use the factory SD-card calibration");
+    require(z1.geometry->tool_setter.max_z == -108.0, "Z1 ETS should use the calibrated tool-rack height");
   }
   return 0;
 }

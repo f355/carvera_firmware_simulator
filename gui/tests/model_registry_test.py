@@ -42,16 +42,31 @@ def make_registry(configured_model: str | None = None) -> tuple[MachineModelRegi
 
 
 @pytest.mark.parametrize(
-    ("model", "label", "offset", "spindle_face"),
+    ("model", "label", "offset", "rotation", "spindle_face"),
     [
-        ("c1", "carvera_c1.glb", (-141.5, 13.0, 86.0), None),
-        ("ca1", "carvera_air_ca1.glb", (-82.5, -13.5, 33.0), (58.597, 12.939, 49.0)),
+        ("c1", "carvera_c1.glb", (-141.5, 13.0, 86.0), (90.0, 0.0, 0.0), None),
+        (
+            "ca1",
+            "carvera_air_ca1.glb",
+            (-82.5, -13.5, 33.0),
+            (90.0, 0.0, 0.0),
+            (58.597, 12.939, 49.0),
+        ),
+        ("z1", "makera_z1_3axis.glb", (0.0, 0.0, 0.0), (180.0, 0.0, 0.0), (-108.734, -116.28, 128.157)),
+        (
+            "z1pro",
+            "makera_z1_3axis.glb",
+            (0.0, 0.0, 0.0),
+            (180.0, 0.0, 0.0),
+            (-108.734, -116.28, 128.157),
+        ),
     ],
 )
 def test_registry_exposes_bundled_split_models(
     model: str,
     label: str,
     offset: tuple[float, float, float],
+    rotation: tuple[float, float, float],
     spindle_face: tuple[float, float, float] | None,
 ) -> None:
     registry, static_app = make_registry()
@@ -66,7 +81,9 @@ def test_registry_exposes_bundled_split_models(
     assert asset.components is not None
     assert {"base", "x", "z", "y3", "y4", "a_chuck"} <= set(asset.components)
     assert asset.offset == offset
-    assert asset.rotation_degrees == (90.0, 0.0, 0.0)
+    assert asset.rotation_degrees == rotation
+    if model in {"z1", "z1pro"}:
+        assert asset.components["base"] == f"{BUNDLED_MODEL_MOUNT}/z1/makera_z1_base.glb"
     if spindle_face is None:
         assert asset.spindle_face_local is not None
     else:
