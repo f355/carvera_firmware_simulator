@@ -111,6 +111,7 @@ void attach_configured_stepper_axes(Kernel& kernel, MachineModel model, bool rot
   }
 
   const auto hardware_geometry = geometry_for(model);
+  const bool z1_family = model == MachineModel::MakeraZ1 || model == MachineModel::MakeraZ1Pro;
   const auto motor_count = kernel.robot->get_number_registered_motors();
   for (std::size_t actuator = 0; actuator < motor_count && actuator < std::size(motor_checksums); ++actuator) {
     Pin step_pin;
@@ -125,7 +126,7 @@ void attach_configured_stepper_axes(Kernel& kernel, MachineModel model, bool rot
     axis_config.step_pin = pin_address(step_pin);
     axis_config.direction_pin = pin_address(direction_pin);
     axis_config.invert_direction = direction_pin.is_inverting();
-    axis_config.motor_connected = actuator != A_AXIS || rotary_accessory_installed;
+    axis_config.motor_connected = actuator == A_AXIS ? rotary_accessory_installed : !(z1_family && actuator == 4);
     axis_config.steps_per_mm = kernel.robot->actuators[actuator]->get_steps_per_mm();
     axis_config.initial_position_mm =
         hardware_geometry.has_value() && actuator < hardware_geometry->axes.size()

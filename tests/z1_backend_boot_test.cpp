@@ -47,11 +47,29 @@ bool boot_model(const char* binary, carvera::sim::v1::MachineModel model, std::s
   request.mutable_get_machine_snapshot();
   if (!expect(simulator.request_ok(request, 3, response, std::chrono::seconds(10)), "Z1 firmware boot failed") ||
       !expect(response.machine_snapshot().firmware_booted(), std::string(model_name) + " firmware should report booted") ||
+      !expect(response.machine_snapshot().homed(), std::string(model_name) + " should home during firmware startup") ||
       !expect(response.machine_snapshot().tool_setter_available(),
               std::string(model_name) + " should expose its calibrated ETS") ||
       !expect(response.machine_snapshot().tool_setter().max_z() == -108.0,
               std::string(model_name) + " ETS should use the calibrated trigger height")) {
     std::cerr << simulator.stderr_output();
+    return false;
+  }
+
+  bool x_at_home = false;
+  bool y_at_home = false;
+  bool z_at_home = false;
+  bool unused_atc_stationary = false;
+  for (const auto& axis : response.machine_snapshot().axes()) {
+    const bool at_cartesian_home = axis.physical_mm() > -1.1 && axis.physical_mm() < -0.9;
+    if (axis.axis() == carvera::sim::v1::AXIS_X) x_at_home = at_cartesian_home;
+    if (axis.axis() == carvera::sim::v1::AXIS_Y) y_at_home = at_cartesian_home;
+    if (axis.axis() == carvera::sim::v1::AXIS_Z) z_at_home = at_cartesian_home;
+    if (axis.axis() == carvera::sim::v1::AXIS_B) unused_atc_stationary = axis.physical_mm() == 0.0;
+  }
+  if (!expect(x_at_home && y_at_home && z_at_home,
+              std::string(model_name) + " should physically reach all Cartesian home switches") ||
+      !expect(unused_atc_stationary, std::string(model_name) + " should not move its unused ATC axis")) {
     return false;
   }
 

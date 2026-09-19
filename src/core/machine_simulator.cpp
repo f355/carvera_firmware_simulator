@@ -48,16 +48,6 @@ std::uint16_t stock_beta_thermistor_raw(double celsius) {
   return static_cast<std::uint16_t>(std::clamp(std::lround(raw), 1L, 4094L));
 }
 
-std::uint8_t stock_temperature_channel(TemperatureSensor sensor) {
-  switch (sensor) {
-    case TemperatureSensor::Power:
-      return 3;
-    case TemperatureSensor::Spindle:
-    default:
-      return 5;
-  }
-}
-
 }  // namespace
 
 MachineSimulator::MachineSimulator() : owned_persistent_state_(std::make_unique<PersistentMachineState>()) {
@@ -157,7 +147,15 @@ void MachineSimulator::set_adc_channel_raw(std::uint8_t channel, std::uint16_t r
 std::uint16_t MachineSimulator::adc_channel_raw(std::uint8_t channel) const { return adc::channel_raw(channel); }
 
 void MachineSimulator::set_temperature(TemperatureSensor sensor, double celsius) {
-  set_adc_channel_raw(stock_temperature_channel(sensor), stock_beta_thermistor_raw(celsius));
+  const auto raw = stock_beta_thermistor_raw(celsius);
+  if (sensor == TemperatureSensor::Power) {
+    // CA1 uses P0.26/AD0.3, while Z1 and Z1 Pro use P1.30/AD0.4.
+    // Keep both physical sensor inputs coherent until firmware selects one.
+    set_adc_channel_raw(3, raw);
+    set_adc_channel_raw(4, raw);
+    return;
+  }
+  set_adc_channel_raw(5, raw);  // P1.31/AD0.5 on every supported model.
 }
 
 void MachineSimulator::set_rotary_accessory_installed(bool installed) {
